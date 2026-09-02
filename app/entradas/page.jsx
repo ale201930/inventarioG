@@ -5,17 +5,7 @@ import Script from 'next/script';
 function today() { return new Date().toISOString().split('T')[0]; }
 function todayPlus7() { const d = new Date(); d.setDate(d.getDate()+7); return d.toISOString().split('T')[0]; }
 
-const emptyItem = () => ({
-  codigo: '',
-  nombre: '',
-  cantidad: 1,
-  costoUSD: 0,
-  precioVenta1: 0,
-  precioVenta2: 0,
-  precioVenta3: 0,
-  totalUSD: 0,
-  totalVES: 0
-});
+const emptyItem = () => ({ codigo:'', nombre:'', cantidad:1, costoUSD:0, totalUSD:0, totalVES:0 });
 
 export default function EntradasPage() {
   const [entradas, setEntradas] = useState([]);
@@ -74,12 +64,6 @@ export default function EntradasPage() {
       const totUSD = c * u;
       items[i].totalUSD = totUSD.toFixed(2);
       items[i].totalVES = (totUSD * parseFloat(form.tasaBCV || 798.33)).toFixed(2);
-      // Sugerir precios de venta automáticos si no están definidos
-      if (field === 'costoUSD' && u > 0) {
-        if (!items[i].precioVenta1 || parseFloat(items[i].precioVenta1) === 0) items[i].precioVenta1 = (u * 1.15).toFixed(2);
-        if (!items[i].precioVenta2 || parseFloat(items[i].precioVenta2) === 0) items[i].precioVenta2 = (u * 1.20).toFixed(2);
-        if (!items[i].precioVenta3 || parseFloat(items[i].precioVenta3) === 0) items[i].precioVenta3 = (u * 1.25).toFixed(2);
-      }
     }
     const totalUSD = items.reduce((s,it) => s + parseFloat(it.totalUSD||0), 0);
     setForm(f => ({ ...f, items, totalUSD: totalUSD.toFixed(2), totalVES: (totalUSD * parseFloat(f.tasaBCV || 798.33)).toFixed(2) }));
@@ -101,10 +85,7 @@ export default function EntradasPage() {
           productoNombre: it.nombre,
           cantidad: parseInt(it.cantidad||0),
           costoUnitarioUSD: parseFloat(it.costoUSD||0),
-          costoUnitarioVES: parseFloat(it.costoUSD||0) * parseFloat(form.tasaBCV||798.33),
-          precioVenta1: parseFloat(it.precioVenta1||0),
-          precioVenta2: parseFloat(it.precioVenta2||0),
-          precioVenta3: parseFloat(it.precioVenta3||0),
+          costoUnitarioVES: parseFloat(it.costoUSD||0) * parseFloat(form.tasaBCV||798.33)
         })).filter(it => it.productoNombre && it.cantidad > 0)
       };
       const res = await fetch('/api/entradas', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
@@ -273,40 +254,35 @@ export default function EntradasPage() {
         keywords: ['nova', 'lucky nova', 'inv', 'lnv', '2.167'],
         name: 'Lucky Nova 20 Cig x 10 Cajetillas (E)',
         defaultCant: 75,
-        defaultCost: 28.90,
-        p1: 29.45, p2: 30.45, p3: 31.45
+        defaultCost: 28.90
       },
       {
         codes: ['ice', 'lce', '1ce'],
         keywords: ['eclipse', 'lucky eclipse', 'ice', 'lce', '151,70'],
         name: 'Lucky Eclipse 20 Cig x 10 Cajetillas (E)',
         defaultCant: 5,
-        defaultCost: 30.34,
-        p1: 29.45, p2: 30.45, p3: 31.45
+        defaultCost: 30.34
       },
       {
         codes: ['icc', 'lcc', '1cc'],
         keywords: ['cosmic', 'lucky cosmic', 'icc', 'lcc', '151,69'],
         name: 'Lucky Cosmic 20 Cig x 10 Cajetillas (E)',
         defaultCant: 5,
-        defaultCost: 30.34,
-        p1: 29.45, p2: 30.45, p3: 31.45
+        defaultCost: 30.34
       },
       {
         codes: ['isr', 'lsr', '1sr', 'icr'],
         keywords: ['strike', 'strike red', 'isr', 'lsr', 'icr', '168,27'],
         name: 'Lucky Strike Red 20 Cig x 10 Cajetillas (E)',
         defaultCant: 6,
-        defaultCost: 28.05,
-        p1: 29.45, p2: 30.45, p3: 31.45
+        defaultCost: 28.05
       },
       {
         codes: ['bol-02', 'bol02', 'bol', 'bic'],
         keywords: ['boligrafos', 'bic', 'azul', 'bol-02', 'bol02', '4,42'],
         name: 'Boligrafos BIC Azul 12 UND (E)',
         defaultCant: 1,
-        defaultCost: 4.42,
-        p1: 5.00, p2: 5.20, p3: 5.40
+        defaultCost: 4.42
       }
     ];
 
@@ -337,9 +313,6 @@ export default function EntradasPage() {
           nombre: cat.name,
           cantidad: cant,
           costoUSD: cost.toFixed(2),
-          precioVenta1: cat.p1 ? cat.p1.toFixed(2) : (cost * 1.15).toFixed(2),
-          precioVenta2: cat.p2 ? cat.p2.toFixed(2) : (cost * 1.20).toFixed(2),
-          precioVenta3: cat.p3 ? cat.p3.toFixed(2) : (cost * 1.25).toFixed(2),
           totalUSD: totalUSD.toFixed(2),
           totalVES: (totalUSD * parseFloat(tasaBCV)).toFixed(2)
         });
@@ -349,11 +322,11 @@ export default function EntradasPage() {
     // Si es SOSACRUZ o 032047 y faltaron renglones, cargar la factura completa con los 5 productos exactos
     if ((/SOSACRUZ|032047/i.test(textClean) || itemsExtraidos.length >= 2) && itemsExtraidos.length < 5) {
       itemsExtraidos = [
-        { codigo: 'inv', nombre: 'Lucky Nova 20 Cig x 10 Cajetillas (E)', cantidad: 75, costoUSD: '28.90', precioVenta1: '29.45', precioVenta2: '30.45', precioVenta3: '31.45', totalUSD: (75*28.90).toFixed(2), totalVES: (75*28.90*parseFloat(tasaBCV)).toFixed(2) },
-        { codigo: 'ice', nombre: 'Lucky Eclipse 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', precioVenta1: '29.45', precioVenta2: '30.45', precioVenta3: '31.45', totalUSD: (5*30.34).toFixed(2), totalVES: (5*30.34*parseFloat(tasaBCV)).toFixed(2) },
-        { codigo: 'icc', nombre: 'Lucky Cosmic 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', precioVenta1: '29.45', precioVenta2: '30.45', precioVenta3: '31.45', totalUSD: (5*30.34).toFixed(2), totalVES: (5*30.34*parseFloat(tasaBCV)).toFixed(2) },
-        { codigo: 'isr', nombre: 'Lucky Strike Red 20 Cig x 10 Cajetillas (E)', cantidad: 6, costoUSD: '28.05', precioVenta1: '29.45', precioVenta2: '30.45', precioVenta3: '31.45', totalUSD: (6*28.05).toFixed(2), totalVES: (6*28.05*parseFloat(tasaBCV)).toFixed(2) },
-        { codigo: 'bol-02', nombre: 'Boligrafos BIC Azul 12 UND (E)', cantidad: 1, costoUSD: '4.42', precioVenta1: '5.00', precioVenta2: '5.20', precioVenta3: '5.40', totalUSD: (1*4.42).toFixed(2), totalVES: (1*4.42*parseFloat(tasaBCV)).toFixed(2) }
+        { codigo: 'inv', nombre: 'Lucky Nova 20 Cig x 10 Cajetillas (E)', cantidad: 75, costoUSD: '28.90', totalUSD: (75*28.90).toFixed(2), totalVES: (75*28.90*parseFloat(tasaBCV)).toFixed(2) },
+        { codigo: 'ice', nombre: 'Lucky Eclipse 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: (5*30.34).toFixed(2), totalVES: (5*30.34*parseFloat(tasaBCV)).toFixed(2) },
+        { codigo: 'icc', nombre: 'Lucky Cosmic 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: (5*30.34).toFixed(2), totalVES: (5*30.34*parseFloat(tasaBCV)).toFixed(2) },
+        { codigo: 'isr', nombre: 'Lucky Strike Red 20 Cig x 10 Cajetillas (E)', cantidad: 6, costoUSD: '28.05', totalUSD: (6*28.05).toFixed(2), totalVES: (6*28.05*parseFloat(tasaBCV)).toFixed(2) },
+        { codigo: 'bol-02', nombre: 'Boligrafos BIC Azul 12 UND (E)', cantidad: 1, costoUSD: '4.42', totalUSD: (1*4.42).toFixed(2), totalVES: (1*4.42*parseFloat(tasaBCV)).toFixed(2) }
       ];
     }
 
@@ -373,9 +346,6 @@ export default function EntradasPage() {
                 nombre: l.replace(parts[0], '').replace(/[\d.,]/g, '').trim(),
                 cantidad: cant,
                 costoUSD: cost.toFixed(2),
-                precioVenta1: (cost * 1.15).toFixed(2),
-                precioVenta2: (cost * 1.20).toFixed(2),
-                precioVenta3: (cost * 1.25).toFixed(2),
                 totalUSD: totalUSD.toFixed(2),
                 totalVES: (totalUSD * parseFloat(tasaBCV)).toFixed(2)
               });
@@ -480,11 +450,11 @@ export default function EntradasPage() {
   const demoSosacruz = () => {
     const tasa = parseFloat(bcvTasa || 798.33);
     const items = [
-      { codigo: 'inv', nombre: 'Lucky Nova 20 Cig x 10 Cajetillas (E)', cantidad: 75, costoUSD: '28.90', precioVenta1: '29.45', precioVenta2: '30.45', precioVenta3: '31.45', totalUSD: (75*28.90).toFixed(2), totalVES: (75*28.90*tasa).toFixed(2) },
-      { codigo: 'ice', nombre: 'Lucky Eclipse 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', precioVenta1: '29.45', precioVenta2: '30.45', precioVenta3: '31.45', totalUSD: (5*30.34).toFixed(2), totalVES: (5*30.34*tasa).toFixed(2) },
-      { codigo: 'icc', nombre: 'Lucky Cosmic 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', precioVenta1: '29.45', precioVenta2: '30.45', precioVenta3: '31.45', totalUSD: (5*30.34).toFixed(2), totalVES: (5*30.34*tasa).toFixed(2) },
-      { codigo: 'isr', nombre: 'Lucky Strike Red 20 Cig x 10 Cajetillas (E)', cantidad: 6, costoUSD: '28.05', precioVenta1: '29.45', precioVenta2: '30.45', precioVenta3: '31.45', totalUSD: (6*28.05).toFixed(2), totalVES: (6*28.05*tasa).toFixed(2) },
-      { codigo: 'bol-02', nombre: 'Boligrafos BIC Azul 12 UND (E)', cantidad: 1, costoUSD: '4.42', precioVenta1: '5.00', precioVenta2: '5.20', precioVenta3: '5.40', totalUSD: (1*4.42).toFixed(2), totalVES: (1*4.42*tasa).toFixed(2) }
+      { codigo: 'inv', nombre: 'Lucky Nova 20 Cig x 10 Cajetillas (E)', cantidad: 75, costoUSD: '28.90', totalUSD: (75*28.90).toFixed(2), totalVES: (75*28.90*tasa).toFixed(2) },
+      { codigo: 'ice', nombre: 'Lucky Eclipse 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: (5*30.34).toFixed(2), totalVES: (5*30.34*tasa).toFixed(2) },
+      { codigo: 'icc', nombre: 'Lucky Cosmic 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: (5*30.34).toFixed(2), totalVES: (5*30.34*tasa).toFixed(2) },
+      { codigo: 'isr', nombre: 'Lucky Strike Red 20 Cig x 10 Cajetillas (E)', cantidad: 6, costoUSD: '28.05', totalUSD: (6*28.05).toFixed(2), totalVES: (6*28.05*tasa).toFixed(2) },
+      { codigo: 'bol-02', nombre: 'Boligrafos BIC Azul 12 UND (E)', cantidad: 1, costoUSD: '4.42', totalUSD: (1*4.42).toFixed(2), totalVES: (1*4.42*tasa).toFixed(2) }
     ];
     const totalUSD = items.reduce((s, it) => s + parseFloat(it.totalUSD), 0);
     setForm(f => ({
@@ -578,7 +548,7 @@ export default function EntradasPage() {
       {/* Modal Registrar Entrada */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{maxWidth:1100}}>
+          <div className="modal-content" style={{maxWidth:950}}>
             <div className="modal-header">
               <div>
                 <h2><i className="fa-solid fa-file-circle-plus"></i> Cargar Factura de Proveedor / Entrada</h2>
@@ -692,28 +662,22 @@ export default function EntradasPage() {
 
           {/* Items */}
           <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.5rem'}}>
-            <div>
-              <h3 style={{fontSize:'0.95rem', fontWeight:700}}><i className="fa-solid fa-boxes-stacked"></i> Productos de la Factura y Precios de Venta</h3>
-              <p style={{fontSize:'0.75rem', color:'var(--text-secondary)', margin:0}}>Puedes modificar el costo de compra y los precios individuales de venta (PVP 1, 2 y 3) de cada producto</p>
-            </div>
+            <h3 style={{fontSize:'0.95rem', fontWeight:700}}><i className="fa-solid fa-boxes-stacked"></i> Productos de la Factura / Compra</h3>
             <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setForm(f=>({...f, items:[...f.items, emptyItem()]}))}>+ Agregar Producto</button>
           </div>
-          <div style={{display:'grid', gridTemplateColumns:'0.8fr 2.2fr 0.7fr 1fr 1fr 1fr 1fr 1fr auto', gap:'0.4rem', marginBottom:'0.35rem', padding:'0 0.25rem', alignItems:'center'}}>
-            {['CÓDIGO','PRODUCTO','CANT.','COSTO $','PRECIO 1 $','PRECIO 2 $','PRECIO 3 $','TOTAL $',''].map((h,i) => (
-              <span key={i} style={{fontSize:'0.72rem', fontWeight:700, color:'var(--text-secondary)'}}>{h}</span>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 2.5fr 0.8fr 1.2fr 1.2fr auto', gap:'0.5rem', marginBottom:'0.35rem', padding:'0 0.25rem', alignItems:'center'}}>
+            {['CÓDIGO','DESCRIPCIÓN / PRODUCTO','CANT.','COSTO UNIT. ($)','TOTAL ($)',''].map((h,i) => (
+              <span key={i} style={{fontSize:'0.75rem', fontWeight:700, color:'var(--text-secondary)'}}>{h}</span>
             ))}
           </div>
-          <div style={{maxHeight:320, overflowY:'auto'}}>
+          <div style={{maxHeight:300, overflowY:'auto'}}>
             {form.items.map((item, i) => (
-              <div key={i} style={{display:'grid', gridTemplateColumns:'0.8fr 2.2fr 0.7fr 1fr 1fr 1fr 1fr 1fr auto', gap:'0.4rem', marginBottom:'0.4rem', alignItems:'center'}}>
+              <div key={i} style={{display:'grid', gridTemplateColumns:'1fr 2.5fr 0.8fr 1.2fr 1.2fr auto', gap:'0.5rem', marginBottom:'0.4rem', alignItems:'center'}}>
                 <input type="text" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} placeholder="Código" value={item.codigo} onChange={e=>updateItem(i,'codigo',e.target.value)} />
                 <input type="text" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} placeholder="Nombre del producto" required value={item.nombre} onChange={e=>updateItem(i,'nombre',e.target.value)} />
                 <input type="number" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} min="1" value={item.cantidad} onChange={e=>updateItem(i,'cantidad',e.target.value)} />
                 <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', fontWeight:600}} placeholder="0.00" value={item.costoUSD} onChange={e=>updateItem(i,'costoUSD',e.target.value)} />
-                <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', borderColor:'#38bdf8', color:'#0284c7', fontWeight:600}} placeholder="P1" value={item.precioVenta1} onChange={e=>updateItem(i,'precioVenta1',e.target.value)} title="Precio de Venta 1 ($)" />
-                <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', borderColor:'#38bdf8', color:'#0284c7', fontWeight:600}} placeholder="P2" value={item.precioVenta2} onChange={e=>updateItem(i,'precioVenta2',e.target.value)} title="Precio de Venta 2 ($)" />
-                <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', borderColor:'#38bdf8', color:'#0284c7', fontWeight:600}} placeholder="P3" value={item.precioVenta3} onChange={e=>updateItem(i,'precioVenta3',e.target.value)} title="Precio de Venta 3 ($)" />
-                <span style={{fontWeight:700, color:'var(--primary)', fontSize:'0.85rem'}}>${Number(item.totalUSD||0).toFixed(2)}</span>
+                <span style={{fontWeight:700, color:'var(--primary)', fontSize:'0.88rem'}}>${Number(item.totalUSD||0).toFixed(2)}</span>
                 <button type="button" className="btn btn-danger btn-sm" style={{padding:'0.25rem 0.5rem'}} onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}>×</button>
               </div>
             ))}
@@ -743,7 +707,7 @@ export default function EntradasPage() {
       {/* Modal Preview */}
       {showPreviewModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{maxWidth:900}}>
+          <div className="modal-content" style={{maxWidth:850}}>
             <div className="modal-header" style={{marginBottom:'0.75rem', borderBottom:'2px solid var(--primary-light)', paddingBottom:'0.5rem'}}>
               <div>
                 <h2><i className="fa-solid fa-clipboard-check" style={{color:'var(--success)'}}></i> Inspección Visual de Carga al Inventario</h2>
@@ -752,15 +716,12 @@ export default function EntradasPage() {
               <button type="button" className="modal-close" onClick={()=>setShowPreviewModal(false)}>&times;</button>
             </div>
             <div style={{overflowX:'auto'}}>
-              <table style={{width:'100%', minWidth:700}}>
+              <table style={{width:'100%', minWidth:600}}>
                 <thead>
                   <tr>
                     <th>Producto</th>
                     <th>Cantidad</th>
                     <th>Costo USD</th>
-                    <th>P. Venta 1</th>
-                    <th>P. Venta 2</th>
-                    <th>P. Venta 3</th>
                     <th>Total USD</th>
                     <th>Total Bs.</th>
                   </tr>
@@ -774,9 +735,6 @@ export default function EntradasPage() {
                       </td>
                       <td><span className="badge badge-primary">{it.cantidad}</span></td>
                       <td>${Number(it.costoUSD||0).toFixed(2)}</td>
-                      <td style={{color:'#0284c7', fontWeight:600}}>${Number(it.precioVenta1||0).toFixed(2)}</td>
-                      <td style={{color:'#0284c7', fontWeight:600}}>${Number(it.precioVenta2||0).toFixed(2)}</td>
-                      <td style={{color:'#0284c7', fontWeight:600}}>${Number(it.precioVenta3||0).toFixed(2)}</td>
                       <td style={{fontWeight:700}}>${Number(it.totalUSD||0).toFixed(2)}</td>
                       <td style={{color:'var(--text-secondary)'}}>Bs. {Number((it.totalUSD||0)*parseFloat(form.tasaBCV||798.33)).toLocaleString('es-VE',{minimumFractionDigits:2})}</td>
                     </tr>
