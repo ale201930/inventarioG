@@ -84,6 +84,33 @@ export default function EntradasPage() {
     }));
   };
 
+  const resetModalForm = () => {
+    setForm({
+      proveedorName: '',
+      proveedorRif: '',
+      proveedorTelf: '',
+      proveedorDir: '',
+      tipoDoc: 'NOTA DE ENTREGA',
+      facturaNum: '',
+      fecha: today(),
+      fechaVenc: todayPlus7(),
+      tasaBCV: bcvTasa || 798.33,
+      totalUSD: 0,
+      totalVES: 0,
+      observaciones: '',
+      items: [emptyItem()]
+    });
+    setFacturaImg(null);
+    setOcrText('');
+    setShowModal(false);
+    setShowPreviewModal(false);
+  };
+
+  const openNewModal = () => {
+    resetModalForm();
+    setShowModal(true);
+  };
+
   const handleSave = async (confirmed) => {
     if (!confirmed) { setShowPreviewModal(true); return; }
     setSaving(true);
@@ -106,12 +133,8 @@ export default function EntradasPage() {
       const res = await fetch('/api/entradas', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
       const d = await res.json();
       if (d.success) {
-        setShowModal(false); setShowPreviewModal(false); load();
-        setForm({ proveedorName:'', proveedorRif:'', proveedorTelf:'', proveedorDir:'',
-          tipoDoc:'NOTA DE ENTREGA', facturaNum:'', fecha:today(), fechaVenc:todayPlus7(),
-          tasaBCV:798.33, totalUSD:0, totalVES:0, observaciones:'', items:[emptyItem()] });
-        setFacturaImg(null);
-        setOcrText('');
+        resetModalForm();
+        load();
       } else alert('Error: ' + d.error);
     } finally { setSaving(false); }
   };
@@ -514,7 +537,7 @@ export default function EntradasPage() {
           <h1 className="page-title"><i className="fa-solid fa-truck-loading" style={{color:'var(--primary)'}}></i> Entradas / Compras a Proveedores</h1>
           <p className="page-subtitle">Carga de facturas/notas de entrega, escaneo OCR automático, control dual ($ / Bs.) e incremento de inventario</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}><i className="fa-solid fa-plus"></i> Registrar Nueva Compra</button>
+        <button className="btn btn-primary" onClick={openNewModal}><i className="fa-solid fa-plus"></i> Registrar Nueva Compra</button>
       </div>
 
       {/* Tabla Historial */}
@@ -584,12 +607,7 @@ export default function EntradasPage() {
                 <h2><i className="fa-solid fa-file-circle-plus"></i> Cargar Factura de Proveedor / Entrada</h2>
                 <p style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>Toma una foto de la factura o sube la imagen para escaneo automático OCR</p>
               </div>
-              <div style={{display:'flex', gap:'0.5rem', alignItems:'center'}}>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={demoSosacruz} style={{fontSize:'0.75rem', background:'#e0f2fe', color:'#0369a1', borderColor:'#bae6fd'}}>
-                  💡 Ejemplo SOSACRUZ
-                </button>
-                <button type="button" className="modal-close" onClick={()=>setShowModal(false)}>&times;</button>
-              </div>
+              <button type="button" className="modal-close" onClick={resetModalForm}>&times;</button>
             </div>
 
             {/* OCR upload zone */}
