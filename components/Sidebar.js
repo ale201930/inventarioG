@@ -77,9 +77,9 @@ export default function Sidebar({ user, isMobileOpen, setIsMobileOpen }) {
 
   return (
     <aside className={`sidebar ${isMobileOpen ? "open" : ""}`}>
-      <div className="sidebar-logo">
-        <BullLogo size={36} />
-        <span>INVENTARIO</span>
+      <div className="sidebar-logo" style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        <BullLogo size={36} style={{ borderRadius: "8px" }} />
+        <span style={{ fontWeight: 800, color: "var(--text-primary)" }}>InvG <span style={{ color: "#0284c7" }}>PRO</span></span>
       </div>
 
       <nav className="sidebar-nav">

@@ -1,19 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --bg-primary: #0e0505;
-  --bg-secondary: #180b0b;
-  --card-bg: rgba(28, 12, 12, 0.75);
-  --card-border: rgba(255, 93, 0, 0.09);
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0;
   
-  --text-primary: #fffdfb;
-  --text-secondary: #e5cbbd;
-  --text-muted: #ab8f82;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
   
-  --accent: #f95f09;
-  --accent-light: #ff8533;
-  --accent-gradient: linear-gradient(135deg, #f95f09 0%, #8b0000 100%);
-  --accent-glow: rgba(249, 95, 9, 0.15);
+  --accent: #0284c7;
+  --accent-light: #38bdf8;
+  --accent-gradient: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  --accent-glow: rgba(2, 132, 199, 0.15);
   
   --success: #10b981;
   --success-glow: rgba(16, 185, 129, 0.15);
@@ -44,8 +44,8 @@ body {
   overflow-x: hidden;
   line-height: 1.5;
   background-image: 
-    radial-gradient(at 0% 0%, rgba(249, 95, 9, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(139, 0, 0, 0.08) 0px, transparent 50%);
+    radial-gradient(at 0% 0%, rgba(2, 132, 199, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(56, 189, 248, 0.05) 0px, transparent 50%);
   background-attachment: fixed;
 }
 

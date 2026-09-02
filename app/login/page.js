@@ -58,9 +58,9 @@ export default function Login() {
     <div className="login-container">
       <div className="card login-card">
         <div className="login-logo">
-          <BullLogo size={130} />
-          <h1 className="login-logo-text">INVENTARIO</h1>
-          <p className="login-subtitle">Sistema de Control y Saldos</p>
+          <BullLogo size={80} style={{ borderRadius: "16px", boxShadow: "0 4px 14px rgba(2,132,199,0.35)" }} />
+          <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-primary)", marginTop: "0.5rem" }}>InvG <span style={{ color: "#0284c7" }}>PRO</span></h1>
+          <p className="login-subtitle">Sistema de Control de Inventario y Ventas</p>
         </div>
 
         {isRecovering ? (
