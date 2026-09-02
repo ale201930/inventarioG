@@ -429,7 +429,7 @@ export default function SalidasPage() {
       {/* Modal Ticket 80mm / 7.6cm */}
       {showTicketModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{maxWidth:460, width:'95%'}}>
+          <div className="modal-content" style={{maxWidth:440, width:'95%', padding:'1.25rem'}}>
             <div className="modal-header" style={{marginBottom:'0.75rem'}}>
               <h2><i className="fa-solid fa-receipt"></i> Vista Previa · Ticket (7.6 cm)</h2>
               <button type="button" className="modal-close" onClick={()=>setShowTicketModal(false)}>&times;</button>
@@ -440,7 +440,7 @@ export default function SalidasPage() {
               const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
               const cleanFecha = String(lastSalida.fecha || '').split('T')[0];
               return (
-                <div style={{background:'#fff', border:'1px solid #cbd5e1', borderRadius:8, padding:'1.25rem 1rem', fontFamily:'Arial, Helvetica, sans-serif', fontSize:'11px', color:'#000', maxHeight:'68vh', overflowY:'auto', overflowX:'hidden', lineHeight:1.35, width:'100%', boxSizing:'border-box'}}>
+                <div className="ticket-preview-box" style={{background:'#fff', border:'1px solid #94a3b8', borderRadius:6, padding:'14px 10px', fontFamily:'Arial, Helvetica, sans-serif', fontSize:'11px', color:'#000', maxHeight:'68vh', overflowY:'auto', overflowX:'hidden', lineHeight:1.35, width:'100%', boxSizing:'border-box'}}>
                   <div style={{textAlign:'center', fontWeight:800, fontSize:'15px'}}>BESTEDA 2, C.A.</div>
                   <div style={{textAlign:'center', fontWeight:700, fontSize:'11px', marginTop:'2px'}}>RIF: J-40529263-6</div>
                   <div style={{textAlign:'center', fontSize:'9.5px', color:'#111', marginTop:'2px'}}>Calle Principal Casa Nº A-13, Urb. Alto de Fenix II</div>
@@ -462,13 +462,13 @@ export default function SalidasPage() {
                   
                   <hr style={{border:'none', borderTop:'1px dashed #444', margin:'8px 0'}} />
                   
-                  <table style={{width:'100%', borderCollapse:'collapse', fontSize:'11px', margin:'6px 0', tableLayout:'fixed'}}>
+                  <table style={{width:'100%', minWidth:0, borderCollapse:'collapse', fontSize:'11px', margin:'6px 0', tableLayout:'fixed'}}>
                     <thead>
-                      <tr style={{fontSize:'10.5px', fontWeight:800, borderBottom:'1.5px solid #000'}}>
-                        <th style={{textAlign:'left', width:'12%', paddingBottom:'4px'}}>CAN</th>
-                        <th style={{textAlign:'left', width:'46%', paddingBottom:'4px'}}>DESCRIPCIÓN</th>
-                        <th style={{textAlign:'right', width:'21%', paddingBottom:'4px'}}>P/U</th>
-                        <th style={{textAlign:'right', width:'21%', paddingBottom:'4px'}}>TOTAL</th>
+                      <tr style={{borderBottom:'1.5px solid #000'}}>
+                        <th style={{textAlign:'left', width:'12%', padding:'3px 0', background:'transparent', color:'#000', fontSize:'10.5px', fontWeight:800}}>CAN</th>
+                        <th style={{textAlign:'left', width:'46%', padding:'3px 0', background:'transparent', color:'#000', fontSize:'10.5px', fontWeight:800}}>DESCRIPCIÓN</th>
+                        <th style={{textAlign:'right', width:'21%', padding:'3px 0', background:'transparent', color:'#000', fontSize:'10.5px', fontWeight:800}}>P/U</th>
+                        <th style={{textAlign:'right', width:'21%', padding:'3px 0', background:'transparent', color:'#000', fontSize:'10.5px', fontWeight:800}}>TOTAL</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -477,11 +477,11 @@ export default function SalidasPage() {
                         const cant = Number(it.cantidad || 0);
                         const tot = pu * cant;
                         return (
-                          <tr key={i} style={{borderBottom:'1px dashed #f1f5f9'}}>
-                            <td style={{padding:'4px 0', verticalAlign:'top'}}>{cant}</td>
-                            <td style={{padding:'4px 0', verticalAlign:'top', fontWeight:600, wordBreak:'break-word'}}>{it.productoNombre || it.producto_nombre}</td>
-                            <td style={{textAlign:'right', padding:'4px 0', verticalAlign:'top'}}>${pu.toFixed(2)}</td>
-                            <td style={{textAlign:'right', padding:'4px 0', verticalAlign:'top', fontWeight:700}}>${tot.toFixed(2)}</td>
+                          <tr key={i} style={{borderBottom:'1px dashed #e2e8f0'}}>
+                            <td style={{padding:'4px 0', verticalAlign:'top', background:'transparent', color:'#000', fontSize:'11px'}}>{cant}</td>
+                            <td style={{padding:'4px 0', verticalAlign:'top', background:'transparent', color:'#000', fontSize:'11px', fontWeight:600, wordBreak:'break-word'}}>{it.productoNombre || it.producto_nombre}</td>
+                            <td style={{textAlign:'right', padding:'4px 0', verticalAlign:'top', background:'transparent', color:'#000', fontSize:'11px'}}>${pu.toFixed(2)}</td>
+                            <td style={{textAlign:'right', padding:'4px 0', verticalAlign:'top', background:'transparent', color:'#000', fontSize:'11px', fontWeight:700}}>${tot.toFixed(2)}</td>
                           </tr>
                         );
                       })}

@@ -996,11 +996,53 @@ input:focus, select:focus, textarea:focus {
 .metric-info .value { font-size: 1.4rem; font-weight: 700; color: #0f172a; margin-top: 0.15rem; }
 
 .table-container { background-color: #fff; border: 1px solid #e2e8f0; border-radius: 16px; overflow-x: auto; -webkit-overflow-scrolling: touch; box-shadow: 0 4px 6px -1px rgba(14,165,233,0.08); margin-bottom: 1.5rem; }
-table { width: 100%; border-collapse: collapse; text-align: left; min-width: 600px; }
-th { background-color: #f0f9ff; color: #64748b; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.85rem 1rem; border-bottom: 1px solid #e2e8f0; }
-td { padding: 0.85rem 1rem; border-bottom: 1px solid #e2e8f0; color: #0f172a; font-size: 0.9rem; }
-tr:last-child td { border-bottom: none; }
-tr:hover td { background-color: #f0f9ff; }
+.table-container table { width: 100%; border-collapse: collapse; text-align: left; min-width: 600px; }
+.table-container th { background-color: #f0f9ff; color: #64748b; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.85rem 1rem; border-bottom: 1px solid #e2e8f0; }
+.table-container td { padding: 0.85rem 1rem; border-bottom: 1px solid #e2e8f0; color: #0f172a; font-size: 0.9rem; }
+.table-container tr:last-child td { border-bottom: none; }
+.table-container tr:hover td { background-color: #f0f9ff; }
+
+/* TICKET TÉRMICO 7.6 CM (80mm) AISLADO */
+.ticket-preview-box {
+  width: 100% !important;
+  max-width: 330px !important;
+  margin: 0 auto !important;
+  background: #ffffff !important;
+  color: #000000 !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  padding: 12px 10px !important;
+  box-sizing: border-box !important;
+  border: 1px solid #94a3b8 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+}
+.ticket-preview-box table {
+  min-width: 0 !important;
+  width: 100% !important;
+  table-layout: fixed !important;
+  border-collapse: collapse !important;
+  margin: 6px 0 !important;
+}
+.ticket-preview-box th {
+  background: transparent !important;
+  color: #000000 !important;
+  padding: 3px 0 !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  border-bottom: 1.5px solid #000000 !important;
+}
+.ticket-preview-box td {
+  background: transparent !important;
+  color: #000000 !important;
+  padding: 3px 0 !important;
+  font-size: 11px !important;
+  border-bottom: none !important;
+}
+.ticket-preview-box tr:hover td {
+  background: transparent !important;
+}
 
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.65rem 1.25rem; border-radius: 10px; font-weight: 600; font-size: 0.9rem; cursor: pointer; border: none; transition: all 0.2s ease; text-decoration: none; min-height: 42px; }
 .btn-primary { background-color: #0284c7; color: #fff; box-shadow: 0 3px 8px rgba(2,132,199,0.3); }
