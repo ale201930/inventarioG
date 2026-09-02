@@ -61,8 +61,18 @@ export async function GET(request) {
     }
 
     const salidas = await query('SELECT * FROM salidas ORDER BY created_at DESC');
-    for (const s of salidas) {
-      s.items = await query('SELECT * FROM salidas_items WHERE salida_id = ?', [s.id]);
+    if (salidas.length > 0) {
+      const ids = salidas.map(s => s.id);
+      const placeholders = ids.map(() => '?').join(',');
+      const allItems = await query(`SELECT * FROM salidas_items WHERE salida_id IN (${placeholders})`, ids);
+      const itemMap = {};
+      for (const item of allItems) {
+        if (!itemMap[item.salida_id]) itemMap[item.salida_id] = [];
+        itemMap[item.salida_id].push(item);
+      }
+      for (const s of salidas) {
+        s.items = itemMap[s.id] || [];
+      }
     }
     return NextResponse.json({ success: true, data: salidas });
   } catch (e) {

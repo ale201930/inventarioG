@@ -21,9 +21,26 @@ export async function GET(request) {
     }
 
     const entradas = await query('SELECT * FROM entradas ORDER BY fecha DESC, created_at DESC');
-    for (const e of entradas) {
-      e.items = await query('SELECT * FROM entradas_items WHERE entrada_id = ?', [e.id]);
-      e.abonos = await query('SELECT * FROM abonos_entradas WHERE entrada_id = ? ORDER BY fecha ASC', [e.id]);
+    if (entradas.length > 0) {
+      const ids = entradas.map(e => e.id);
+      const placeholders = ids.map(() => '?').join(',');
+      const [allItems, allAbonos] = await Promise.all([
+        query(`SELECT * FROM entradas_items WHERE entrada_id IN (${placeholders})`, ids),
+        query(`SELECT * FROM abonos_entradas WHERE entrada_id IN (${placeholders}) ORDER BY fecha ASC`, ids),
+      ]);
+      const itemMap = {}, abonoMap = {};
+      for (const item of allItems) {
+        if (!itemMap[item.entrada_id]) itemMap[item.entrada_id] = [];
+        itemMap[item.entrada_id].push(item);
+      }
+      for (const ab of allAbonos) {
+        if (!abonoMap[ab.entrada_id]) abonoMap[ab.entrada_id] = [];
+        abonoMap[ab.entrada_id].push(ab);
+      }
+      for (const e of entradas) {
+        e.items = itemMap[e.id] || [];
+        e.abonos = abonoMap[e.id] || [];
+      }
     }
     return NextResponse.json({ success: true, data: entradas });
   } catch (e) {

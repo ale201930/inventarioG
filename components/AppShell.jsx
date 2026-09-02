@@ -11,19 +11,14 @@ export default function AppShell({ children }) {
   const [bcvTasa, setBcvTasa] = useState(798.33);
   const [bcvFuente, setBcvFuente] = useState('BCV');
 
-  // If on login page, render without sidebar shell
-  if (pathname === '/login') {
-    return <>{children}</>;
-  }
-
   // Determine active route
   const route = pathname === '/' ? 'dashboard' :
-    pathname.startsWith('/inventario') ? 'inventario' :
-    pathname.startsWith('/entradas') ? 'entradas' :
-    pathname.startsWith('/salidas') ? 'salidas' :
-    pathname.startsWith('/reportes') ? 'reportes' : 'dashboard';
+    pathname?.startsWith('/inventario') ? 'inventario' :
+    pathname?.startsWith('/entradas') ? 'entradas' :
+    pathname?.startsWith('/salidas') ? 'salidas' :
+    pathname?.startsWith('/reportes') ? 'reportes' : 'dashboard';
 
-  // Fetch BCV rate once when shell mounts
+  // Fetch BCV rate once when shell mounts (ALL HOOKS CALLED UNCONDITIONALLY)
   useEffect(() => {
     fetch('/api/bcv')
       .then(r => r.json())
@@ -48,6 +43,11 @@ export default function AppShell({ children }) {
     { key: 'salidas', href: '/salidas', icon: 'fa-receipt', label: 'Salidas / Ventas' },
     { key: 'reportes', href: '/reportes', icon: 'fa-file-invoice-dollar', label: 'Reportes' },
   ];
+
+  // If on login page, render children directly without sidebar shell (AFTER all hooks)
+  if (pathname === '/login' || pathname?.startsWith('/login')) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="app-container">
