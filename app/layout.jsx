@@ -1,5 +1,6 @@
-// app/layout.jsx — Layout Principal con Sidebar idéntica al sistema PHP
+// app/layout.jsx — Layout Principal con Sidebar persistente idéntico al sistema PHP
 import './globals.css';
+import AppShell from '@/components/AppShell';
 
 export const viewport = {
   themeColor: '#0284c7',
@@ -16,10 +17,9 @@ export default function RootLayout({ children }) {
     <html lang="es">
       <head>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-        <link rel="apple-touch-icon" href="/public/logo.png" />
       </head>
       <body>
-        {children}
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

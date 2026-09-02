@@ -172,7 +172,7 @@ export default function SalidasPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="page-header">
         <div>
           <h1 className="page-title"><i className="fa-solid fa-receipt" style={{color:'var(--primary)'}}></i> Facturación y Despachos (Salidas)</h1>
@@ -516,6 +516,6 @@ export default function SalidasPage() {
           )}
         </div>
       </div>
-    </AppShell>
+    </>
   );
 }

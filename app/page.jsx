@@ -28,7 +28,7 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <AppShell>
+    <>
       <div className="page-header">
         <div>
           <h1 className="page-title"><i className="fa-solid fa-chart-pie" style={{color:'var(--primary)'}}></i> Panel de Control</h1>
@@ -147,6 +147,6 @@ export default function DashboardPage() {
           </table>
         </div>
       </div>
-    </AppShell>
+    </>
   );
 }

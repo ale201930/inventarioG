@@ -42,7 +42,7 @@ export default function ReportesPage() {
   const t = metrics?.tasaBCV || 798.33;
 
   return (
-    <AppShell>
+    <>
       <div className="page-header">
         <div>
           <h1 className="page-title"><i className="fa-solid fa-chart-line" style={{color:'var(--primary)'}}></i> Panel Financiero · Ganancias y Pérdidas</h1>
@@ -150,6 +150,6 @@ export default function ReportesPage() {
           </div>
         </>
       )}
-    </AppShell>
+    </>
   );
 }

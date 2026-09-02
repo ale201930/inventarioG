@@ -132,7 +132,7 @@ export default function EntradasPage() {
   }));
 
   return (
-    <AppShell>
+    <>
       {/* Tesseract.js OCR */}
       <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" async />
 
@@ -407,6 +407,6 @@ export default function EntradasPage() {
           </form>
         </div>
       </div>
-    </AppShell>
+    </>
   );
 }

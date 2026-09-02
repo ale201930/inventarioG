@@ -51,7 +51,7 @@ export default function InventarioPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="page-header">
         <div>
           <h1 className="page-title"><i className="fa-solid fa-box" style={{color:'var(--primary)'}}></i> Gestión de Inventario</h1>
@@ -157,6 +157,6 @@ export default function InventarioPage() {
           </form>
         </div>
       </div>
-    </AppShell>
+    </>
   );
 }

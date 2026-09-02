@@ -1,15 +1,20 @@
-// components/AppShell.jsx — Estructura principal con Sidebar idéntica al sistema PHP
+// components/AppShell.jsx — Layout Shell persistente sin parpadeos ni desmontajes
 'use client';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 export default function AppShell({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [bcvTasa, setBcvTasa] = useState(null);
+  const [bcvTasa, setBcvTasa] = useState(798.33);
   const [bcvFuente, setBcvFuente] = useState('BCV');
+
+  // If on login page, render without sidebar shell
+  if (pathname === '/login') {
+    return <>{children}</>;
+  }
 
   // Determine active route
   const route = pathname === '/' ? 'dashboard' :
@@ -18,11 +23,17 @@ export default function AppShell({ children }) {
     pathname.startsWith('/salidas') ? 'salidas' :
     pathname.startsWith('/reportes') ? 'reportes' : 'dashboard';
 
-  // Fetch BCV rate
+  // Fetch BCV rate once when shell mounts
   useEffect(() => {
-    fetch('/api/bcv').then(r => r.json()).then(d => {
-      if (d.success) { setBcvTasa(d.data.tasaHoy); setBcvFuente(d.data.fuente || 'BCV'); }
-    }).catch(() => setBcvTasa(798.33));
+    fetch('/api/bcv')
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.data.tasaHoy) {
+          setBcvTasa(d.data.tasaHoy);
+          setBcvFuente(d.data.fuente || 'BCV');
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const handleLogout = async () => {
@@ -43,7 +54,7 @@ export default function AppShell({ children }) {
       {/* Mobile top bar */}
       <div className="mobile-top-bar">
         <div className="mobile-brand">
-          <img src="/logo.png" alt="Logo" style={{ width: 28, height: 28, borderRadius: 6 }} />
+          <img src="/logo.png" alt="Logo InvG" style={{ width: 28, height: 28, borderRadius: 6 }} />
           <span>Inv<span style={{ color: '#0284c7' }}>G</span> <small style={{ fontSize: '0.6rem', background: '#e0f2fe', color: '#0369a1', padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>PRO</small></span>
         </div>
         <button className="mobile-nav-btn" onClick={() => setSidebarOpen(true)} aria-label="Menu">
@@ -86,16 +97,10 @@ export default function AppShell({ children }) {
               <i className="fa-solid fa-arrow-up-right-from-square" />
             </a>
           </div>
-          {bcvTasa ? (
-            <>
-              <div style={{ fontWeight: 800, fontSize: '1.15rem', color: '#0f172a' }}>
-                Bs. {Number(bcvTasa).toLocaleString('es-VE', { minimumFractionDigits: 2 })} <span style={{ fontWeight: 400, fontSize: '0.75rem', color: '#64748b' }}>/ USD</span>
-              </div>
-              <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: 2 }}>Fuente: {bcvFuente}</div>
-            </>
-          ) : (
-            <div style={{ color: '#94a3b8' }}>Cargando tasa...</div>
-          )}
+          <div style={{ fontWeight: 800, fontSize: '1.15rem', color: '#0f172a' }}>
+            Bs. {Number(bcvTasa).toLocaleString('es-VE', { minimumFractionDigits: 2 })} <span style={{ fontWeight: 400, fontSize: '0.75rem', color: '#64748b' }}>/ USD</span>
+          </div>
+          <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: 2 }}>Fuente: {bcvFuente}</div>
         </div>
 
         <div className="sidebar-footer">
