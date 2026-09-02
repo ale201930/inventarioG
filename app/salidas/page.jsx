@@ -133,6 +133,22 @@ export default function SalidasPage() {
     if (d.success) setEstadoCuenta(d);
   };
 
+  const openNewModal = async () => {
+    let nextNum = '3000';
+    try {
+      const res = await fetch('/api/salidas?action=next_number');
+      const d = await res.json();
+      if (d.success && d.nextNumber) nextNum = d.nextNumber;
+    } catch {}
+
+    setForm({
+      clienteName: '', cedulaRif: '', telefono: '', fecha: today(), direccion: '',
+      vendedorName: 'JUAN MORA', facturaNumber: nextNum, observaciones: '',
+      items: [emptyItem()]
+    });
+    setShowModal(true);
+  };
+
   const printTicket = () => {
     if (!lastSalida) return;
     const items = lastSalida.items || [];
@@ -147,7 +163,6 @@ export default function SalidasPage() {
         .header-sub { font-size: 10px; text-align: center; color: #111; margin: 1px 0; }
         .divider-solid { border: none; border-top: 1.5px solid #000; margin: 8px 0; }
         .divider-dashed { border: none; border-top: 1px dashed #444; margin: 8px 0; }
-        .divider-double { border: none; border-top: 2.5px double #000; margin: 8px 0; }
         .doc-title { font-size: 14px; font-weight: 800; text-align: center; letter-spacing: 0.5px; }
         .doc-num { font-size: 14px; font-weight: 800; text-align: center; margin-top: 2px; }
         .info-table { width: 100%; border-collapse: collapse; font-size: 11px; }
@@ -236,7 +251,7 @@ export default function SalidasPage() {
           <h1 className="page-title"><i className="fa-solid fa-receipt" style={{color:'var(--primary)'}}></i> Facturación y Despachos (Salidas)</h1>
           <p className="page-subtitle">Facturación digital compatible con impresoras de ticket de 80mm (7.6 cm) · Sustitución de talonario</p>
         </div>
-        <button className="btn btn-primary" onClick={() => { setForm({ clienteName:'', cedulaRif:'', telefono:'', fecha:today(), direccion:'', vendedorName:'JUAN MORA', facturaNumber:'', observaciones:'', items:[emptyItem()] }); setShowModal(true); }}><i className="fa-solid fa-plus"></i> Nueva Venta / Factura</button>
+        <button className="btn btn-primary" onClick={openNewModal}><i className="fa-solid fa-plus"></i> Nueva Venta / Factura</button>
       </div>
 
       {/* Tabla Historial */}
@@ -334,7 +349,7 @@ export default function SalidasPage() {
               </div>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Nº Nota de Entrega</label>
-                <input type="text" className="form-control" style={{fontSize:'0.85rem'}} placeholder="Ej: 000001" value={form.facturaNumber} onChange={e=>setForm(f=>({...f,facturaNumber:e.target.value}))} />
+                <input type="text" className="form-control" style={{fontSize:'0.85rem'}} placeholder="Ej: 3000" value={form.facturaNumber} onChange={e=>setForm(f=>({...f,facturaNumber:e.target.value}))} />
               </div>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Fecha</label>
@@ -347,14 +362,14 @@ export default function SalidasPage() {
               <h3 style={{fontSize:'0.9rem', fontWeight:700}}><i className="fa-solid fa-box-open"></i> Productos a Despachar</h3>
               <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setForm(f=>({...f, items:[...f.items, emptyItem()]}))}>+ Agregar Producto</button>
             </div>
-            <div style={{display:'grid', gridTemplateColumns:'2.5fr 1fr 1fr 1fr auto', gap:'0.5rem', marginBottom:'0.35rem', padding:'0 0.25rem', alignItems:'center'}}>
+            <div style={{display:'grid', gridTemplateColumns:'2.4fr 1.1fr 0.8fr 1fr 1fr 38px', gap:'0.5rem', marginBottom:'0.35rem', padding:'0 0.25rem', alignItems:'center'}}>
               {['PRODUCTO','PRECIO CUAL','CANT.','PRECIO $','SUBTOTAL $',''].map((h,i) => (
                 <span key={i} style={{fontSize:'0.75rem', fontWeight:700, color:'var(--text-secondary)'}}>{h}</span>
               ))}
             </div>
             <div style={{maxHeight:250, overflowY:'auto'}}>
               {form.items.map((item, i) => (
-                <div key={i} style={{display:'grid', gridTemplateColumns:'2.5fr 1fr 1fr 1fr auto', gap:'0.5rem', marginBottom:'0.4rem', alignItems:'center'}}>
+                <div key={i} style={{display:'grid', gridTemplateColumns:'2.4fr 1.1fr 0.8fr 1fr 1fr 38px', gap:'0.5rem', marginBottom:'0.4rem', alignItems:'center'}}>
                   <select className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} value={item.productoId} onChange={e=>selectProduct(i, e.target.value)}>
                     <option value="">-- Seleccionar producto --</option>
                     {productos.map(p => (
@@ -371,7 +386,9 @@ export default function SalidasPage() {
                   <input type="number" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} min="1" value={item.cantidad} onChange={e=>updateItem(i, {cantidad:e.target.value})} />
                   <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', fontWeight:600}} value={item.precioUnitario} onChange={e=>updateItem(i, {precioUnitario:e.target.value})} />
                   <span style={{fontWeight:700, color:'var(--primary)', fontSize:'0.88rem'}}>${Number(item.subtotal||0).toFixed(2)}</span>
-                  <button type="button" className="btn btn-danger btn-sm" style={{padding:'0.25rem 0.5rem'}} onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}>×</button>
+                  <button type="button" className="btn btn-danger btn-sm" style={{width:32, height:32, minWidth:32, padding:0, borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center'}} title="Eliminar renglón" onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}>
+                    <i className="fa-solid fa-trash" style={{fontSize:'0.75rem'}}></i>
+                  </button>
                 </div>
               ))}
             </div>
@@ -404,7 +421,7 @@ export default function SalidasPage() {
       {/* Modal Ticket 80mm / 7.6cm */}
       {showTicketModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{maxWidth:520}}>
+          <div className="modal-content" style={{maxWidth:420, width:'95%'}}>
             <div className="modal-header" style={{marginBottom:'0.75rem'}}>
               <h2><i className="fa-solid fa-receipt"></i> Vista Previa · Ticket (7.6 cm)</h2>
               <button type="button" className="modal-close" onClick={()=>setShowTicketModal(false)}>&times;</button>
@@ -415,10 +432,10 @@ export default function SalidasPage() {
               const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
               const cleanFecha = String(lastSalida.fecha || '').split('T')[0];
               return (
-                <div style={{background:'#fff', border:'1px solid #cbd5e1', borderRadius:8, padding:'1.25rem 1.5rem', fontFamily:'system-ui, -apple-system, "Segoe UI", Arial, sans-serif', fontSize:'11.5px', color:'#000', maxHeight:'68vh', overflowY:'auto', lineHeight:1.35}}>
-                  <div style={{textAlign:'center', fontWeight:800, fontSize:'16px'}}>BESTEDA 2, C.A.</div>
-                  <div style={{textAlign:'center', fontWeight:700, fontSize:'11.5px', marginTop:'2px'}}>RIF: J-40529263-6</div>
-                  <div style={{textAlign:'center', fontSize:'10px', color:'#111', marginTop:'2px'}}>Calle Principal Casa Nº A-13, Urb. Alto de Fenix II</div>
+                <div style={{background:'#fff', border:'1px solid #cbd5e1', borderRadius:8, padding:'1.25rem 1rem', fontFamily:'system-ui, -apple-system, "Segoe UI", Arial, sans-serif', fontSize:'11px', color:'#000', maxHeight:'68vh', overflowY:'auto', overflowX:'hidden', lineHeight:1.35, width:'100%', boxSizing:'border-box'}}>
+                  <div style={{textAlign:'center', fontWeight:800, fontSize:'15px'}}>BESTEDA 2, C.A.</div>
+                  <div style={{textAlign:'center', fontWeight:700, fontSize:'11px', marginTop:'2px'}}>RIF: J-40529263-6</div>
+                  <div style={{textAlign:'center', fontSize:'9.5px', color:'#111', marginTop:'2px'}}>Calle Principal Casa Nº A-13, Urb. Alto de Fenix II</div>
                   <div style={{textAlign:'center', fontSize:'10px', color:'#111'}}>San Juan de los Morros - Estado Guárico</div>
                   <div style={{textAlign:'center', fontSize:'10px', color:'#111'}}>Tlfs: 0424-313.68.05 / 0424-300.48.02</div>
                   

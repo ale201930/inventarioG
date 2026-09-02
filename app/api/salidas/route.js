@@ -17,6 +17,13 @@ export async function GET(request) {
     const action = searchParams.get('action');
     const id = searchParams.get('id');
 
+    if (action === 'next_number') {
+      const maxRes = await query("SELECT MAX(CAST(REGEXP_REPLACE(factura_number, '[^0-9]', '') AS UNSIGNED)) AS maxNum FROM salidas");
+      const maxNum = parseInt(maxRes[0]?.maxNum || 0);
+      const nextNum = maxNum >= 3000 ? maxNum + 1 : 3000;
+      return NextResponse.json({ success: true, nextNumber: String(nextNum) });
+    }
+
     if (action === 'clientes') {
       const rows = await query(
         `SELECT cliente_name, MAX(cedula_rif) AS cedula_rif, MAX(telefono) AS telefono,
@@ -93,11 +100,13 @@ export async function POST(request) {
     const fecha = input.fecha || new Date().toISOString().split('T')[0];
     const items = input.items || [];
 
-    // Auto factura number
+    // Auto factura number (starting at 3000)
     let facturaNumber = (input.facturaNumber || '').trim();
     if (!facturaNumber) {
-      const [c] = await conn.execute('SELECT COUNT(*) AS total FROM salidas');
-      facturaNumber = String(parseInt(c[0].total) + 1).padStart(6, '0');
+      const [maxRes] = await conn.execute("SELECT MAX(CAST(REGEXP_REPLACE(factura_number, '[^0-9]', '') AS UNSIGNED)) AS maxNum FROM salidas");
+      const maxNum = parseInt(maxRes[0]?.maxNum || 0);
+      const nextNum = maxNum >= 3000 ? maxNum + 1 : 3000;
+      facturaNumber = String(nextNum);
     }
 
     let totalFactura = 0, totalUnidades = 0;
