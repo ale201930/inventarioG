@@ -1,0 +1,12 @@
+# Entorno y Configuración Sensible
+.env
+.env.local
+.next/
+
+# Archivos de caché y temporales
+/scratch/
+/.tempmediaStorage/
+/*.log
+node_modules/
+.DS_Store
+Thumbs.db

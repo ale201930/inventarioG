@@ -1,0 +1,34 @@
+# Reglas de Apache (.htaccess) para URLs limpias, seguridad y CORS
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Evitar listar directorios
+    Options -Indexes
+
+    # Cabeceras de Seguridad y CORS para pruebas
+    <IfModule mod_headers.c>
+        Header set Access-Control-Allow-Origin "*"
+        Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        Header set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+        Header set X-Content-Type-Options "nosniff"
+        Header set X-Frame-Options "SAMEORIGIN"
+        Header set X-XSS-Protection "1; mode=block"
+    </IfModule>
+
+    # Responder a solicitudes OPTIONS preflight de CORS
+    RewriteCond %{REQUEST_METHOD} OPTIONS
+    RewriteRule ^(.*)$ - [R=200,L]
+
+    # No sobrescribir archivos o directorios reales
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Redirección de vistas principales
+    RewriteRule ^login$ index.php?route=login [L,QSA]
+    RewriteRule ^dashboard$ index.php?route=dashboard [L,QSA]
+    RewriteRule ^inventario$ index.php?route=inventario [L,QSA]
+    RewriteRule ^entradas$ index.php?route=entradas [L,QSA]
+    RewriteRule ^salidas$ index.php?route=salidas [L,QSA]
+    RewriteRule ^reportes$ index.php?route=reportes [L,QSA]
+</IfModule>

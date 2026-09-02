@@ -1,0 +1,24 @@
+{
+  "name": "Sistema de Inventario G",
+  "short_name": "InventarioG",
+  "description": "Sistema de Inventario, Ventas, Compras y Abonos PWA",
+  "start_url": "index.php",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f8fafc",
+  "theme_color": "#0284c7",
+  "icons": [
+    {
+      "src": "public/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "public/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
