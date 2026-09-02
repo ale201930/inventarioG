@@ -10,6 +10,7 @@ export default function SalidasPage() {
   const [salidas, setSalidas] = useState([]);
   const [productos, setProductos] = useState([]);
   const [clientes, setClientes] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [filterFecha, setFilterFecha] = useState('');
   const [bcvTasa, setBcvTasa] = useState(798.33);
@@ -29,15 +30,18 @@ export default function SalidasPage() {
   });
   const [abonoForm, setAbonoForm] = useState({ salidaId:'', clienteName:'', montoUSD:0, montoVES:0, referencia:'', fecha:today() });
 
-  const load = () => Promise.all([
-    fetch('/api/salidas').then(r=>r.json()),
-    fetch('/api/inventario').then(r=>r.json()),
-    fetch('/api/salidas?action=clientes').then(r=>r.json()),
-  ]).then(([sal, inv, cli]) => {
-    if(sal.success) setSalidas(sal.data);
-    if(inv.success) setProductos(inv.data);
-    if(cli.success) setClientes(cli.data);
-  });
+  const load = () => {
+    setLoading(true);
+    Promise.all([
+      fetch('/api/salidas').then(r=>r.json()),
+      fetch('/api/inventario').then(r=>r.json()),
+      fetch('/api/salidas?action=clientes').then(r=>r.json()),
+    ]).then(([sal, inv, cli]) => {
+      if(sal.success) setSalidas(sal.data);
+      if(inv.success) setProductos(inv.data);
+      if(cli.success) setClientes(cli.data);
+    }).finally(() => setLoading(false));
+  };
 
   useEffect(() => { load(); }, []);
   useEffect(() => { fetch('/api/bcv').then(r=>r.json()).then(d => { if(d.success) setBcvTasa(d.data.tasaHoy); }); }, []);
@@ -202,8 +206,14 @@ export default function SalidasPage() {
             <tr><th>Documento</th><th>Nº Factura</th><th>Fecha</th><th>Cliente</th><th>C.I. / RIF</th><th>Total ($)</th><th>Saldo Pendiente</th><th>Acciones</th></tr>
           </thead>
           <tbody>
-            {filteredSalidas.length === 0 ? (
-              <tr><td colSpan={8} style={{textAlign:'center', padding:'2rem', color:'var(--text-muted)'}}>Sin facturas registradas</td></tr>
+            {loading ? (
+              <tr><td colSpan={8} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
+                <i className="fa-solid fa-circle-notch fa-spin" style={{marginRight:8, color:'var(--primary)'}}></i> Cargando facturas...
+              </td></tr>
+            ) : filteredSalidas.length === 0 ? (
+              <tr><td colSpan={8} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
+                {searchText || filterFecha ? 'Sin resultados para los filtros' : 'Sin facturas registradas'}
+              </td></tr>
             ) : filteredSalidas.map(s => (
               <tr key={s.id}>
                 <td><span className="badge badge-primary" style={{fontSize:'0.7rem'}}>{s.tipo_documento||'NOTA DE ENTREGA'}</span></td>

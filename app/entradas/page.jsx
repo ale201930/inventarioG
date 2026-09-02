@@ -10,6 +10,7 @@ const emptyItem = () => ({ codigo:'', nombre:'', cantidad:1, costoUSD:0, totalUS
 
 export default function EntradasPage() {
   const [entradas, setEntradas] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [filterFecha, setFilterFecha] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -30,7 +31,13 @@ export default function EntradasPage() {
   });
   const [abonoForm, setAbonoForm] = useState({ entradaId:'', montoUSD:0, montoVES:0, referencia:'', fecha:today() });
 
-  const load = () => fetch('/api/entradas').then(r=>r.json()).then(d => { if(d.success) setEntradas(d.data); });
+  const load = () => {
+    setLoading(true);
+    fetch('/api/entradas')
+      .then(r => r.json())
+      .then(d => { if (d.success) setEntradas(d.data); })
+      .finally(() => setLoading(false));
+  };
   useEffect(() => { load(); }, []);
   useEffect(() => { fetch('/api/bcv').then(r=>r.json()).then(d => { if(d.success) setBcvTasa(d.data.tasaHoy); }); }, []);
 
@@ -155,8 +162,14 @@ export default function EntradasPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredEntradas.length === 0 ? (
-              <tr><td colSpan={9} style={{textAlign:'center', padding:'2rem', color:'var(--text-muted)'}}>Sin compras registradas</td></tr>
+            {loading ? (
+              <tr><td colSpan={9} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
+                <i className="fa-solid fa-circle-notch fa-spin" style={{marginRight:8, color:'var(--primary)'}}></i> Cargando compras...
+              </td></tr>
+            ) : filteredEntradas.length === 0 ? (
+              <tr><td colSpan={9} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
+                {searchText || filterFecha ? 'Sin resultados para los filtros' : 'Sin compras registradas'}
+              </td></tr>
             ) : filteredEntradas.map(e => (
               <tr key={e.id}>
                 <td><span className="badge badge-primary" style={{fontSize:'0.7rem'}}>{e.tipo_documento||'NOTA DE ENTREGA'}</span></td>
