@@ -58,15 +58,30 @@ export default function EntradasPage() {
   const updateItem = (i, field, val) => {
     const items = [...form.items];
     items[i] = { ...items[i], [field]: val };
+    const c = parseFloat(items[i].cantidad || 0);
+    const tasa = parseFloat(form.tasaBCV || 798.33);
+
     if (field === 'cantidad' || field === 'costoUSD') {
-      const c = parseFloat(items[i].cantidad || 0);
       const u = parseFloat(items[i].costoUSD || 0);
       const totUSD = c * u;
-      items[i].totalUSD = totUSD.toFixed(2);
-      items[i].totalVES = (totUSD * parseFloat(form.tasaBCV || 798.33)).toFixed(2);
+      items[i].totalUSD = totUSD > 0 ? totUSD.toFixed(2) : items[i].totalUSD;
+      items[i].totalVES = ((parseFloat(items[i].totalUSD) || totUSD) * tasa).toFixed(2);
+    } else if (field === 'totalUSD') {
+      const tot = parseFloat(val || 0);
+      items[i].totalUSD = val;
+      if (c > 0 && tot >= 0) {
+        items[i].costoUSD = (tot / c).toFixed(2);
+      }
+      items[i].totalVES = (tot * tasa).toFixed(2);
     }
-    const totalUSD = items.reduce((s,it) => s + parseFloat(it.totalUSD||0), 0);
-    setForm(f => ({ ...f, items, totalUSD: totalUSD.toFixed(2), totalVES: (totalUSD * parseFloat(f.tasaBCV || 798.33)).toFixed(2) }));
+
+    const totalUSD = items.reduce((s, it) => s + parseFloat(it.totalUSD || 0), 0);
+    setForm(f => ({
+      ...f,
+      items,
+      totalUSD: totalUSD.toFixed(2),
+      totalVES: (totalUSD * parseFloat(f.tasaBCV || 798.33)).toFixed(2)
+    }));
   };
 
   const handleSave = async (confirmed) => {
@@ -662,22 +677,22 @@ export default function EntradasPage() {
 
           {/* Items */}
           <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.5rem'}}>
-            <h3 style={{fontSize:'0.95rem', fontWeight:700}}><i className="fa-solid fa-boxes-stacked"></i> Productos de la Factura / Compra</h3>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setForm(f=>({...f, items:[...f.items, emptyItem()]}))}>+ Agregar Producto</button>
+            <h3 style={{fontSize:'0.95rem', fontWeight:700}}><i className="fa-solid fa-boxes-stacked"></i> Renglones de la Factura / Nota de Entrega</h3>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setForm(f=>({...f, items:[...f.items, emptyItem()]}))}>+ Agregar Renglón</button>
           </div>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 2.5fr 0.8fr 1.2fr 1.2fr auto', gap:'0.5rem', marginBottom:'0.35rem', padding:'0 0.25rem', alignItems:'center'}}>
-            {['CÓDIGO','DESCRIPCIÓN / PRODUCTO','CANT.','COSTO UNIT. ($)','TOTAL ($)',''].map((h,i) => (
+          <div style={{display:'grid', gridTemplateColumns:'0.8fr 2.5fr 0.8fr 1.2fr 1.2fr auto', gap:'0.5rem', marginBottom:'0.35rem', padding:'0 0.25rem', alignItems:'center'}}>
+            {['CÓDIGO','DESCRIPCIÓN','CANTIDAD','PRECIO USD $','TOTAL USD $',''].map((h,i) => (
               <span key={i} style={{fontSize:'0.75rem', fontWeight:700, color:'var(--text-secondary)'}}>{h}</span>
             ))}
           </div>
           <div style={{maxHeight:300, overflowY:'auto'}}>
             {form.items.map((item, i) => (
-              <div key={i} style={{display:'grid', gridTemplateColumns:'1fr 2.5fr 0.8fr 1.2fr 1.2fr auto', gap:'0.5rem', marginBottom:'0.4rem', alignItems:'center'}}>
+              <div key={i} style={{display:'grid', gridTemplateColumns:'0.8fr 2.5fr 0.8fr 1.2fr 1.2fr auto', gap:'0.5rem', marginBottom:'0.4rem', alignItems:'center'}}>
                 <input type="text" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} placeholder="Código" value={item.codigo} onChange={e=>updateItem(i,'codigo',e.target.value)} />
-                <input type="text" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} placeholder="Nombre del producto" required value={item.nombre} onChange={e=>updateItem(i,'nombre',e.target.value)} />
+                <input type="text" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} placeholder="Descripción del producto" required value={item.nombre} onChange={e=>updateItem(i,'nombre',e.target.value)} />
                 <input type="number" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} min="1" value={item.cantidad} onChange={e=>updateItem(i,'cantidad',e.target.value)} />
-                <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', fontWeight:600}} placeholder="0.00" value={item.costoUSD} onChange={e=>updateItem(i,'costoUSD',e.target.value)} />
-                <span style={{fontWeight:700, color:'var(--primary)', fontSize:'0.88rem'}}>${Number(item.totalUSD||0).toFixed(2)}</span>
+                <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', fontWeight:600}} placeholder="0.00" value={item.costoUSD} onChange={e=>updateItem(i,'costoUSD',e.target.value)} title="Precio unitario en USD $" />
+                <input type="number" step="0.01" className="form-control" style={{fontSize:'0.85rem', padding:'0.35rem 0.5rem', fontWeight:800, color:'var(--primary)', borderColor:'var(--primary-light)'}} placeholder="0.00" value={item.totalUSD} onChange={e=>updateItem(i,'totalUSD',e.target.value)} title="Total del renglón en USD $ (Editable)" />
                 <button type="button" className="btn btn-danger btn-sm" style={{padding:'0.25rem 0.5rem'}} onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}>×</button>
               </div>
             ))}
@@ -688,12 +703,12 @@ export default function EntradasPage() {
             <div style={{fontSize:'0.85rem'}}>Unidades: <strong style={{color:'#fbbf24', fontSize:'1.05rem'}}>{form.items.reduce((s,it)=>s+parseInt(it.cantidad||0),0)}</strong></div>
             <div style={{display:'flex', alignItems:'center', gap:'1rem', flexWrap:'wrap'}}>
               <div style={{display:'flex', alignItems:'center', gap:'0.4rem'}}>
-                <label style={{fontSize:'0.82rem', color:'#38bdf8', fontWeight:700, margin:0}}>TOTAL COMPRA ($):</label>
-                <input type="number" step="0.01" className="form-control" style={{width:120, fontSize:'1.1rem', fontWeight:800, color:'#38bdf8', background:'#1e293b', border:'1.5px solid #38bdf8', textAlign:'right', padding:'4px 8px'}} value={form.totalUSD} onChange={e=>setForm(f=>({...f, totalUSD:e.target.value, totalVES:(parseFloat(e.target.value||0)*parseFloat(f.tasaBCV||798.33)).toFixed(2)}))} />
+                <label style={{fontSize:'0.82rem', color:'#38bdf8', fontWeight:700, margin:0}}>Total Operación USD $:</label>
+                <input type="number" step="0.01" className="form-control" style={{width:130, fontSize:'1.1rem', fontWeight:800, color:'#38bdf8', background:'#1e293b', border:'1.5px solid #38bdf8', textAlign:'right', padding:'4px 8px'}} value={form.totalUSD} onChange={e=>setForm(f=>({...f, totalUSD:e.target.value, totalVES:(parseFloat(e.target.value||0)*parseFloat(f.tasaBCV||798.33)).toFixed(2)}))} />
               </div>
               <div style={{display:'flex', alignItems:'center', gap:'0.4rem'}}>
                 <label style={{fontSize:'0.82rem', color:'#a7f3d0', fontWeight:700, margin:0}}>(Bs.):</label>
-                <input type="number" step="0.01" className="form-control" style={{width:140, fontSize:'1.05rem', fontWeight:800, color:'#a7f3d0', background:'#1e293b', border:'1.5px solid #a7f3d0', textAlign:'right', padding:'4px 8px'}} value={form.totalVES} onChange={e=>setForm(f=>({...f, totalVES:e.target.value}))} />
+                <input type="number" step="0.01" className="form-control" style={{width:145, fontSize:'1.05rem', fontWeight:800, color:'#a7f3d0', background:'#1e293b', border:'1.5px solid #a7f3d0', textAlign:'right', padding:'4px 8px'}} value={form.totalVES} onChange={e=>setForm(f=>({...f, totalVES:e.target.value}))} />
               </div>
             </div>
           </div>
@@ -719,23 +734,24 @@ export default function EntradasPage() {
               <table style={{width:'100%', minWidth:600}}>
                 <thead>
                   <tr>
-                    <th>Producto</th>
+                    <th>Código</th>
+                    <th>Descripción</th>
                     <th>Cantidad</th>
-                    <th>Costo USD</th>
-                    <th>Total USD</th>
+                    <th>Precio USD $</th>
+                    <th>Total USD $</th>
                     <th>Total Bs.</th>
                   </tr>
                 </thead>
                 <tbody>
                   {form.items.filter(it=>it.nombre&&parseInt(it.cantidad||0)>0).map((it,i) => (
                     <tr key={i}>
+                      <td style={{fontWeight:600, fontSize:'0.82rem'}}>{it.codigo || '—'}</td>
                       <td>
                         <strong>{it.nombre}</strong>
-                        {it.codigo && <div style={{fontSize:'0.75rem', color:'var(--text-muted)'}}>{it.codigo}</div>}
                       </td>
                       <td><span className="badge badge-primary">{it.cantidad}</span></td>
                       <td>${Number(it.costoUSD||0).toFixed(2)}</td>
-                      <td style={{fontWeight:700}}>${Number(it.totalUSD||0).toFixed(2)}</td>
+                      <td style={{fontWeight:800, color:'var(--primary)'}}>${Number(it.totalUSD||0).toFixed(2)}</td>
                       <td style={{color:'var(--text-secondary)'}}>Bs. {Number((it.totalUSD||0)*parseFloat(form.tasaBCV||798.33)).toLocaleString('es-VE',{minimumFractionDigits:2})}</td>
                     </tr>
                   ))}
