@@ -137,31 +137,32 @@ export default function SalidasPage() {
     if (!lastSalida) return;
     const items = lastSalida.items || [];
     const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
-    const win = window.open('', '_blank', 'width=420,height=750');
+    const cleanFecha = String(lastSalida.fecha || '').split('T')[0];
+    const win = window.open('', '_blank', 'width=450,height=800');
     win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Nota de Entrega Nº ${lastSalida.factura_number}</title>
       <style>
         @page { size: 76mm auto; margin: 0; }
-        body { width: 74mm; margin: 0 auto; padding: 4mm 2mm; font-family: 'Segoe UI', Arial, sans-serif, monospace; font-size: 10px; color: #000; background: #fff; line-height: 1.3; }
-        .header-title { font-size: 14px; font-weight: 800; text-align: center; margin: 0 0 2px 0; }
-        .header-sub { font-size: 9px; text-align: center; color: #222; margin: 1px 0; }
-        .divider-solid { border: none; border-top: 1.5px solid #000; margin: 6px 0; }
-        .divider-dashed { border: none; border-top: 1px dashed #444; margin: 6px 0; }
-        .divider-double { border: none; border-top: 2.5px double #000; margin: 6px 0; }
-        .doc-title { font-size: 13px; font-weight: 800; text-align: center; letter-spacing: 0.5px; }
-        .doc-num { font-size: 13px; font-weight: 800; text-align: center; margin-top: 2px; }
-        .info-table { width: 100%; border-collapse: collapse; font-size: 9.5px; }
-        .info-table td { padding: 1.5px 0; vertical-align: top; }
-        .info-label { font-weight: 700; color: #111; }
+        body { width: 72mm; margin: 0 auto; padding: 4mm 2mm; font-family: system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #000; background: #fff; line-height: 1.35; }
+        .header-title { font-size: 15px; font-weight: 800; text-align: center; margin: 0 0 2px 0; }
+        .header-sub { font-size: 10px; text-align: center; color: #111; margin: 1px 0; }
+        .divider-solid { border: none; border-top: 1.5px solid #000; margin: 8px 0; }
+        .divider-dashed { border: none; border-top: 1px dashed #444; margin: 8px 0; }
+        .divider-double { border: none; border-top: 2.5px double #000; margin: 8px 0; }
+        .doc-title { font-size: 14px; font-weight: 800; text-align: center; letter-spacing: 0.5px; }
+        .doc-num { font-size: 14px; font-weight: 800; text-align: center; margin-top: 2px; }
+        .info-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .info-table td { padding: 2px 0; vertical-align: top; }
+        .info-label { font-weight: 700; color: #000; }
         .info-val { text-align: right; word-break: break-word; }
-        .items-table { width: 100%; border-collapse: collapse; font-size: 9.5px; margin: 4px 0; }
-        .items-table th { font-size: 9px; font-weight: 800; padding-bottom: 4px; text-align: left; border-bottom: 1px solid #000; }
-        .items-table td { padding: 3px 0; vertical-align: top; }
+        .items-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 6px 0; }
+        .items-table th { font-size: 10.5px; font-weight: 800; padding: 4px 0; text-align: left; border-bottom: 1.5px solid #000; }
+        .items-table td { padding: 4px 0; vertical-align: top; }
         .text-right { text-align: right; }
-        .totals-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 800; margin: 6px 0; }
-        .payment-box { border: 1px solid #777; border-radius: 8px; padding: 6px 8px; margin: 10px 0; background: #fafafa; font-size: 8.5px; text-align: center; line-height: 1.4; }
-        .payment-title { font-weight: 800; font-size: 8.5px; margin: 2px 0; }
-        .signature-area { margin-top: 28px; text-align: center; font-size: 9px; }
-        .signature-line { border-top: 1px solid #000; width: 70%; margin: 0 auto 4px auto; }
+        .totals-row { display: flex; justify-content: space-between; align-items: center; font-size: 13.5px; font-weight: 800; margin: 10px 0; }
+        .payment-box { border: 1px solid #777; border-radius: 8px; padding: 8px 10px; margin: 12px 0; background: #fdfdfd; font-size: 9.5px; text-align: center; line-height: 1.45; }
+        .payment-title { font-weight: 800; font-size: 10px; margin: 2px 0; }
+        .signature-area { margin-top: 32px; text-align: center; font-size: 10px; }
+        .signature-line { border-top: 1.5px solid #000; width: 65%; margin: 0 auto 5px auto; }
       </style></head><body>
       <div class="header-title">BESTEDA 2, C.A.</div>
       <div class="header-sub" style="font-weight:700;">RIF: J-40529263-6</div>
@@ -173,7 +174,7 @@ export default function SalidasPage() {
       <div class="doc-num">Nº ${lastSalida.factura_number}</div>
       <hr class="divider-dashed" />
       <table class="info-table">
-        <tr><td class="info-label">FECHA:</td><td class="info-val">${lastSalida.fecha || ''}</td></tr>
+        <tr><td class="info-label">FECHA:</td><td class="info-val">${cleanFecha}</td></tr>
         <tr><td class="info-label">CLIENTE:</td><td class="info-val">${lastSalida.cliente_name || ''}</td></tr>
         <tr><td class="info-label">C.I./RIF:</td><td class="info-val">${lastSalida.cedula_rif || '—'}</td></tr>
         <tr><td class="info-label">TELF:</td><td class="info-val">${lastSalida.telefono || '—'}</td></tr>
@@ -183,24 +184,29 @@ export default function SalidasPage() {
       <table class="items-table">
         <thead>
           <tr>
-            <th style="width: 12%;">CAN</th>
-            <th style="width: 52%;">DESCRIPCIÓN</th>
-            <th style="width: 18%; text-align: right;">P/U</th>
-            <th style="width: 18%; text-align: right;">TOTAL</th>
+            <th style="width: 10%;">CAN</th>
+            <th style="width: 50%;">DESCRIPCIÓN</th>
+            <th style="width: 20%; text-align: right;">P/U</th>
+            <th style="width: 20%; text-align: right;">TOTAL</th>
           </tr>
         </thead>
         <tbody>
-          ${items.map(it => `
-            <tr>
-              <td>${it.cantidad}</td>
-              <td>${it.productoNombre || it.producto_nombre || ''}</td>
-              <td class="text-right">$${Number(it.precioUnitario || it.precio_unitario || 0).toFixed(2)}</td>
-              <td class="text-right">$${(Number(it.cantidad || 0) * Number(it.precioUnitario || it.precio_unitario || 0)).toFixed(2)}</td>
-            </tr>
-          `).join('')}
+          ${items.map(it => {
+            const pu = Number(it.precioUnitario || it.precio_unitario || 0);
+            const cant = Number(it.cantidad || 0);
+            const tot = pu * cant;
+            return `
+              <tr>
+                <td>${cant}</td>
+                <td>${it.productoNombre || it.producto_nombre || ''}</td>
+                <td class="text-right">$${pu.toFixed(2)}</td>
+                <td class="text-right">$${tot.toFixed(2)}</td>
+              </tr>
+            `;
+          }).join('')}
         </tbody>
       </table>
-      <hr class="divider-double" />
+      <hr class="divider-solid" />
       <div class="totals-row">
         <span>UND: ${totalUnits}</span>
         <span>TOTAL: $${Number(lastSalida.total_factura || 0).toFixed(2)}</span>
@@ -209,13 +215,13 @@ export default function SalidasPage() {
         <div class="payment-title">— PAGO MÓVIL BDV —</div>
         <div>0102 | 0424 3136805 | C.I. 10668263</div>
         <div>0102 | 0424 3004802 | C.I. 28012615</div>
-        <div class="payment-title" style="margin-top: 5px;">— DEPÓSITO BANCARIO BDV —</div>
+        <div class="payment-title" style="margin-top: 6px;">— DEPÓSITO BANCARIO BDV —</div>
         <div>01020467450101628166 (JUAN MORA)</div>
         <div>01020467450000967787 (JORGE FLORES)</div>
       </div>
       <div class="signature-area">
         <div class="signature-line"></div>
-        <div>Firma del Cliente</div>
+        <div style="font-weight:600;">Firma del Cliente</div>
       </div>
       </body></html>`);
     win.document.close();
@@ -398,7 +404,7 @@ export default function SalidasPage() {
       {/* Modal Ticket 80mm / 7.6cm */}
       {showTicketModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{maxWidth:450}}>
+          <div className="modal-content" style={{maxWidth:520}}>
             <div className="modal-header" style={{marginBottom:'0.75rem'}}>
               <h2><i className="fa-solid fa-receipt"></i> Vista Previa · Ticket (7.6 cm)</h2>
               <button type="button" className="modal-close" onClick={()=>setShowTicketModal(false)}>&times;</button>
@@ -407,59 +413,75 @@ export default function SalidasPage() {
             {lastSalida && (() => {
               const items = lastSalida.items || [];
               const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
+              const cleanFecha = String(lastSalida.fecha || '').split('T')[0];
               return (
-                <div style={{background:'#fff', border:'1px solid #cbd5e1', borderRadius:8, padding:'1rem', fontFamily:'Segoe UI, Arial, sans-serif, monospace', fontSize:'11px', color:'#000', maxHeight:'65vh', overflowY:'auto'}}>
-                  <div style={{textAlign:'center', fontWeight:800, fontSize:15}}>BESTEDA 2, C.A.</div>
-                  <div style={{textAlign:'center', fontWeight:700, fontSize:11}}>RIF: J-40529263-6</div>
-                  <div style={{textAlign:'center', fontSize:9.5, color:'#222'}}>Calle Principal Casa Nº A-13, Urb. Alto de Fenix II</div>
-                  <div style={{textAlign:'center', fontSize:9.5, color:'#222'}}>San Juan de los Morros - Estado Guárico</div>
-                  <div style={{textAlign:'center', fontSize:9.5, color:'#222'}}>Tlfs: 0424-313.68.05 / 0424-300.48.02</div>
-                  <hr style={{border:'none', borderTop:'1.5px solid #000', margin:'6px 0'}} />
-                  <div style={{textAlign:'center', fontWeight:800, fontSize:13}}>NOTA DE ENTREGA</div>
-                  <div style={{textAlign:'center', fontWeight:800, fontSize:13}}>Nº {lastSalida.factura_number}</div>
-                  <hr style={{border:'none', borderTop:'1px dashed #444', margin:'6px 0'}} />
-                  <div style={{display:'flex', justifyContent:'space-between', fontSize:10, padding:'1px 0'}}><b>FECHA:</b><span>{lastSalida.fecha || ''}</span></div>
-                  <div style={{display:'flex', justifyContent:'space-between', fontSize:10, padding:'1px 0'}}><b>CLIENTE:</b><span>{lastSalida.cliente_name || ''}</span></div>
-                  <div style={{display:'flex', justifyContent:'space-between', fontSize:10, padding:'1px 0'}}><b>C.I./RIF:</b><span>{lastSalida.cedula_rif || '—'}</span></div>
-                  <div style={{display:'flex', justifyContent:'space-between', fontSize:10, padding:'1px 0'}}><b>TELF:</b><span>{lastSalida.telefono || '—'}</span></div>
-                  <div style={{display:'flex', justifyContent:'space-between', fontSize:10, padding:'1px 0'}}><b>DIR:</b><span>{lastSalida.direccion || '—'}</span></div>
-                  <hr style={{border:'none', borderTop:'1px dashed #444', margin:'6px 0'}} />
-                  <table style={{width:'100%', borderCollapse:'collapse', fontSize:10}}>
+                <div style={{background:'#fff', border:'1px solid #cbd5e1', borderRadius:8, padding:'1.25rem 1.5rem', fontFamily:'system-ui, -apple-system, "Segoe UI", Arial, sans-serif', fontSize:'11.5px', color:'#000', maxHeight:'68vh', overflowY:'auto', lineHeight:1.35}}>
+                  <div style={{textAlign:'center', fontWeight:800, fontSize:'16px'}}>BESTEDA 2, C.A.</div>
+                  <div style={{textAlign:'center', fontWeight:700, fontSize:'11.5px', marginTop:'2px'}}>RIF: J-40529263-6</div>
+                  <div style={{textAlign:'center', fontSize:'10px', color:'#111', marginTop:'2px'}}>Calle Principal Casa Nº A-13, Urb. Alto de Fenix II</div>
+                  <div style={{textAlign:'center', fontSize:'10px', color:'#111'}}>San Juan de los Morros - Estado Guárico</div>
+                  <div style={{textAlign:'center', fontSize:'10px', color:'#111'}}>Tlfs: 0424-313.68.05 / 0424-300.48.02</div>
+                  
+                  <hr style={{border:'none', borderTop:'1.5px solid #000', margin:'8px 0'}} />
+                  
+                  <div style={{textAlign:'center', fontWeight:800, fontSize:'14px', letterSpacing:'0.5px'}}>NOTA DE ENTREGA</div>
+                  <div style={{textAlign:'center', fontWeight:800, fontSize:'14px', marginTop:'2px'}}>Nº {lastSalida.factura_number}</div>
+                  
+                  <hr style={{border:'none', borderTop:'1px dashed #444', margin:'8px 0'}} />
+                  
+                  <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', padding:'1.5px 0'}}><b>FECHA:</b><span>{cleanFecha}</span></div>
+                  <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', padding:'1.5px 0'}}><b>CLIENTE:</b><span>{lastSalida.cliente_name || ''}</span></div>
+                  <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', padding:'1.5px 0'}}><b>C.I./RIF:</b><span>{lastSalida.cedula_rif || '—'}</span></div>
+                  <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', padding:'1.5px 0'}}><b>TELF:</b><span>{lastSalida.telefono || '—'}</span></div>
+                  <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', padding:'1.5px 0'}}><b>DIR:</b><span>{lastSalida.direccion || '—'}</span></div>
+                  
+                  <hr style={{border:'none', borderTop:'1px dashed #444', margin:'8px 0'}} />
+                  
+                  <table style={{width:'100%', borderCollapse:'collapse', fontSize:'11px', margin:'6px 0'}}>
                     <thead>
-                      <tr style={{fontSize:9, fontWeight:800, borderBottom:'1px solid #000'}}>
-                        <th style={{textAlign:'left', width:'12%', paddingBottom:4}}>CAN</th>
-                        <th style={{textAlign:'left', width:'52%', paddingBottom:4}}>DESCRIPCIÓN</th>
-                        <th style={{textAlign:'right', width:'18%', paddingBottom:4}}>P/U</th>
-                        <th style={{textAlign:'right', width:'18%', paddingBottom:4}}>TOTAL</th>
+                      <tr style={{fontSize:'10.5px', fontWeight:800, borderBottom:'1.5px solid #000'}}>
+                        <th style={{textAlign:'left', width:'10%', paddingBottom:'4px'}}>CAN</th>
+                        <th style={{textAlign:'left', width:'50%', paddingBottom:'4px'}}>DESCRIPCIÓN</th>
+                        <th style={{textAlign:'right', width:'20%', paddingBottom:'4px'}}>P/U</th>
+                        <th style={{textAlign:'right', width:'20%', paddingBottom:'4px'}}>TOTAL</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {items.map((it,i) => (
-                        <tr key={i} style={{fontSize:9.5}}>
-                          <td style={{padding:'3px 0'}}>{it.cantidad}</td>
-                          <td style={{padding:'3px 0'}}>{it.productoNombre || it.producto_nombre}</td>
-                          <td style={{textAlign:'right', padding:'3px 0'}}>${Number(it.precioUnitario||it.precio_unitario||0).toFixed(2)}</td>
-                          <td style={{textAlign:'right', padding:'3px 0'}}>${(Number(it.cantidad||0)*Number(it.precioUnitario||it.precio_unitario||0)).toFixed(2)}</td>
-                        </tr>
-                      ))}
+                      {items.map((it, i) => {
+                        const pu = Number(it.precioUnitario || it.precio_unitario || 0);
+                        const cant = Number(it.cantidad || 0);
+                        const tot = pu * cant;
+                        return (
+                          <tr key={i} style={{borderBottom:'1px dashed #f1f5f9'}}>
+                            <td style={{padding:'4px 0', verticalAlign:'top'}}>{cant}</td>
+                            <td style={{padding:'4px 0', verticalAlign:'top', fontWeight:600}}>{it.productoNombre || it.producto_nombre}</td>
+                            <td style={{textAlign:'right', padding:'4px 0', verticalAlign:'top'}}>${pu.toFixed(2)}</td>
+                            <td style={{textAlign:'right', padding:'4px 0', verticalAlign:'top', fontWeight:700}}>${tot.toFixed(2)}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
-                  <hr style={{border:'none', borderTop:'2.5px double #000', margin:'6px 0'}} />
-                  <div style={{display:'flex', justifyContent:'space-between', fontWeight:800, fontSize:12, margin:'6px 0'}}>
+                  
+                  <hr style={{border:'none', borderTop:'1.5px solid #000', margin:'8px 0'}} />
+                  
+                  <div style={{display:'flex', justifyContent:'space-between', fontWeight:800, fontSize:'14px', margin:'10px 0'}}>
                     <span>UND: {totalUnits}</span>
-                    <span>TOTAL: ${Number(lastSalida.total_factura||totalFactura).toFixed(2)}</span>
+                    <span>TOTAL: ${Number(lastSalida.total_factura || totalFactura).toFixed(2)}</span>
                   </div>
-                  <div style={{border:'1px solid #888', borderRadius:8, padding:'6px 8px', margin:'10px 0', background:'#fafafa', fontSize:8.5, textAlign:'center', lineHeight:1.4}}>
-                    <div style={{fontWeight:800}}>— PAGO MÓVIL BDV —</div>
+                  
+                  <div style={{border:'1px solid #94a3b8', borderRadius:'8px', padding:'8px 10px', margin:'12px 0', background:'#f8fafc', fontSize:'9.5px', textAlign:'center', lineHeight:1.45}}>
+                    <div style={{fontWeight:800, fontSize:'10px'}}>— PAGO MÓVIL BDV —</div>
                     <div>0102 | 0424 3136805 | C.I. 10668263</div>
                     <div>0102 | 0424 3004802 | C.I. 28012615</div>
-                    <div style={{fontWeight:800, marginTop:5}}>— DEPÓSITO BANCARIO BDV —</div>
+                    <div style={{fontWeight:800, fontSize:'10px', marginTop:'6px'}}>— DEPÓSITO BANCARIO BDV —</div>
                     <div>01020467450101628166 (JUAN MORA)</div>
                     <div>01020467450000967787 (JORGE FLORES)</div>
                   </div>
-                  <div style={{marginTop:24, textAlign:'center', fontSize:9}}>
-                    <div style={{borderTop:'1px solid #000', width:'70%', margin:'0 auto 4px auto'}}></div>
-                    <div>Firma del Cliente</div>
+                  
+                  <div style={{marginTop:'32px', textAlign:'center'}}>
+                    <div style={{borderTop:'1.5px solid #000', width:'65%', margin:'0 auto 5px auto'}}></div>
+                    <div style={{fontSize:'10.5px', fontWeight:600}}>Firma del Cliente</div>
                   </div>
                 </div>
               );
