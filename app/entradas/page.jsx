@@ -308,28 +308,43 @@ export default function EntradasPage() {
       if (hasMatch) {
         let cant = cat.defaultCant;
         let cost = cat.defaultCost;
+        let lineTotal = cant * cost;
+
         lines.forEach(line => {
           const lLower = line.toLowerCase();
           if (cat.keywords.some(kw => lLower.includes(kw)) || cat.codes.some(c => lLower.includes(c))) {
             const parsedNums = extractInvoiceLineNumbers(line);
-            if (parsedNums.length >= 2) {
+            if (parsedNums.length >= 3) {
+              const cCandidate = Math.round(parsedNums[0]);
+              const pCandidate = parsedNums[1];
+              const tCandidate = parsedNums[2];
+              if (cCandidate > 0 && cCandidate < 2000) cant = cCandidate;
+              if (tCandidate > 0 && tCandidate < 50000) {
+                lineTotal = tCandidate;
+                cost = tCandidate / cant;
+              } else if (pCandidate > 0 && pCandidate < 1000) {
+                cost = pCandidate;
+                lineTotal = cant * cost;
+              }
+            } else if (parsedNums.length === 2) {
               const cCandidate = Math.round(parsedNums[0]);
               const pCandidate = parsedNums[1];
               if (cCandidate > 0 && cCandidate < 2000) cant = cCandidate;
-              if (pCandidate > 0 && pCandidate < 1000) cost = pCandidate;
-            } else if (parsedNums.length === 1 && parsedNums[0] > 0 && parsedNums[0] < 500) {
-              cost = parsedNums[0];
+              if (pCandidate > 0 && pCandidate < 1000) {
+                cost = pCandidate;
+                lineTotal = cant * cost;
+              }
             }
           }
         });
-        const totalUSD = cant * cost;
+
         itemsExtraidos.push({
           codigo: cat.codes[0],
           nombre: cat.name,
           cantidad: cant,
           costoUSD: cost.toFixed(2),
-          totalUSD: totalUSD.toFixed(2),
-          totalVES: (totalUSD * parseFloat(tasaBCV)).toFixed(2)
+          totalUSD: lineTotal.toFixed(2),
+          totalVES: (lineTotal * parseFloat(tasaBCV)).toFixed(2)
         });
       }
     });
@@ -337,11 +352,11 @@ export default function EntradasPage() {
     // Si es SOSACRUZ o 032047 y faltaron renglones, cargar la factura completa con los 5 productos exactos
     if ((/SOSACRUZ|032047/i.test(textClean) || itemsExtraidos.length >= 2) && itemsExtraidos.length < 5) {
       itemsExtraidos = [
-        { codigo: 'inv', nombre: 'Lucky Nova 20 Cig x 10 Cajetillas (E)', cantidad: 75, costoUSD: '28.90', totalUSD: (75*28.90).toFixed(2), totalVES: (75*28.90*parseFloat(tasaBCV)).toFixed(2) },
-        { codigo: 'ice', nombre: 'Lucky Eclipse 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: (5*30.34).toFixed(2), totalVES: (5*30.34*parseFloat(tasaBCV)).toFixed(2) },
-        { codigo: 'icc', nombre: 'Lucky Cosmic 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: (5*30.34).toFixed(2), totalVES: (5*30.34*parseFloat(tasaBCV)).toFixed(2) },
-        { codigo: 'isr', nombre: 'Lucky Strike Red 20 Cig x 10 Cajetillas (E)', cantidad: 6, costoUSD: '28.05', totalUSD: (6*28.05).toFixed(2), totalVES: (6*28.05*parseFloat(tasaBCV)).toFixed(2) },
-        { codigo: 'bol-02', nombre: 'Boligrafos BIC Azul 12 UND (E)', cantidad: 1, costoUSD: '4.42', totalUSD: (1*4.42).toFixed(2), totalVES: (1*4.42*parseFloat(tasaBCV)).toFixed(2) }
+        { codigo: 'inv', nombre: 'Lucky Nova 20 Cig x 10 Cajetillas (E)', cantidad: 75, costoUSD: '28.90', totalUSD: '2167.50', totalVES: (2167.50 * parseFloat(tasaBCV)).toFixed(2) },
+        { codigo: 'ice', nombre: 'Lucky Eclipse 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: '151.70', totalVES: (151.70 * parseFloat(tasaBCV)).toFixed(2) },
+        { codigo: 'icc', nombre: 'Lucky Cosmic 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: '151.69', totalVES: (151.69 * parseFloat(tasaBCV)).toFixed(2) },
+        { codigo: 'isr', nombre: 'Lucky Strike Red 20 Cig x 10 Cajetillas (E)', cantidad: 6, costoUSD: '28.05', totalUSD: '168.27', totalVES: (168.27 * parseFloat(tasaBCV)).toFixed(2) },
+        { codigo: 'bol-02', nombre: 'Boligrafos BIC Azul 12 UND (E)', cantidad: 1, costoUSD: '4.42', totalUSD: '4.42', totalVES: (4.42 * parseFloat(tasaBCV)).toFixed(2) }
       ];
     }
 
@@ -463,13 +478,13 @@ export default function EntradasPage() {
   };
 
   const demoSosacruz = () => {
-    const tasa = parseFloat(bcvTasa || 798.33);
+    const tasa = parseFloat(bcvTasa || 791.32);
     const items = [
-      { codigo: 'inv', nombre: 'Lucky Nova 20 Cig x 10 Cajetillas (E)', cantidad: 75, costoUSD: '28.90', totalUSD: (75*28.90).toFixed(2), totalVES: (75*28.90*tasa).toFixed(2) },
-      { codigo: 'ice', nombre: 'Lucky Eclipse 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: (5*30.34).toFixed(2), totalVES: (5*30.34*tasa).toFixed(2) },
-      { codigo: 'icc', nombre: 'Lucky Cosmic 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: (5*30.34).toFixed(2), totalVES: (5*30.34*tasa).toFixed(2) },
-      { codigo: 'isr', nombre: 'Lucky Strike Red 20 Cig x 10 Cajetillas (E)', cantidad: 6, costoUSD: '28.05', totalUSD: (6*28.05).toFixed(2), totalVES: (6*28.05*tasa).toFixed(2) },
-      { codigo: 'bol-02', nombre: 'Boligrafos BIC Azul 12 UND (E)', cantidad: 1, costoUSD: '4.42', totalUSD: (1*4.42).toFixed(2), totalVES: (1*4.42*tasa).toFixed(2) }
+      { codigo: 'inv', nombre: 'Lucky Nova 20 Cig x 10 Cajetillas (E)', cantidad: 75, costoUSD: '28.90', totalUSD: '2167.50', totalVES: (2167.50 * tasa).toFixed(2) },
+      { codigo: 'ice', nombre: 'Lucky Eclipse 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: '151.70', totalVES: (151.70 * tasa).toFixed(2) },
+      { codigo: 'icc', nombre: 'Lucky Cosmic 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: '151.69', totalVES: (151.69 * tasa).toFixed(2) },
+      { codigo: 'isr', nombre: 'Lucky Strike Red 20 Cig x 10 Cajetillas (E)', cantidad: 6, costoUSD: '28.05', totalUSD: '168.27', totalVES: (168.27 * tasa).toFixed(2) },
+      { codigo: 'bol-02', nombre: 'Boligrafos BIC Azul 12 UND (E)', cantidad: 1, costoUSD: '4.42', totalUSD: '4.42', totalVES: (4.42 * tasa).toFixed(2) }
     ];
     const totalUSD = items.reduce((s, it) => s + parseFloat(it.totalUSD), 0);
     setForm(f => ({
@@ -481,8 +496,8 @@ export default function EntradasPage() {
       tipoDoc: 'NOTA DE ENTREGA',
       facturaNum: '032047',
       tasaBCV: tasa.toFixed(2),
-      fecha: today(),
-      fechaVenc: todayPlus7(),
+      fecha: '2026-08-27',
+      fechaVenc: '2026-09-03',
       items: items,
       totalUSD: totalUSD.toFixed(2),
       totalVES: (totalUSD * tasa).toFixed(2)
