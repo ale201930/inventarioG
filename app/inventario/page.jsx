@@ -24,8 +24,14 @@ export default function InventarioPage() {
     setFiltered(q ? productos.filter(p => p.nombre.toLowerCase().includes(q) || (p.codigo_producto||'').toLowerCase().includes(q)) : productos);
   }, [search, productos]);
 
-  const openNew = () => { setEditing(null); setForm({ nombre:'', cantidad:0, costoUnitario:0, precioVenta1:0, precioVenta2:0, precioVenta3:0 }); setShowModal(true); };
-  const openEdit = (p) => {
+  const openNew = (e) => {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    setEditing(null);
+    setForm({ nombre:'', cantidad:0, costoUnitario:0, precioVenta1:0, precioVenta2:0, precioVenta3:0 });
+    setShowModal(true);
+  };
+  const openEdit = (p, e) => {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
     setEditing(p);
     setForm({ nombre:p.nombre, cantidad:p.cantidad, costoUnitario:p.costo_unitario, precioVenta1:p.precio_venta1, precioVenta2:p.precio_venta2, precioVenta3:p.precio_venta3 });
     setShowModal(true);
@@ -54,7 +60,7 @@ export default function InventarioPage() {
           <h1 className="page-title"><i className="fa-solid fa-box" style={{color:'var(--primary)'}}></i> Gestión de Inventario</h1>
           <p className="page-subtitle">Listado de productos, existencias en almacén y precios</p>
         </div>
-        <button className="btn btn-primary" onClick={openNew}><i className="fa-solid fa-plus"></i> Nuevo Producto</button>
+        <button type="button" className="btn btn-primary" onClick={openNew}><i className="fa-solid fa-plus"></i> Nuevo Producto</button>
       </div>
 
       {/* Barra de Búsqueda */}
@@ -101,8 +107,8 @@ export default function InventarioPage() {
                 <td>${Number(p.precio_venta3||0).toFixed(2)}</td>
                 <td>
                   <div style={{display:'flex', gap:'0.5rem'}}>
-                    <button className="btn btn-secondary btn-sm" onClick={()=>openEdit(p)} title="Editar"><i className="fa-solid fa-pen"></i></button>
-                    <button className="btn btn-danger btn-sm" onClick={()=>handleDelete(p)} title="Eliminar"><i className="fa-solid fa-trash"></i></button>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={(e)=>openEdit(p, e)} title="Editar"><i className="fa-solid fa-pen"></i></button>
+                    <button type="button" className="btn btn-danger btn-sm" onClick={()=>handleDelete(p)} title="Eliminar"><i className="fa-solid fa-trash"></i></button>
                   </div>
                 </td>
               </tr>
@@ -113,11 +119,12 @@ export default function InventarioPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
-          <div className="modal-content" style={{maxWidth:550}}>
+        <div className="modal-overlay">
+          <div className="modal-backdrop" onClick={()=>setShowModal(false)} />
+          <div className="modal-content" style={{maxWidth:550}} onClick={e=>e.stopPropagation()}>
             <div className="modal-header">
               <h2>{editing ? 'Editar Producto' : 'Nuevo Producto'}</h2>
-              <button className="modal-close" onClick={()=>setShowModal(false)}>&times;</button>
+              <button type="button" className="modal-close" onClick={()=>setShowModal(false)}>&times;</button>
             </div>
             <form onSubmit={handleSave}>
               <div className="form-group">

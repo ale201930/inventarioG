@@ -203,25 +203,26 @@ export default function EntradasPage() {
 
       {/* Modal Registrar Entrada */}
       {showModal && (
-        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
-        <div className="modal-content" style={{maxWidth:950}}>
-          <div className="modal-header">
-            <div>
-              <h2><i className="fa-solid fa-file-circle-plus"></i> Cargar Factura de Proveedor / Entrada</h2>
-              <p style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>Toma una foto de la factura o sube la imagen para escaneo automático OCR</p>
+        <div className="modal-overlay">
+          <div className="modal-backdrop" onClick={()=>setShowModal(false)} />
+          <div className="modal-content" style={{maxWidth:950}} onClick={e=>e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2><i className="fa-solid fa-file-circle-plus"></i> Cargar Factura de Proveedor / Entrada</h2>
+                <p style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>Toma una foto de la factura o sube la imagen para escaneo automático OCR</p>
+              </div>
+              <div style={{display:'flex', gap:'0.5rem', alignItems:'center'}}>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={demoSosacruz} style={{fontSize:'0.75rem', background:'#e0f2fe', color:'#0369a1', borderColor:'#bae6fd'}}>
+                  💡 Ejemplo SOSACRUZ
+                </button>
+                <button type="button" className="modal-close" onClick={()=>setShowModal(false)}>&times;</button>
+              </div>
             </div>
-            <div style={{display:'flex', gap:'0.5rem', alignItems:'center'}}>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={demoSosacruz} style={{fontSize:'0.75rem', background:'#e0f2fe', color:'#0369a1', borderColor:'#bae6fd'}}>
-                💡 Ejemplo SOSACRUZ
-              </button>
-              <button className="modal-close" onClick={()=>setShowModal(false)}>&times;</button>
-            </div>
-          </div>
 
-          {/* OCR upload zone */}
-          <div style={{background:'#eff6ff', border:'2px dashed #3b82f6', borderRadius:10, padding:'0.85rem 1rem', marginBottom:'1rem'}}>
-            <div style={{fontSize:'0.85rem', fontWeight:700, color:'#1e40af', marginBottom:'0.5rem', textAlign:'center'}}>📷 Capturar / Adjuntar Factura (Escaneo Inteligente OCR):</div>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem'}}>
+            {/* OCR upload zone */}
+            <div style={{background:'#eff6ff', border:'2px dashed #3b82f6', borderRadius:10, padding:'0.85rem 1rem', marginBottom:'1rem'}}>
+              <div style={{fontSize:'0.85rem', fontWeight:700, color:'#1e40af', marginBottom:'0.5rem', textAlign:'center'}}>📷 Capturar / Adjuntar Factura (Escaneo Inteligente OCR):</div>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem'}}>
               <label style={{cursor:'pointer', background:'#2563eb', color:'#fff', padding:'0.65rem 0.8rem', borderRadius:6, textAlign:'center', fontWeight:700, fontSize:'0.85rem', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem'}}>
                 <i className="fa-solid fa-camera"></i> 📷 Tomar Foto con Cámara
                 <input type="file" accept="image/*" capture="environment" style={{display:'none'}} onChange={e=>handleOCR(e.target.files[0])} />
@@ -337,48 +338,50 @@ export default function EntradasPage() {
 
       {/* Modal Preview */}
       {showPreviewModal && (
-        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowPreviewModal(false)}>
-        <div className="modal-content" style={{maxWidth:900}}>
-          <div className="modal-header" style={{marginBottom:'0.75rem', borderBottom:'2px solid var(--primary-light)', paddingBottom:'0.5rem'}}>
-            <div>
-              <h2><i className="fa-solid fa-clipboard-check" style={{color:'var(--success)'}}></i> Inspección Visual de Carga al Inventario</h2>
-              <p style={{fontSize:'0.82rem', color:'var(--text-secondary)'}}>Verifica cómo quedará tu inventario después de procesar esta compra</p>
+        <div className="modal-overlay">
+          <div className="modal-backdrop" onClick={()=>setShowPreviewModal(false)} />
+          <div className="modal-content" style={{maxWidth:900}} onClick={e=>e.stopPropagation()}>
+            <div className="modal-header" style={{marginBottom:'0.75rem', borderBottom:'2px solid var(--primary-light)', paddingBottom:'0.5rem'}}>
+              <div>
+                <h2><i className="fa-solid fa-clipboard-check" style={{color:'var(--success)'}}></i> Inspección Visual de Carga al Inventario</h2>
+                <p style={{fontSize:'0.82rem', color:'var(--text-secondary)'}}>Verifica cómo quedará tu inventario después de procesar esta compra</p>
+              </div>
+              <button type="button" className="modal-close" onClick={()=>setShowPreviewModal(false)}>&times;</button>
             </div>
-            <button className="modal-close" onClick={()=>setShowPreviewModal(false)}>&times;</button>
-          </div>
-          <div style={{overflowX:'auto'}}>
-            <table style={{width:'100%', minWidth:600}}>
-              <thead><tr><th>Producto</th><th>Cantidad</th><th>Costo USD</th><th>Total USD</th><th>Total Bs.</th></tr></thead>
-              <tbody>
-                {form.items.filter(it=>it.nombre&&parseInt(it.cantidad||0)>0).map((it,i) => (
-                  <tr key={i}>
-                    <td>{it.nombre}</td>
-                    <td><span className="badge badge-primary">{it.cantidad}</span></td>
-                    <td>${Number(it.costoUSD||0).toFixed(2)}</td>
-                    <td style={{fontWeight:700}}>${Number(it.totalUSD||0).toFixed(2)}</td>
-                    <td style={{color:'var(--text-secondary)'}}>Bs. {Number((it.totalUSD||0)*parseFloat(form.tasaBCV||798.33)).toLocaleString('es-VE',{minimumFractionDigits:2})}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1.5fr', gap:'1rem', marginTop:'1.25rem'}}>
-            <button className="btn btn-secondary" onClick={()=>setShowPreviewModal(false)}><i className="fa-solid fa-arrow-left"></i> Volver a Editar</button>
-            <button className="btn btn-primary" style={{background:'var(--success)', borderColor:'var(--success)'}} onClick={()=>handleSave(true)} disabled={saving}>
-              {saving ? <><i className="fa-solid fa-spinner fa-spin"></i> Guardando...</> : <><i className="fa-solid fa-check-double"></i> Confirmar e Ingresar al Inventario</>}
-            </button>
+            <div style={{overflowX:'auto'}}>
+              <table style={{width:'100%', minWidth:600}}>
+                <thead><tr><th>Producto</th><th>Cantidad</th><th>Costo USD</th><th>Total USD</th><th>Total Bs.</th></tr></thead>
+                <tbody>
+                  {form.items.filter(it=>it.nombre&&parseInt(it.cantidad||0)>0).map((it,i) => (
+                    <tr key={i}>
+                      <td>{it.nombre}</td>
+                      <td><span className="badge badge-primary">{it.cantidad}</span></td>
+                      <td>${Number(it.costoUSD||0).toFixed(2)}</td>
+                      <td style={{fontWeight:700}}>${Number(it.totalUSD||0).toFixed(2)}</td>
+                      <td style={{color:'var(--text-secondary)'}}>Bs. {Number((it.totalUSD||0)*parseFloat(form.tasaBCV||798.33)).toLocaleString('es-VE',{minimumFractionDigits:2})}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1.5fr', gap:'1rem', marginTop:'1.25rem'}}>
+              <button type="button" className="btn btn-secondary" onClick={()=>setShowPreviewModal(false)}><i className="fa-solid fa-arrow-left"></i> Volver a Editar</button>
+              <button type="button" className="btn btn-primary" style={{background:'var(--success)', borderColor:'var(--success)'}} onClick={()=>handleSave(true)} disabled={saving}>
+                {saving ? <><i className="fa-solid fa-spinner fa-spin"></i> Guardando...</> : <><i className="fa-solid fa-check-double"></i> Confirmar e Ingresar al Inventario</>}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
       )}
 
       {/* Modal Abono */}
       {showAbonoModal && (
-        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowAbonoModal(false)}>
-          <div className="modal-content">
+        <div className="modal-overlay">
+          <div className="modal-backdrop" onClick={()=>setShowAbonoModal(false)} />
+          <div className="modal-content" onClick={e=>e.stopPropagation()}>
             <div className="modal-header">
               <h2>Registrar Abono a Proveedor</h2>
-              <button className="modal-close" onClick={()=>setShowAbonoModal(false)}>&times;</button>
+              <button type="button" className="modal-close" onClick={()=>setShowAbonoModal(false)}>&times;</button>
             </div>
             <form onSubmit={handleAbonoSave}>
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem'}}>

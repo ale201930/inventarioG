@@ -247,8 +247,9 @@ export default function SalidasPage() {
 
       {/* Modal Nueva Factura */}
       {showModal && (
-        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
-          <div className="modal-content" style={{maxWidth:750}}>
+        <div className="modal-overlay">
+          <div className="modal-backdrop" onClick={(e)=>{ e.stopPropagation(); setShowModal(false); }} />
+          <div className="modal-content" style={{maxWidth:750}} onClick={e=>e.stopPropagation()}>
             <div className="modal-header">
               <div>
                 <h2><i className="fa-solid fa-file-invoice"></i> Nueva Factura (BESTEDA 2, C.A.)</h2>
@@ -350,68 +351,70 @@ export default function SalidasPage() {
 
       {/* Modal Ticket 80mm */}
       {showTicketModal && (
-        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowTicketModal(false)}>
-        <div className="modal-content" style={{maxWidth:480}}>
-          <div className="modal-header" style={{marginBottom:'0.75rem'}}>
-            <h2><i className="fa-solid fa-receipt"></i> Vista Previa · Ticket 80mm</h2>
-            <button className="modal-close" onClick={()=>setShowTicketModal(false)}>&times;</button>
-          </div>
-          {/* Ticket Preview */}
-          {lastSalida && (
-            <div style={{background:'#fff', border:'1px solid #e2e8f0', borderRadius:8, padding:'1rem', fontFamily:'Courier New,monospace', fontSize:'10px', maxHeight:'65vh', overflowY:'auto'}}>
-              <div style={{textAlign:'center', fontWeight:900, fontSize:13}}>BESTEDA 2, C.A.</div>
-              <div style={{textAlign:'center', fontSize:10}}>RIF: J-40529263-6</div>
-              <div style={{textAlign:'center', fontSize:9, color:'#333'}}>San Juan de los Morros - Guárico</div>
-              <hr style={{border:'none', borderTop:'2px solid #000', margin:'5px 0'}} />
-              <div style={{textAlign:'center', fontWeight:900, fontSize:12}}>NOTA DE ENTREGA</div>
-              <div style={{textAlign:'center', fontWeight:900, color:'#b91c1c', fontSize:12}}>Nº {lastSalida.factura_number}</div>
-              <hr style={{border:'none', borderTop:'1px dashed #666', margin:'4px 0'}} />
-              <div style={{display:'flex', justifyContent:'space-between', fontSize:10}}><b>Cliente:</b><span>{lastSalida.cliente_name}</span></div>
-              <div style={{display:'flex', justifyContent:'space-between', fontSize:10}}><b>C.I./RIF:</b><span>{lastSalida.cedula_rif||'—'}</span></div>
-              <div style={{display:'flex', justifyContent:'space-between', fontSize:10}}><b>Fecha:</b><span>{lastSalida.fecha}</span></div>
-              <hr style={{border:'none', borderTop:'1px dashed #666', margin:'4px 0'}} />
-              <table style={{width:'100%', borderCollapse:'collapse'}}>
-                <thead>
-                  <tr style={{fontSize:9, fontWeight:700}}><td>CANT</td><td>DESCRIPCIÓN</td><td style={{textAlign:'right'}}>P/U</td><td style={{textAlign:'right'}}>TOTAL</td></tr>
-                </thead>
-                <tbody>
-                  {(lastSalida.items||[]).map((it,i) => (
-                    <tr key={i} style={{fontSize:9}}>
-                      <td>{it.cantidad}</td>
-                      <td style={{maxWidth:120, wordBreak:'break-word'}}>{it.productoNombre||it.producto_nombre}</td>
-                      <td style={{textAlign:'right'}}>${Number(it.precioUnitario||it.precio_unitario||0).toFixed(2)}</td>
-                      <td style={{textAlign:'right'}}>${Number((it.cantidad)*(it.precioUnitario||it.precio_unitario||0)).toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <hr style={{border:'none', borderTop:'1px dashed #666', margin:'4px 0'}} />
-              <div style={{display:'flex', justifyContent:'space-between', fontWeight:900, fontSize:12}}>
-                <span>TOTAL:</span><span>${Number(lastSalida.total_factura||totalFactura).toFixed(2)}</span>
-              </div>
-              <div style={{textAlign:'center', fontSize:9, marginTop:16, borderTop:'1px solid #000', paddingTop:4}}>FIRMA: ___________________</div>
-              <div style={{textAlign:'center', fontSize:8}}>Gracias por su compra</div>
+        <div className="modal-overlay">
+          <div className="modal-backdrop" onClick={()=>setShowTicketModal(false)} />
+          <div className="modal-content" style={{maxWidth:480}} onClick={e=>e.stopPropagation()}>
+            <div className="modal-header" style={{marginBottom:'0.75rem'}}>
+              <h2><i className="fa-solid fa-receipt"></i> Vista Previa · Ticket 80mm</h2>
+              <button type="button" className="modal-close" onClick={()=>setShowTicketModal(false)}>&times;</button>
             </div>
-          )}
-          <div style={{display:'flex', gap:'0.75rem', marginTop:'1rem'}}>
-            <button className="btn btn-primary" style={{width:'100%', fontSize:'1rem', padding:'0.75rem'}} onClick={printTicket}>
-              <i className="fa-solid fa-print"></i> Enviar a Impresora 80mm
-            </button>
+            {/* Ticket Preview */}
+            {lastSalida && (
+              <div style={{background:'#fff', border:'1px solid #e2e8f0', borderRadius:8, padding:'1rem', fontFamily:'Courier New,monospace', fontSize:'10px', maxHeight:'65vh', overflowY:'auto'}}>
+                <div style={{textAlign:'center', fontWeight:900, fontSize:13}}>BESTEDA 2, C.A.</div>
+                <div style={{textAlign:'center', fontSize:10}}>RIF: J-40529263-6</div>
+                <div style={{textAlign:'center', fontSize:9, color:'#333'}}>San Juan de los Morros - Guárico</div>
+                <hr style={{border:'none', borderTop:'2px solid #000', margin:'5px 0'}} />
+                <div style={{textAlign:'center', fontWeight:900, fontSize:12}}>NOTA DE ENTREGA</div>
+                <div style={{textAlign:'center', fontWeight:900, color:'#b91c1c', fontSize:12}}>Nº {lastSalida.factura_number}</div>
+                <hr style={{border:'none', borderTop:'1px dashed #666', margin:'4px 0'}} />
+                <div style={{display:'flex', justifyContent:'space-between', fontSize:10}}><b>Cliente:</b><span>{lastSalida.cliente_name}</span></div>
+                <div style={{display:'flex', justifyContent:'space-between', fontSize:10}}><b>C.I./RIF:</b><span>{lastSalida.cedula_rif||'—'}</span></div>
+                <div style={{display:'flex', justifyContent:'space-between', fontSize:10}}><b>Fecha:</b><span>{lastSalida.fecha}</span></div>
+                <hr style={{border:'none', borderTop:'1px dashed #666', margin:'4px 0'}} />
+                <table style={{width:'100%', borderCollapse:'collapse'}}>
+                  <thead>
+                    <tr style={{fontSize:9, fontWeight:700}}><td>CANT</td><td>DESCRIPCIÓN</td><td style={{textAlign:'right'}}>P/U</td><td style={{textAlign:'right'}}>TOTAL</td></tr>
+                  </thead>
+                  <tbody>
+                    {(lastSalida.items||[]).map((it,i) => (
+                      <tr key={i} style={{fontSize:9}}>
+                        <td>{it.cantidad}</td>
+                        <td style={{maxWidth:120, wordBreak:'break-word'}}>{it.productoNombre||it.producto_nombre}</td>
+                        <td style={{textAlign:'right'}}>${Number(it.precioUnitario||it.precio_unitario||0).toFixed(2)}</td>
+                        <td style={{textAlign:'right'}}>${Number((it.cantidad)*(it.precioUnitario||it.precio_unitario||0)).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <hr style={{border:'none', borderTop:'1px dashed #666', margin:'4px 0'}} />
+                <div style={{display:'flex', justifyContent:'space-between', fontWeight:900, fontSize:12}}>
+                  <span>TOTAL:</span><span>${Number(lastSalida.total_factura||totalFactura).toFixed(2)}</span>
+                </div>
+                <div style={{textAlign:'center', fontSize:9, marginTop:16, borderTop:'1px solid #000', paddingTop:4}}>FIRMA: ___________________</div>
+                <div style={{textAlign:'center', fontSize:8}}>Gracias por su compra</div>
+              </div>
+            )}
+            <div style={{display:'flex', gap:'0.75rem', marginTop:'1rem'}}>
+              <button type="button" className="btn btn-primary" style={{width:'100%', fontSize:'1rem', padding:'0.75rem'}} onClick={printTicket}>
+                <i className="fa-solid fa-print"></i> Enviar a Impresora 80mm
+              </button>
+            </div>
           </div>
         </div>
-      </div>
       )}
 
       {/* Modal Abono de Cliente */}
       {showAbonoModal && (
-        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowAbonoModal(false)}>
-          <div className="modal-content" style={{maxWidth:500}}>
+        <div className="modal-overlay">
+          <div className="modal-backdrop" onClick={()=>setShowAbonoModal(false)} />
+          <div className="modal-content" style={{maxWidth:500}} onClick={e=>e.stopPropagation()}>
             <div className="modal-header">
               <div>
                 <h2><i className="fa-solid fa-hand-holding-dollar"></i> Registrar Abono de Cliente</h2>
                 <p style={{fontSize:'0.82rem', color:'var(--text-secondary)', fontWeight:600, margin:0}}>{abonoForm.clienteName}</p>
               </div>
-              <button className="modal-close" onClick={()=>setShowAbonoModal(false)}>&times;</button>
+              <button type="button" className="modal-close" onClick={()=>setShowAbonoModal(false)}>&times;</button>
             </div>
             <form onSubmit={handleAbonoSave}>
               <div style={{background:'#f0f9ff', border:'1px solid #bae6fd', padding:'0.5rem 0.75rem', borderRadius:6, marginBottom:'1rem', fontSize:'0.8rem', color:'#0369a1', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
@@ -454,14 +457,15 @@ export default function SalidasPage() {
 
       {/* Modal Estado de Cuenta */}
       {showEstadoModal && (
-        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowEstadoModal(false)}>
-          <div className="modal-content" style={{maxWidth:850}}>
+        <div className="modal-overlay">
+          <div className="modal-backdrop" onClick={()=>setShowEstadoModal(false)} />
+          <div className="modal-content" style={{maxWidth:850}} onClick={e=>e.stopPropagation()}>
             <div className="modal-header">
               <div>
                 <h2><i className="fa-solid fa-file-invoice-dollar" style={{color:'#0284c7'}}></i> Estado de Cuenta del Cliente</h2>
                 <p style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>Resumen detallado de compras, abonos y saldo deudor pendiente</p>
               </div>
-              <button className="modal-close" onClick={()=>setShowEstadoModal(false)}>&times;</button>
+              <button type="button" className="modal-close" onClick={()=>setShowEstadoModal(false)}>&times;</button>
             </div>
             <div style={{background:'#f8fafc', border:'1px solid #e2e8f0', padding:'0.85rem', borderRadius:8, marginBottom:'1rem', display:'flex', gap:'0.75rem', alignItems:'flex-end', flexWrap:'wrap'}}>
               <div style={{flex:1, minWidth:220}}>
