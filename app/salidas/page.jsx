@@ -248,8 +248,8 @@ export default function SalidasPage() {
       {/* Modal Nueva Factura */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" onClick={(e)=>{ e.stopPropagation(); setShowModal(false); }} />
-          <div className="modal-content" style={{maxWidth:750}} onClick={e=>e.stopPropagation()}>
+          <div className="modal-backdrop" />
+          <div className="modal-content" style={{maxWidth:750}}>
             <div className="modal-header">
               <div>
                 <h2><i className="fa-solid fa-file-invoice"></i> Nueva Factura (BESTEDA 2, C.A.)</h2>
@@ -352,8 +352,8 @@ export default function SalidasPage() {
       {/* Modal Ticket 80mm */}
       {showTicketModal && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" onClick={()=>setShowTicketModal(false)} />
-          <div className="modal-content" style={{maxWidth:480}} onClick={e=>e.stopPropagation()}>
+          <div className="modal-backdrop" />
+          <div className="modal-content" style={{maxWidth:480}}>
             <div className="modal-header" style={{marginBottom:'0.75rem'}}>
               <h2><i className="fa-solid fa-receipt"></i> Vista Previa · Ticket 80mm</h2>
               <button type="button" className="modal-close" onClick={()=>setShowTicketModal(false)}>&times;</button>
@@ -407,8 +407,8 @@ export default function SalidasPage() {
       {/* Modal Abono de Cliente */}
       {showAbonoModal && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" onClick={()=>setShowAbonoModal(false)} />
-          <div className="modal-content" style={{maxWidth:500}} onClick={e=>e.stopPropagation()}>
+          <div className="modal-backdrop" />
+          <div className="modal-content" style={{maxWidth:500}}>
             <div className="modal-header">
               <div>
                 <h2><i className="fa-solid fa-hand-holding-dollar"></i> Registrar Abono de Cliente</h2>
@@ -458,8 +458,8 @@ export default function SalidasPage() {
       {/* Modal Estado de Cuenta */}
       {showEstadoModal && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" onClick={()=>setShowEstadoModal(false)} />
-          <div className="modal-content" style={{maxWidth:850}} onClick={e=>e.stopPropagation()}>
+          <div className="modal-backdrop" />
+          <div className="modal-content" style={{maxWidth:850}}>
             <div className="modal-header">
               <div>
                 <h2><i className="fa-solid fa-file-invoice-dollar" style={{color:'#0284c7'}}></i> Estado de Cuenta del Cliente</h2>

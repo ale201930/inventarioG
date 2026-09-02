@@ -204,8 +204,8 @@ export default function EntradasPage() {
       {/* Modal Registrar Entrada */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" onClick={()=>setShowModal(false)} />
-          <div className="modal-content" style={{maxWidth:950}} onClick={e=>e.stopPropagation()}>
+          <div className="modal-backdrop" />
+          <div className="modal-content" style={{maxWidth:950}}>
             <div className="modal-header">
               <div>
                 <h2><i className="fa-solid fa-file-circle-plus"></i> Cargar Factura de Proveedor / Entrada</h2>
@@ -339,8 +339,8 @@ export default function EntradasPage() {
       {/* Modal Preview */}
       {showPreviewModal && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" onClick={()=>setShowPreviewModal(false)} />
-          <div className="modal-content" style={{maxWidth:900}} onClick={e=>e.stopPropagation()}>
+          <div className="modal-backdrop" />
+          <div className="modal-content" style={{maxWidth:900}}>
             <div className="modal-header" style={{marginBottom:'0.75rem', borderBottom:'2px solid var(--primary-light)', paddingBottom:'0.5rem'}}>
               <div>
                 <h2><i className="fa-solid fa-clipboard-check" style={{color:'var(--success)'}}></i> Inspección Visual de Carga al Inventario</h2>
@@ -377,8 +377,8 @@ export default function EntradasPage() {
       {/* Modal Abono */}
       {showAbonoModal && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" onClick={()=>setShowAbonoModal(false)} />
-          <div className="modal-content" onClick={e=>e.stopPropagation()}>
+          <div className="modal-backdrop" />
+          <div className="modal-content">
             <div className="modal-header">
               <h2>Registrar Abono a Proveedor</h2>
               <button type="button" className="modal-close" onClick={()=>setShowAbonoModal(false)}>&times;</button>
