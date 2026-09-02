@@ -1,7 +1,6 @@
-// app/entradas/page.jsx — Entradas / Compras (idéntico a views/entradas.php + entradas.js)
 'use client';
-import { useEffect, useState, useRef } from 'react';
-import AppShell from '@/components/AppShell';
+import { useEffect, useState } from 'react';
+import Script from 'next/script';
 
 function today() { return new Date().toISOString().split('T')[0]; }
 function todayPlus7() { const d = new Date(); d.setDate(d.getDate()+7); return d.toISOString().split('T')[0]; }
@@ -134,7 +133,7 @@ export default function EntradasPage() {
   return (
     <>
       {/* Tesseract.js OCR */}
-      <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" async />
+      <Script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" strategy="lazyOnload" />
 
       <div className="page-header">
         <div>
