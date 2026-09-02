@@ -1,4 +1,4 @@
-// components/AppShell.jsx — Estructura persistente con iconos Font Awesome Free
+// components/AppShell.jsx — Estructura persistente con protección de rutas
 'use client';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -10,15 +10,38 @@ export default function AppShell({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bcvTasa, setBcvTasa] = useState(798.33);
   const [bcvFuente, setBcvFuente] = useState('BCV');
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [authenticated, setAuthenticated] = useState(false);
 
-  // Determine active route
-  const route = pathname === '/' ? 'dashboard' :
-    pathname?.startsWith('/inventario') ? 'inventario' :
-    pathname?.startsWith('/entradas') ? 'entradas' :
-    pathname?.startsWith('/salidas') ? 'salidas' :
-    pathname?.startsWith('/reportes') ? 'reportes' : 'dashboard';
+  // Check authentication status on mount and route change
+  useEffect(() => {
+    fetch('/api/auth?action=check')
+      .then(r => r.json())
+      .then(d => {
+        if (d.authenticated) {
+          setAuthenticated(true);
+          setCheckingAuth(false);
+          if (pathname === '/login' || pathname?.startsWith('/login')) {
+            router.push('/');
+          }
+        } else {
+          setAuthenticated(false);
+          setCheckingAuth(false);
+          if (pathname !== '/login' && !pathname?.startsWith('/login')) {
+            router.push('/login');
+          }
+        }
+      })
+      .catch(() => {
+        setAuthenticated(false);
+        setCheckingAuth(false);
+        if (pathname !== '/login' && !pathname?.startsWith('/login')) {
+          router.push('/login');
+        }
+      });
+  }, [pathname, router]);
 
-  // Fetch BCV rate once when shell mounts (ALL HOOKS CALLED UNCONDITIONALLY)
+  // Fetch BCV rate once when shell mounts
   useEffect(() => {
     fetch('/api/bcv')
       .then(r => r.json())
@@ -31,8 +54,16 @@ export default function AppShell({ children }) {
       .catch(() => {});
   }, []);
 
+  // Determine active route
+  const route = pathname === '/' ? 'dashboard' :
+    pathname?.startsWith('/inventario') ? 'inventario' :
+    pathname?.startsWith('/entradas') ? 'entradas' :
+    pathname?.startsWith('/salidas') ? 'salidas' :
+    pathname?.startsWith('/reportes') ? 'reportes' : 'dashboard';
+
   const handleLogout = async () => {
     await fetch('/api/auth?action=logout');
+    setAuthenticated(false);
     router.push('/login');
   };
 
@@ -44,9 +75,32 @@ export default function AppShell({ children }) {
     { key: 'reportes', href: '/reportes', icon: 'fa-file-invoice-dollar', label: 'Reportes' },
   ];
 
-  // If on login page, render children directly without sidebar shell (AFTER all hooks)
+  // If on login page, render children directly without sidebar shell
   if (pathname === '/login' || pathname?.startsWith('/login')) {
     return <>{children}</>;
+  }
+
+  // If checking authentication or not authenticated, render loading screen
+  if (checkingAuth || !authenticated) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        background: '#f8fafc',
+        fontFamily: 'Inter, system-ui, sans-serif'
+      }}>
+        <img src="/logo.png" alt="Logo InvG" style={{ width: 56, height: 56, borderRadius: 12, marginBottom: 16 }} />
+        <div style={{ fontWeight: 700, fontSize: '1.2rem', color: '#0f172a', marginBottom: 8 }}>
+          Verificando sesión...
+        </div>
+        <div style={{ color: '#64748b', fontSize: '0.9rem' }}>
+          Por favor espera un momento
+        </div>
+      </div>
+    );
   }
 
   return (
