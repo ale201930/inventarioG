@@ -734,19 +734,43 @@ export default function EntradasPage() {
       </div>
       )}
 
-      {/* Modal Preview */}
+      {/* Modal Preview / Inspección Visual Completa de la Factura */}
       {showPreviewModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{maxWidth:850}}>
+          <div className="modal-content" style={{maxWidth:950}}>
             <div className="modal-header" style={{marginBottom:'0.75rem', borderBottom:'2px solid var(--primary-light)', paddingBottom:'0.5rem'}}>
               <div>
-                <h2><i className="fa-solid fa-clipboard-check" style={{color:'var(--success)'}}></i> Inspección Visual de Carga al Inventario</h2>
-                <p style={{fontSize:'0.82rem', color:'var(--text-secondary)'}}>Verifica cómo quedará tu inventario después de procesar esta compra</p>
+                <h2><i className="fa-solid fa-clipboard-check" style={{color:'var(--success)'}}></i> Inspección Visual Completa de la Factura</h2>
+                <p style={{fontSize:'0.82rem', color:'var(--text-secondary)'}}>Verifica todos los datos de la factura/nota de entrega antes de ingresar al inventario</p>
               </div>
               <button type="button" className="modal-close" onClick={()=>setShowPreviewModal(false)}>&times;</button>
             </div>
-            <div style={{overflowX:'auto'}}>
-              <table style={{width:'100%', minWidth:600}}>
+
+            {/* Cabecera Datos Factura y Proveedor */}
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem', marginBottom:'1rem', background:'#f8fafc', padding:'1rem', borderRadius:8, border:'1px solid #e2e8f0'}}>
+              <div>
+                <h4 style={{fontSize:'0.85rem', color:'var(--primary)', marginBottom:'0.4rem', textTransform:'uppercase', letterSpacing:'0.5px'}}>
+                  <i className="fa-solid fa-building"></i> Datos del Proveedor
+                </h4>
+                <div style={{fontSize:'0.88rem', fontWeight:700}}>{form.proveedorName || '—'}</div>
+                <div style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>RIF: <strong>{form.proveedorRif || '—'}</strong> | Telf: <strong>{form.proveedorTelf || '—'}</strong></div>
+                {form.proveedorDir && <div style={{fontSize:'0.78rem', color:'var(--text-muted)'}}>{form.proveedorDir}</div>}
+              </div>
+              <div>
+                <h4 style={{fontSize:'0.85rem', color:'var(--primary)', marginBottom:'0.4rem', textTransform:'uppercase', letterSpacing:'0.5px'}}>
+                  <i className="fa-solid fa-file-invoice"></i> Datos del Documento
+                </h4>
+                <div style={{fontSize:'0.88rem', fontWeight:700}}>{form.tipoDoc} N° {form.facturaNum || '—'}</div>
+                <div style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>Emisión: <strong>{form.fecha}</strong> | Vencimiento: <strong>{form.fechaVenc}</strong></div>
+                <div style={{fontSize:'0.82rem', color:'#0284c7', fontWeight:700, marginTop:'0.2rem'}}>
+                  🇻🇪 Tasa BCV de la Factura: <span style={{fontSize:'0.95rem'}}>{Number(form.tasaBCV||0).toFixed(2)} Bs./$</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabla de Productos / Renglones */}
+            <div style={{overflowX:'auto', marginBottom:'1rem'}}>
+              <table style={{width:'100%', minWidth:650}}>
                 <thead>
                   <tr>
                     <th>Código</th>
@@ -761,18 +785,40 @@ export default function EntradasPage() {
                   {form.items.filter(it=>it.nombre&&parseInt(it.cantidad||0)>0).map((it,i) => (
                     <tr key={i}>
                       <td style={{fontWeight:600, fontSize:'0.82rem'}}>{it.codigo || '—'}</td>
-                      <td>
-                        <strong>{it.nombre}</strong>
-                      </td>
+                      <td><strong>{it.nombre}</strong></td>
                       <td><span className="badge badge-primary">{it.cantidad}</span></td>
                       <td>${Number(it.costoUSD||0).toFixed(2)}</td>
                       <td style={{fontWeight:800, color:'var(--primary)'}}>${Number(it.totalUSD||0).toFixed(2)}</td>
-                      <td style={{color:'var(--text-secondary)'}}>Bs. {Number((it.totalUSD||0)*parseFloat(form.tasaBCV||798.33)).toLocaleString('es-VE',{minimumFractionDigits:2})}</td>
+                      <td style={{color:'var(--text-secondary)'}}>Bs. {Number((parseFloat(it.totalUSD||0))*parseFloat(form.tasaBCV||798.33)).toLocaleString('es-VE',{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+
+            {/* Resumen Totales de la Factura */}
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', background:'#0f172a', color:'#fff', padding:'0.85rem 1.25rem', borderRadius:10, flexWrap:'wrap', gap:'0.75rem'}}>
+              <div style={{fontSize:'0.85rem'}}>
+                Unidades Totales: <strong style={{color:'#fbbf24', fontSize:'1.05rem'}}>{form.items.reduce((s,it)=>s+parseInt(it.cantidad||0),0)}</strong>
+              </div>
+              <div style={{display:'flex', gap:'1.5rem', alignItems:'center'}}>
+                <div>
+                  <span style={{fontSize:'0.78rem', color:'#94a3b8', display:'block'}}>TOTAL OPERACIÓN USD $</span>
+                  <span style={{fontSize:'1.2rem', fontWeight:800, color:'#38bdf8'}}>${Number(form.totalUSD||0).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                </div>
+                <div>
+                  <span style={{fontSize:'0.78rem', color:'#94a3b8', display:'block'}}>TOTAL OPERACIÓN (BS.)</span>
+                  <span style={{fontSize:'1.15rem', fontWeight:800, color:'#a7f3d0'}}>Bs. {Number(form.totalVES||0).toLocaleString('es-VE',{minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                </div>
+              </div>
+            </div>
+
+            {form.observaciones && (
+              <div style={{marginTop:'0.75rem', fontSize:'0.82rem', color:'var(--text-secondary)', background:'#f1f5f9', padding:'0.5rem 0.75rem', borderRadius:6}}>
+                <strong>Observaciones:</strong> {form.observaciones}
+              </div>
+            )}
+
             <div style={{display:'grid', gridTemplateColumns:'1fr 1.5fr', gap:'1rem', marginTop:'1.25rem'}}>
               <button type="button" className="btn btn-secondary" onClick={()=>setShowPreviewModal(false)}><i className="fa-solid fa-arrow-left"></i> Volver a Editar</button>
               <button type="button" className="btn btn-primary" style={{background:'var(--success)', borderColor:'var(--success)'}} onClick={()=>handleSave(true)} disabled={saving}>
