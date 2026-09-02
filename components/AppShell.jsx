@@ -1,4 +1,4 @@
-// components/AppShell.jsx — Layout Shell persistente sin parpadeos ni desmontajes
+// components/AppShell.jsx — Estructura persistente con iconos Font Awesome Free
 'use client';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -44,8 +44,8 @@ export default function AppShell({ children }) {
   const navItems = [
     { key: 'dashboard', href: '/', icon: 'fa-chart-pie', label: 'Panel Principal' },
     { key: 'inventario', href: '/inventario', icon: 'fa-box', label: 'Inventario' },
-    { key: 'entradas', href: '/entradas', icon: 'fa-arrow-down-to-bracket', label: 'Entradas / Compras' },
-    { key: 'salidas', href: '/salidas', icon: 'fa-truck-ramp-box', label: 'Salidas / Ventas' },
+    { key: 'entradas', href: '/entradas', icon: 'fa-truck-loading', label: 'Entradas / Compras' },
+    { key: 'salidas', href: '/salidas', icon: 'fa-receipt', label: 'Salidas / Ventas' },
     { key: 'reportes', href: '/reportes', icon: 'fa-file-invoice-dollar', label: 'Reportes' },
   ];
 

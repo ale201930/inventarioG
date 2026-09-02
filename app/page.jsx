@@ -101,9 +101,7 @@ export default function DashboardPage() {
           <table>
             <thead><tr><th>Factura</th><th>Proveedor</th><th>Total</th><th>Deuda</th></tr></thead>
             <tbody>
-              {loading ? (
-                <tr><td colSpan={4} style={{textAlign:'center', padding:'1.5rem', color:'var(--text-muted)'}}><i className="fa-solid fa-circle-notch fa-spin" style={{marginRight:8, color:'var(--primary)'}}></i> Cargando...</td></tr>
-              ) : recentE.length === 0 ? (
+              {recentE.length === 0 ? (
                 <tr><td colSpan={4} style={{textAlign:'center', padding:'1.5rem', color:'var(--text-muted)'}}>Sin compras registradas</td></tr>
               ) : recentE.map(e => (
                 <tr key={e.id}>
@@ -127,9 +125,7 @@ export default function DashboardPage() {
           <table>
             <thead><tr><th>Factura</th><th>Cliente</th><th>Total</th><th>Pendiente</th></tr></thead>
             <tbody>
-              {loading ? (
-                <tr><td colSpan={4} style={{textAlign:'center', padding:'1.5rem', color:'var(--text-muted)'}}><i className="fa-solid fa-circle-notch fa-spin" style={{marginRight:8, color:'var(--primary)'}}></i> Cargando...</td></tr>
-              ) : recentS.length === 0 ? (
+              {recentS.length === 0 ? (
                 <tr><td colSpan={4} style={{textAlign:'center', padding:'1.5rem', color:'var(--text-muted)'}}>Sin ventas registradas</td></tr>
               ) : recentS.map(s => (
                 <tr key={s.id}>

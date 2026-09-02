@@ -206,11 +206,7 @@ export default function SalidasPage() {
             <tr><th>Documento</th><th>Nº Factura</th><th>Fecha</th><th>Cliente</th><th>C.I. / RIF</th><th>Total ($)</th><th>Saldo Pendiente</th><th>Acciones</th></tr>
           </thead>
           <tbody>
-            {loading ? (
-              <tr><td colSpan={8} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
-                <i className="fa-solid fa-circle-notch fa-spin" style={{marginRight:8, color:'var(--primary)'}}></i> Cargando facturas...
-              </td></tr>
-            ) : filteredSalidas.length === 0 ? (
+            {filteredSalidas.length === 0 ? (
               <tr><td colSpan={8} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
                 {searchText || filterFecha ? 'Sin resultados para los filtros' : 'Sin facturas registradas'}
               </td></tr>

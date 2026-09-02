@@ -161,11 +161,7 @@ export default function EntradasPage() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
-              <tr><td colSpan={9} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
-                <i className="fa-solid fa-circle-notch fa-spin" style={{marginRight:8, color:'var(--primary)'}}></i> Cargando compras...
-              </td></tr>
-            ) : filteredEntradas.length === 0 ? (
+            {filteredEntradas.length === 0 ? (
               <tr><td colSpan={9} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
                 {searchText || filterFecha ? 'Sin resultados para los filtros' : 'Sin compras registradas'}
               </td></tr>

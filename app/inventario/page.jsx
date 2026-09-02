@@ -1,23 +1,20 @@
-// app/inventario/page.jsx — Gestión de Inventario sin pestañeos de carga
+// app/inventario/page.jsx — Gestión de Inventario 100% fluido sin parpadeos
 'use client';
 import { useEffect, useState } from 'react';
-import AppShell from '@/components/AppShell';
 
 export default function InventarioPage() {
   const [productos, setProductos] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ nombre:'', cantidad:0, costoUnitario:0, precioVenta1:0, precioVenta2:0, precioVenta3:0 });
 
   const load = () => {
-    setLoading(true);
     fetch('/api/inventario')
       .then(r => r.json())
       .then(d => { if (d.success) { setProductos(d.data); setFiltered(d.data); } })
-      .finally(() => setLoading(false));
+      .catch(() => {});
   };
 
   useEffect(() => { load(); }, []);
@@ -83,13 +80,9 @@ export default function InventarioPage() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {filtered.length === 0 ? (
               <tr><td colSpan={7} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
-                <i className="fa-solid fa-circle-notch fa-spin" style={{marginRight:8, color:'var(--primary)'}}></i> Cargando inventario...
-              </td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={7} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
-                {search ? 'Sin resultados para la búsqueda' : 'No hay productos en inventario'}
+                {search ? 'Sin resultados para la búsqueda' : 'Sin productos en inventario'}
               </td></tr>
             ) : filtered.map(p => (
               <tr key={p.id}>
