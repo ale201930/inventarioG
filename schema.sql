@@ -1,8 +1,8 @@
 -- Esquema de Base de Datos para Sistema de Inventario
 -- Compatible con Laragon (MySQL local) y TiDB Serverless (Nube)
 
-CREATE DATABASE IF NOT EXISTS `inventario_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `inventario_db`;
+CREATE DATABASE IF NOT EXISTS `inventarioG` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `inventarioG`;
 
 -- Tabla de Usuarios
 CREATE TABLE IF NOT EXISTS `usuarios` (
