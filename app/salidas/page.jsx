@@ -22,6 +22,9 @@ export default function SalidasPage() {
   const [lastSalida, setLastSalida] = useState(null);
   const [estadoCuenta, setEstadoCuenta] = useState(null);
   const [selectedCliente, setSelectedCliente] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('todas');
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [loadingEstado, setLoadingEstado] = useState(false);
 
   const [form, setForm] = useState({
     clienteName:'', cedulaRif:'', telefono:'', fecha:today(), direccion:'',
@@ -41,6 +44,75 @@ export default function SalidasPage() {
       if(inv.success) setProductos(inv.data);
       if(cli.success) setClientes(cli.data);
     }).finally(() => setLoading(false));
+  };
+
+  const loadEstadoCuenta = async (clienteName) => {
+    if (!clienteName) return;
+    setLoadingEstado(true);
+    try {
+      const res = await fetch(`/api/salidas?action=estado_cuenta&cliente=${encodeURIComponent(clienteName)}`);
+      const d = await res.json();
+      if (d.success) {
+        setEstadoCuenta(d);
+      } else {
+        alert(d.error || 'Error cargando estado de cuenta');
+      }
+    } catch {
+      alert('Error de conexión al cargar estado de cuenta');
+    } finally {
+      setLoadingEstado(false);
+    }
+  };
+
+  const handleExportPDF = () => {
+    const docEl = document.getElementById('estadoCuentaDocument');
+    if (!docEl) { alert('Selecciona un cliente primero.'); return; }
+    const clienteName = estadoCuenta?.cliente?.name || 'Cliente';
+    const cleanName = clienteName.replace(/[^a-zA-Z0-9]/g, '_');
+
+    if (typeof window !== 'undefined' && window.html2pdf) {
+      setGeneratingPdf(true);
+      const opt = {
+        margin: [8, 8, 8, 8],
+        filename: `Estado_de_Cuenta_${cleanName}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      window.html2pdf().set(opt).from(docEl).save().then(() => {
+        setGeneratingPdf(false);
+      }).catch(err => {
+        console.error(err);
+        setGeneratingPdf(false);
+        handlePrintDoc();
+      });
+    } else {
+      handlePrintDoc();
+    }
+  };
+
+  const handlePrintDoc = () => {
+    const docEl = document.getElementById('estadoCuentaDocument');
+    if (!docEl) { alert('Selecciona un cliente primero.'); return; }
+    const win = window.open('', '_blank', 'width=850,height=900');
+    if (!win) {
+      window.print();
+      return;
+    }
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+      <title>Estado de Cuenta - ${estadoCuenta?.cliente?.name || 'Cliente'}</title>
+      <style>
+        body { font-family: Arial, Helvetica, sans-serif; padding: 20px; background: #fff; color: #000; margin: 0; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border-bottom: 1px solid #cbd5e1; padding: 6px 8px; }
+        @media print { body { padding: 0; } @page { margin: 10mm; } }
+      </style>
+      </head><body>
+        ${docEl.outerHTML}
+      </body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 400);
   };
 
   useEffect(() => { load(); }, []);
@@ -145,13 +217,6 @@ export default function SalidasPage() {
     });
     const d = await res.json();
     if (d.success) { setShowAbonoModal(false); load(); } else alert(d.error);
-  };
-
-  const loadEstadoCuenta = async (cliente) => {
-    if (!cliente) return;
-    const res = await fetch(`/api/salidas?action=estado_cuenta&cliente=${encodeURIComponent(cliente)}`);
-    const d = await res.json();
-    if (d.success) setEstadoCuenta(d);
   };
 
   const openNewModal = async () => {
@@ -272,7 +337,12 @@ export default function SalidasPage() {
           <h1 className="page-title"><i className="fa-solid fa-receipt" style={{color:'var(--primary)'}}></i> Facturación y Despachos (Salidas)</h1>
           <p className="page-subtitle">Facturación digital compatible con impresoras de ticket de 80mm (7.6 cm) · Sustitución de talonario</p>
         </div>
-        <button className="btn btn-primary" onClick={openNewModal}><i className="fa-solid fa-plus"></i> Nueva Venta / Factura</button>
+        <div style={{display:'flex', gap:'0.6rem', flexWrap:'wrap'}}>
+          <button className="btn btn-secondary" style={{background:'#0284c7', color:'#fff', borderColor:'#0284c7'}} onClick={()=>setShowEstadoModal(true)}>
+            <i className="fa-solid fa-file-invoice-dollar"></i> Estado de Cuenta Cliente
+          </button>
+          <button className="btn btn-primary" onClick={openNewModal}><i className="fa-solid fa-plus"></i> Nueva Venta / Factura</button>
+        </div>
       </div>
 
       {/* Tabla Historial */}
@@ -317,6 +387,9 @@ export default function SalidasPage() {
                   <div style={{display:'flex', gap:'0.4rem'}}>
                     <button className="btn btn-secondary btn-sm" title="Imprimir Ticket (7.6 cm / 80mm)" onClick={()=>{ setLastSalida(s); setShowTicketModal(true); }}>
                       <i className="fa-solid fa-print"></i>
+                    </button>
+                    <button className="btn btn-secondary btn-sm" style={{background:'#e0f2fe', color:'#0284c7', borderColor:'#bae6fd'}} title="Ver Estado de Cuenta del Cliente" onClick={()=>{ setSelectedCliente(s.cliente_name); loadEstadoCuenta(s.cliente_name); setShowEstadoModal(true); }}>
+                      <i className="fa-solid fa-file-invoice-dollar"></i>
                     </button>
                     {Number(s.saldo_adeudado)>0 && (
                       <button className="btn btn-secondary btn-sm" title="Registrar abono"
@@ -609,66 +682,216 @@ export default function SalidasPage() {
       {/* Modal Estado de Cuenta */}
       {showEstadoModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{maxWidth:850}}>
+          <div className="modal-content" style={{maxWidth:860, width:'95%', padding:'1.5rem'}}>
             <div className="modal-header">
               <div>
                 <h2><i className="fa-solid fa-file-invoice-dollar" style={{color:'#0284c7'}}></i> Estado de Cuenta del Cliente</h2>
-                <p style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>Resumen detallado de compras, abonos y saldo deudor pendiente</p>
+                <p style={{fontSize:'0.8rem', color:'var(--text-secondary)', margin:'2px 0 0 0'}}>Resumen detallado de compras, abonos y saldo deudor pendiente</p>
               </div>
               <button type="button" className="modal-close" onClick={()=>setShowEstadoModal(false)}>&times;</button>
             </div>
-            <div style={{background:'#f8fafc', border:'1px solid #e2e8f0', padding:'0.85rem', borderRadius:8, marginBottom:'1rem', display:'flex', gap:'0.75rem', alignItems:'flex-end', flexWrap:'wrap'}}>
+
+            {/* Selector de Cliente y Filtros */}
+            <div style={{background:'#f8fafc', border:'1px solid #e2e8f0', padding:'0.85rem', borderRadius:8, marginBottom:'1rem', display:'flex', gap:'0.75rem', alignItems:'center', flexWrap:'wrap'}}>
               <div style={{flex:1, minWidth:220}}>
-                <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700}}>Seleccionar Cliente:</label>
-                <select className="form-control" style={{fontSize:'0.9rem'}} value={selectedCliente} onChange={e=>setSelectedCliente(e.target.value)}>
-                  <option value="">-- Seleccionar cliente --</option>
+                <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700, marginBottom:'0.25rem'}}>Seleccionar o Buscar Cliente:</label>
+                <select className="form-control" style={{fontSize:'0.9rem'}} value={selectedCliente} onChange={e=>{ setSelectedCliente(e.target.value); loadEstadoCuenta(e.target.value); }}>
+                  <option value="">-- Cargar Lista de Clientes --</option>
                   {clientes.map((c,i) => <option key={i} value={c.cliente_name}>{c.cliente_name} (Deuda: ${Number(c.saldo_pendiente_usd||0).toFixed(2)})</option>)}
                 </select>
               </div>
-              <button className="btn btn-secondary" onClick={()=>loadEstadoCuenta(selectedCliente)}>
-                <i className="fa-solid fa-arrows-rotate"></i> Ver Estado
+              <div style={{minWidth:220}}>
+                <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700, marginBottom:'0.25rem'}}>Filtrar Notas del Documento:</label>
+                <select className="form-control" style={{fontSize:'0.9rem', fontWeight:700, color:'#0284c7'}} value={filtroEstado} onChange={e=>setFiltroEstado(e.target.value)}>
+                  <option value="todas">📋 Todas (Ver todo el historial)</option>
+                  <option value="pendientes">🔴 Solo Pendientes (Por cobrar)</option>
+                  <option value="pagadas">🟢 Solo Pagadas (Historial al día)</option>
+                </select>
+              </div>
+              <button type="button" className="btn btn-secondary" style={{marginTop:'1.2rem', minHeight:42}} onClick={()=>loadEstadoCuenta(selectedCliente)} disabled={loadingEstado}>
+                {loadingEstado ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-arrows-rotate"></i>} Actualizar
               </button>
             </div>
 
-            {estadoCuenta && (
-              <div style={{background:'#fff', border:'1px solid #cbd5e1', borderRadius:8, padding:'1.25rem', maxHeight:'55vh', overflowY:'auto'}}>
-                <div style={{textAlign:'center', marginBottom:'1rem'}}>
-                  <h3 style={{fontSize:'1.1rem', fontWeight:800}}>{estadoCuenta.cliente?.name}</h3>
-                  <p style={{fontSize:'0.85rem', color:'var(--text-secondary)'}}>C.I./RIF: {estadoCuenta.cliente?.cedula_rif||'—'} | Telf: {estadoCuenta.cliente?.telefono||'—'}</p>
+            {estadoCuenta && (() => {
+              const salidas = (estadoCuenta.salidas || []).filter(s => {
+                const saldo = parseFloat(s.saldo_adeudado || 0);
+                if (filtroEstado === 'pendientes') return saldo > 0.001;
+                if (filtroEstado === 'pagadas') return saldo <= 0.001;
+                return true;
+              });
+
+              const abonos = estadoCuenta.abonos || [];
+              const c = estadoCuenta.cliente || {};
+              const tasa = Number(estadoCuenta.totales?.tasa_bcv || bcvTasa || 798.33);
+
+              const calcTotalComprasUSD = salidas.reduce((a, b) => a + (parseFloat(b.total_factura) || 0), 0);
+              const calcSaldoUSD = salidas.reduce((a, b) => a + (parseFloat(b.saldo_adeudado) || 0), 0);
+              const calcAbonadoUSD = Math.max(0, calcTotalComprasUSD - calcSaldoUSD);
+
+              const calcTotalComprasVES = calcTotalComprasUSD * tasa;
+              const calcAbonadoVES = calcAbonadoUSD * tasa;
+              const calcSaldoVES = calcSaldoUSD * tasa;
+
+              const formatBs = (num) => Number(num || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+              return (
+                <div>
+                  {/* Vista Previa Imprimible / Exportable */}
+                  <div style={{maxHeight:'58vh', overflowY:'auto', background:'#fff', border:'1px solid #cbd5e1', borderRadius:8, padding:'1rem'}}>
+                    <div id="estadoCuentaDocument" style={{fontFamily:'Arial, Helvetica, sans-serif', color:'#0f172a', padding:'0.5rem', background:'#fff'}}>
+                      {/* Encabezado Empresa */}
+                      <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', borderBottom:'2px solid #0f172a', paddingBottom:'0.75rem', marginBottom:'1rem'}}>
+                        <div>
+                          <h2 style={{fontSize:'1.25rem', fontWeight:800, color:'#0f172a', margin:0}}>BESTEDA 2, C.A.</h2>
+                          <p style={{fontSize:'0.8rem', fontWeight:700, color:'#475569', margin:'2px 0 0 0'}}>RIF: J-40529263-6</p>
+                          <p style={{fontSize:'0.75rem', color:'#64748b', margin:'2px 0 0 0'}}>San Juan de los Morros - Estado Guárico | Tlfs: 0424-313.68.05</p>
+                        </div>
+                        <div style={{textAlign:'right'}}>
+                          <span style={{background:'#0f172a', color:'#fff', padding:'4px 10px', borderRadius:'4px', fontWeight:800, fontSize:'0.85rem', letterSpacing:'0.5px'}}>
+                            ESTADO DE CUENTA DE CLIENTE
+                          </span>
+                          <p style={{fontSize:'0.75rem', color:'#64748b', marginTop:'6px'}}>
+                            Fecha Emisión: {new Date().toLocaleDateString('es-VE')}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Ficha Cliente */}
+                      <div style={{background:'#f8fafc', border:'1px solid #cbd5e1', borderRadius:'6px', padding:'0.75rem 1rem', marginBottom:'1rem', display:'grid', gridTemplateColumns:'1.5fr 1fr', gap:'0.5rem', fontSize:'0.85rem'}}>
+                        <div>
+                          <div><span style={{color:'#64748b', fontWeight:600}}>CLIENTE:</span> <strong>{c.name || selectedCliente}</strong></div>
+                          <div><span style={{color:'#64748b', fontWeight:600}}>C.I. / RIF:</span> <strong>{c.cedula_rif || 'N/A'}</strong></div>
+                        </div>
+                        <div>
+                          <div><span style={{color:'#64748b', fontWeight:600}}>TELÉFONO:</span> <strong>{c.telefono || 'N/A'}</strong></div>
+                          <div><span style={{color:'#64748b', fontWeight:600}}>DIRECCIÓN:</span> <strong>{c.direccion || 'N/A'}</strong></div>
+                        </div>
+                      </div>
+
+                      {/* 3 KPI Cards Resumen */}
+                      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1.2fr', gap:'0.75rem', marginBottom:'1.25rem'}}>
+                        <div style={{background:'#f1f5f9', padding:'0.75rem', borderRadius:'6px', textAlign:'center', border:'1px solid #e2e8f0'}}>
+                          <span style={{fontSize:'0.75rem', color:'#64748b', fontWeight:700, textTransform:'uppercase'}}>Total Compras</span>
+                          <div style={{fontSize:'1.25rem', fontWeight:800, color:'#0f172a'}}>${calcTotalComprasUSD.toFixed(2)}</div>
+                          <div style={{fontSize:'0.75rem', color:'#64748b'}}>Bs. {formatBs(calcTotalComprasVES)}</div>
+                        </div>
+                        <div style={{background:'#f0fdf4', padding:'0.75rem', borderRadius:'6px', textAlign:'center', border:'1px solid #bbf7d0'}}>
+                          <span style={{fontSize:'0.75rem', color:'#166534', fontWeight:700, textTransform:'uppercase'}}>Total Abonado</span>
+                          <div style={{fontSize:'1.25rem', fontWeight:800, color:'#15803d'}}>${calcAbonadoUSD.toFixed(2)}</div>
+                          <div style={{fontSize:'0.75rem', color:'#166534'}}>Bs. {formatBs(calcAbonadoVES)}</div>
+                        </div>
+                        <div style={{background:calcSaldoUSD>0?'#fef2f2':'#f0fdf4', padding:'0.75rem', borderRadius:'6px', textAlign:'center', border:`2px solid ${calcSaldoUSD>0?'#ef4444':'#16a34a'}`}}>
+                          <span style={{fontSize:'0.75rem', color:calcSaldoUSD>0?'#dc2626':'#16a34a', fontWeight:800, textTransform:'uppercase'}}>
+                            {calcSaldoUSD > 0 ? '🔴 SALDO PENDIENTE' : '✅ AL DÍA (SIN DEUDA)'}
+                          </span>
+                          <div style={{fontSize:'1.3rem', fontWeight:800, color:calcSaldoUSD>0?'#dc2626':'#16a34a'}}>${calcSaldoUSD.toFixed(2)} USD</div>
+                          <div style={{fontSize:'0.82rem', fontWeight:700, color:calcSaldoUSD>0?'#dc2626':'#16a34a'}}>Bs. {formatBs(calcSaldoVES)}</div>
+                          <div style={{fontSize:'0.7rem', color:'#64748b', marginTop:'2px'}}>Tasa BCV Ref: Bs. {tasa.toFixed(2)}/$</div>
+                        </div>
+                      </div>
+
+                      {/* Tabla 1: Historial Compras / Salidas */}
+                      <h4 style={{fontSize:'0.88rem', fontWeight:700, color:'#0f172a', marginBottom:'0.4rem', textTransform:'uppercase', display:'flex', alignItems:'center'}}>
+                        <i className="fa-solid fa-list" style={{marginRight:6}}></i> Historial de Notas de Entrega / Compras
+                        {filtroEstado === 'pendientes' && <span style={{marginLeft:8, fontSize:'0.72rem', color:'#dc2626', fontWeight:700}}>(Solo Pendientes)</span>}
+                        {filtroEstado === 'pagadas' && <span style={{marginLeft:8, fontSize:'0.72rem', color:'#16a34a', fontWeight:700}}>(Solo Pagadas)</span>}
+                      </h4>
+                      <table style={{width:'100%', borderCollapse:'collapse', marginBottom:'1.25rem', background:'#fff', minWidth:0}}>
+                        <thead>
+                          <tr style={{background:'#f0f9ff', fontSize:'0.75rem', color:'#475569', textTransform:'uppercase', borderBottom:'1px solid #cbd5e1'}}>
+                            <th style={{padding:'6px 8px', textAlign:'left'}}>Fecha</th>
+                            <th style={{padding:'6px 8px', textAlign:'left'}}>Documento</th>
+                            <th style={{padding:'6px 8px', textAlign:'right'}}>Total USD</th>
+                            <th style={{padding:'6px 8px', textAlign:'right'}}>Abonado USD</th>
+                            <th style={{padding:'6px 8px', textAlign:'right'}}>Saldo Pend.</th>
+                            <th style={{padding:'6px 8px', textAlign:'center'}}>Estado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {salidas.length === 0 ? (
+                            <tr><td colSpan={6} style={{textAlign:'center', padding:'1rem', color:'#94a3b8'}}>No se encontraron notas con la opción seleccionada.</td></tr>
+                          ) : salidas.map(s => {
+                            const tot = parseFloat(s.total_factura || 0);
+                            const saldo = parseFloat(s.saldo_adeudado || 0);
+                            const abonado = Math.max(0, tot - saldo);
+                            const isPend = saldo > 0.001;
+                            return (
+                              <tr key={s.id} style={{borderBottom:'1px solid #e2e8f0', fontSize:'0.82rem'}}>
+                                <td style={{padding:'6px 8px'}}>{s.fecha ? String(s.fecha).split('T')[0] : ''}</td>
+                                <td style={{padding:'6px 8px', fontWeight:700}}>NOTA DE ENTREGA Nº {s.factura_number}</td>
+                                <td style={{padding:'6px 8px', textAlign:'right'}}>${tot.toFixed(2)}</td>
+                                <td style={{padding:'6px 8px', textAlign:'right', color:'#15803d'}}>${abonado.toFixed(2)}</td>
+                                <td style={{padding:'6px 8px', textAlign:'right', fontWeight:700, color:isPend?'#b91c1c':'#15803d'}}>${saldo.toFixed(2)}</td>
+                                <td style={{padding:'6px 8px', textAlign:'center'}}>
+                                  <span style={{color:isPend?'#b91c1c':'#15803d', fontWeight:700}}>{isPend ? 'Pendiente' : 'Pagado'}</span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+
+                      {/* Tabla 2: Historial Abonos */}
+                      <h4 style={{fontSize:'0.88rem', fontWeight:700, color:'#0f172a', marginBottom:'0.4rem', textTransform:'uppercase', display:'flex', alignItems:'center'}}>
+                        <i className="fa-solid fa-receipt" style={{marginRight:6}}></i> Historial de Abonos / Pagos Recibidos
+                      </h4>
+                      <table style={{width:'100%', borderCollapse:'collapse', background:'#fff', minWidth:0}}>
+                        <thead>
+                          <tr style={{background:'#f0f9ff', fontSize:'0.75rem', color:'#475569', textTransform:'uppercase', borderBottom:'1px solid #cbd5e1'}}>
+                            <th style={{padding:'6px 8px', textAlign:'left'}}>Fecha Pago</th>
+                            <th style={{padding:'6px 8px', textAlign:'left'}}>Nota Afectada</th>
+                            <th style={{padding:'6px 8px', textAlign:'left'}}>Referencia / Método</th>
+                            <th style={{padding:'6px 8px', textAlign:'right'}}>Monto USD</th>
+                            <th style={{padding:'6px 8px', textAlign:'right'}}>Monto VES</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {abonos.length === 0 ? (
+                            <tr><td colSpan={5} style={{textAlign:'center', padding:'1rem', color:'#94a3b8'}}>No ha realizado abonos aún.</td></tr>
+                          ) : abonos.map((a, i) => (
+                            <tr key={i} style={{borderBottom:'1px solid #e2e8f0', fontSize:'0.82rem'}}>
+                              <td style={{padding:'6px 8px'}}>{a.fecha ? String(a.fecha).split('T')[0] : ''}</td>
+                              <td style={{padding:'6px 8px'}}>Nota Nº {a.factura_number || 'General'}</td>
+                              <td style={{padding:'6px 8px'}}>{a.referencia || 'Efectivo / Transferencia'}</td>
+                              <td style={{padding:'6px 8px', textAlign:'right', fontWeight:700, color:'#166534'}}>${parseFloat(a.monto_usd||0).toFixed(2)}</td>
+                              <td style={{padding:'6px 8px', textAlign:'right', color:'#0284c7', fontWeight:600}}>Bs. {formatBs(a.monto_ves)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Acciones: Exportar PDF / Imprimir */}
+                  <div style={{display:'flex', gap:'0.75rem', marginTop:'1.25rem', justifyContent:'flex-end', flexWrap:'wrap'}}>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={generatingPdf}
+                      style={{background:'#0284c7', color:'#fff', border:'none', fontWeight:700, padding:'0.65rem 1.25rem'}}
+                      onClick={handleExportPDF}
+                    >
+                      {generatingPdf ? <><i className="fa-solid fa-spinner fa-spin"></i> Generando PDF...</> : <><i className="fa-solid fa-file-pdf" style={{fontSize:'1.1rem'}}></i> Exportar a PDF</>}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{background:'#475569', color:'#fff', border:'none', fontWeight:700, padding:'0.65rem 1.25rem'}}
+                      onClick={handlePrintDoc}
+                    >
+                      <i className="fa-solid fa-print" style={{fontSize:'1.1rem'}}></i> Imprimir Documento
+                    </button>
+                  </div>
                 </div>
-                <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'1rem', marginBottom:'1rem'}}>
-                  <div style={{textAlign:'center', background:'#f0fdf4', padding:'0.75rem', borderRadius:8}}>
-                    <div style={{fontSize:'0.75rem', color:'#166534', fontWeight:700}}>TOTAL COMPRAS</div>
-                    <div style={{fontSize:'1.2rem', fontWeight:800, color:'#166534'}}>${Number(estadoCuenta.totales?.total_compras_usd||0).toFixed(2)}</div>
-                  </div>
-                  <div style={{textAlign:'center', background:'#eff6ff', padding:'0.75rem', borderRadius:8}}>
-                    <div style={{fontSize:'0.75rem', color:'#0369a1', fontWeight:700}}>ABONADO</div>
-                    <div style={{fontSize:'1.2rem', fontWeight:800, color:'#0369a1'}}>${Number(estadoCuenta.totales?.total_abonado_usd||0).toFixed(2)}</div>
-                  </div>
-                  <div style={{textAlign:'center', background:'#fef2f2', padding:'0.75rem', borderRadius:8}}>
-                    <div style={{fontSize:'0.75rem', color:'#dc2626', fontWeight:700}}>SALDO DEUDOR</div>
-                    <div style={{fontSize:'1.2rem', fontWeight:800, color:'#dc2626'}}>${Number(estadoCuenta.totales?.saldo_pendiente_usd||0).toFixed(2)}</div>
-                  </div>
-                </div>
-                <table>
-                  <thead><tr><th>Nº Factura</th><th>Fecha</th><th>Total</th><th>Saldo</th></tr></thead>
-                  <tbody>
-                    {(estadoCuenta.salidas||[]).map(s => (
-                      <tr key={s.id}>
-                        <td>Nº {s.factura_number}</td>
-                        <td>{s.fecha}</td>
-                        <td>${Number(s.total_factura||0).toFixed(2)}</td>
-                        <td><span className={`badge ${Number(s.saldo_adeudado)>0?'badge-danger':'badge-success'}`}>${Number(s.saldo_adeudado||0).toFixed(2)}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+              );
+            })()}
+
             {!estadoCuenta && (
-              <div style={{textAlign:'center', color:'var(--text-muted)', padding:'2rem'}}>
-                <i className="fa-solid fa-user-tag" style={{fontSize:'2.5rem', marginBottom:'0.5rem', color:'#94a3b8'}}></i>
-                <p>Selecciona un cliente arriba para generar su Estado de Cuenta.</p>
+              <div style={{textAlign:'center', color:'var(--text-muted)', padding:'3rem 2rem', background:'#fff', border:'1px dashed #cbd5e1', borderRadius:8}}>
+                <i className="fa-solid fa-user-tag" style={{fontSize:'3rem', marginBottom:'0.75rem', color:'#94a3b8', display:'block'}}></i>
+                <p style={{fontSize:'1rem', fontWeight:600, color:'#475569', margin:0}}>Selecciona un cliente arriba para generar su Estado de Cuenta oficial.</p>
+                <p style={{fontSize:'0.82rem', color:'#94a3b8', marginTop:'4px'}}>Podrás ver sus compras, abonos, deuda pendiente y exportarlo a PDF o imprimirlo.</p>
               </div>
             )}
           </div>
