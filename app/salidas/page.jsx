@@ -56,9 +56,20 @@ export default function SalidasPage() {
   const selectProduct = (i, prodId) => {
     const prod = productos.find(p=>p.id===prodId);
     if (!prod) return;
-    const precio = parseFloat(form.items[i]?.precioOpcion === '2' ? prod.precio_venta2 : form.items[i]?.precioOpcion === '3' ? prod.precio_venta3 : prod.precio_venta1) || 0;
+    const opcion = form.items[i]?.precioOpcion || '1';
+    let precio = 0;
+    if (opcion === '1') precio = parseFloat(prod.precio_venta1) || 0;
+    else if (opcion === '2') precio = parseFloat(prod.precio_venta2) || 0;
+    else if (opcion === '3') precio = parseFloat(prod.precio_venta3) || 0;
+    else if (opcion === 'custom') precio = form.items[i]?.precioUnitario || '';
+    
     const cant = parseInt(form.items[i]?.cantidad||1);
-    updateItem(i, { productoId:prod.id, productoNombre:prod.nombre, precioUnitario:precio, subtotal:cant*precio });
+    updateItem(i, {
+      productoId: prod.id,
+      productoNombre: prod.nombre,
+      precioUnitario: precio,
+      subtotal: opcion === 'custom' ? (parseFloat(precio||0) * cant) : (cant * precio)
+    });
   };
 
   const updateItem = (i, patch) => {
@@ -71,15 +82,18 @@ export default function SalidasPage() {
   };
 
   const selectPrecio = (i, opcion) => {
+    const cant = parseInt(form.items[i]?.cantidad || 1);
     if (opcion === 'custom') {
-      updateItem(i, { precioOpcion: 'custom' });
+      updateItem(i, { precioOpcion: 'custom', precioUnitario: '', subtotal: 0 });
       return;
     }
-    const prod = productos.find(p=>p.id===form.items[i]?.productoId);
-    if (!prod) { updateItem(i,{precioOpcion:opcion}); return; }
-    const precio = parseFloat(opcion==='2'?prod.precio_venta2:opcion==='3'?prod.precio_venta3:prod.precio_venta1)||0;
-    const cant = parseInt(form.items[i]?.cantidad||1);
-    updateItem(i, {precioOpcion:opcion, precioUnitario:precio, subtotal:cant*precio});
+    const prod = productos.find(p => p.id === form.items[i]?.productoId);
+    if (!prod) {
+      updateItem(i, { precioOpcion: opcion });
+      return;
+    }
+    const precio = parseFloat(opcion === '2' ? prod.precio_venta2 : opcion === '3' ? prod.precio_venta3 : prod.precio_venta1) || 0;
+    updateItem(i, { precioOpcion: opcion, precioUnitario: precio, subtotal: cant * precio });
   };
 
   const totalFactura = form.items.reduce((s,it)=>s+parseFloat(it.subtotal||0),0);
@@ -392,7 +406,29 @@ export default function SalidasPage() {
                     <option value="custom">Personalizado</option>
                   </select>
                   <input type="number" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} min="1" value={item.cantidad} onChange={e=>updateItem(i, {cantidad:e.target.value})} />
-                  <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', fontWeight:600}} value={item.precioUnitario} onChange={e=>updateItem(i, {precioUnitario:e.target.value, precioOpcion:'custom'})} />
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="form-control"
+                    placeholder={item.precioOpcion === 'custom' ? '0.00' : ''}
+                    readOnly={item.precioOpcion !== 'custom'}
+                    style={{
+                      fontSize:'0.82rem',
+                      padding:'0.35rem 0.5rem',
+                      fontWeight:600,
+                      backgroundColor: item.precioOpcion === 'custom' ? '#fff' : '#f1f5f9',
+                      color: item.precioOpcion === 'custom' ? '#0284c7' : '#334155',
+                      borderColor: item.precioOpcion === 'custom' ? '#0284c7' : '#cbd5e1',
+                      cursor: item.precioOpcion === 'custom' ? 'text' : 'not-allowed'
+                    }}
+                    value={item.precioUnitario}
+                    onChange={e => {
+                      if (item.precioOpcion === 'custom') {
+                        updateItem(i, { precioUnitario: e.target.value });
+                      }
+                    }}
+                    title={item.precioOpcion !== 'custom' ? 'Precio de catálogo protegido (selecciona "Personalizado" para modificar)' : 'Escribe el precio libre'}
+                  />
                   <span style={{fontWeight:700, color:'var(--primary)', fontSize:'0.88rem'}}>${Number(item.subtotal||0).toFixed(2)}</span>
                   <button type="button" className="btn btn-danger btn-sm" style={{width:32, height:32, minWidth:32, padding:0, borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center'}} title="Eliminar renglón" onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}>
                     <i className="fa-solid fa-trash" style={{fontSize:'0.75rem'}}></i>
