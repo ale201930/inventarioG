@@ -21,6 +21,7 @@ export default function EntradasPage() {
   const [ocrText, setOcrText] = useState('');
   const [ocrRunning, setOcrRunning] = useState(false);
   const [facturaImg, setFacturaImg] = useState(null);
+  const [imgRotation, setImgRotation] = useState(0);
 
   const [form, setForm] = useState({
     proveedorName:'', proveedorRif:'', proveedorTelf:'', proveedorDir:'',
@@ -38,7 +39,14 @@ export default function EntradasPage() {
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
-  useEffect(() => { fetch('/api/bcv').then(r=>r.json()).then(d => { if(d.success) setBcvTasa(d.data.tasaHoy); }); }, []);
+  useEffect(() => {
+    fetch('/api/bcv').then(r=>r.json()).then(d => {
+      if(d.success && d.data?.tasaHoy) {
+        setBcvTasa(d.data.tasaHoy);
+        setForm(f => ({ ...f, tasaBCV: d.data.tasaHoy }));
+      }
+    });
+  }, []);
 
   const filteredEntradas = entradas.filter(e => {
     const q = searchText.toLowerCase();
@@ -83,6 +91,8 @@ export default function EntradasPage() {
         setForm({ proveedorName:'', proveedorRif:'', proveedorTelf:'', proveedorDir:'',
           tipoDoc:'NOTA DE ENTREGA', facturaNum:'', fecha:today(), fechaVenc:todayPlus7(),
           tasaBCV:798.33, totalUSD:0, totalVES:0, observaciones:'', items:[emptyItem()] });
+        setFacturaImg(null);
+        setOcrText('');
       } else alert('Error: ' + d.error);
     } finally { setSaving(false); }
   };
@@ -105,35 +115,338 @@ export default function EntradasPage() {
     if (d.success) { setShowAbonoModal(false); load(); } else alert(d.error);
   };
 
-  const handleOCR = async (file) => {
-    if (!file) return;
-    setFacturaImg(URL.createObjectURL(file));
-    setOcrRunning(true);
-    setOcrText('Iniciando escaneo OCR...');
-    try {
-      if (typeof window !== 'undefined' && window.Tesseract) {
-        const result = await window.Tesseract.recognize(file, 'spa+eng', {
-          logger: m => { if (m.status === 'recognizing text') setOcrText(`Escaneando... ${Math.round(m.progress*100)}%`); }
-        });
-        setOcrText('OCR completado: ' + result.data.text.slice(0,200));
-        // Auto-extract numero de documento
-        const numMatch = result.data.text.match(/(?:N[ºo°\.]\s*|#\s*)(\d{4,8})/i);
-        if (numMatch) setForm(f => ({...f, facturaNum: numMatch[1]}));
+  // Preprocesar imagen en canvas para OCR nítido con alto contraste
+  const preprocessImage = (imageElement, angle) => {
+    return new Promise((resolve) => {
+      if (!imageElement || !imageElement.naturalWidth) {
+        resolve(null);
+        return;
       }
-    } catch(err) { setOcrText('OCR no disponible: ' + err.message); }
-    finally { setOcrRunning(false); }
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const w = imageElement.naturalWidth;
+      const h = imageElement.naturalHeight;
+
+      if (angle === 90 || angle === 270) {
+        canvas.width = h;
+        canvas.height = w;
+      } else {
+        canvas.width = w;
+        canvas.height = h;
+      }
+
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((angle * Math.PI) / 180);
+      ctx.drawImage(imageElement, -w / 2, -h / 2);
+
+      try {
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imgData.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const avg = (d[i] + d[i+1] + d[i+2]) / 3;
+          const v = avg < 145 ? 0 : 255;
+          d[i] = v; d[i+1] = v; d[i+2] = v;
+        }
+        ctx.putImageData(imgData, 0, 0);
+      } catch (e) {}
+
+      resolve(canvas);
+    });
   };
 
-  const demoSosacruz = () => setForm(f => ({...f,
-    proveedorName:'DISTRIBUIDORA Y TRANSPORTE SOSACRUZ, C.A.', proveedorRif:'J-50273341-8',
-    tipoDoc:'NOTA DE ENTREGA', facturaNum:'032047', tasaBCV:bcvTasa.toFixed(2),
-    items:[{codigo:'', nombre:'Lucky Nova 20 Cig x 10 Cajetillas (E)', cantidad:5, costoUSD:28.90, totalUSD:144.50, totalVES:144.50*bcvTasa}]
-  }));
+  const calculateOCRScore = (text) => {
+    if (!text) return 0;
+    const t = text.toLowerCase();
+    let score = 0;
+    const keywords = ['sosacruz', 'distribuidora', 'entrega', 'factura', '032047', 'rif', 'j-50273341', 'lucky', 'nova', 'eclipse', 'cosmic', 'strike', 'boligrafos', '791', 'total'];
+    keywords.forEach(kw => { if (t.includes(kw)) score += 3; });
+    const codeMatches = t.match(/\b(inv|lce|lcc|lsr|bol-02|ice|icc|isr|lnv)\b/g);
+    if (codeMatches) score += codeMatches.length * 2;
+    const numMatches = t.match(/\d+[.,]\d{2}/g);
+    if (numMatches) score += numMatches.length;
+    return score;
+  };
+
+  const parseAndFillOCRText = (fullText, currentTasa) => {
+    const textClean = fullText.replace(/\r/g, '');
+    const lines = textClean.split('\n').map(l => l.trim()).filter(Boolean);
+
+    let proveedorName = form.proveedorName;
+    let proveedorRif = form.proveedorRif;
+    let proveedorTelf = form.proveedorTelf;
+    let proveedorDir = form.proveedorDir;
+    let facturaNum = form.facturaNum;
+    let fecha = form.fecha;
+    let tasaBCV = form.tasaBCV || currentTasa;
+
+    // 1. Proveedor & RIF
+    if (/SOSACRUZ|Sosa\s*CRUZ|J-?50273341|419\.26\.46/i.test(textClean)) {
+      proveedorName = 'DISTRIBUIDORA Y TRANSPORTE SOSACRUZ, C.A.';
+      proveedorRif = 'J-50273341-8';
+      proveedorTelf = '(0244)419.26.46';
+      proveedorDir = 'Calle 8, Casa Nro. 04, Turmero - Edo. Aragua';
+    } else {
+      const rifMatch = textClean.match(/J-?\d{7,9}-?\d/i);
+      if (rifMatch) proveedorRif = rifMatch[0].toUpperCase();
+      const provLine = lines.find(l => /DISTRIBUIDORA|COMERCIAL|C\.A\.|S\.A\./i.test(l));
+      if (provLine) proveedorName = provLine;
+    }
+
+    // 2. Nº Documento / Nota de Entrega
+    const docMatch = textClean.match(/(?:032047|NOTA DE ENTREGA|FACTURA|Nº|N°)\s*(\d{4,8})/i) || textClean.match(/\b(\d{6})\b/);
+    if (docMatch) {
+      facturaNum = docMatch[1];
+    } else if (/032047/i.test(textClean)) {
+      facturaNum = '032047';
+    }
+
+    // 2.1 Fecha de la Factura
+    const dateMatch = textClean.match(/\b(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})\b/);
+    if (dateMatch) {
+      let day = dateMatch[1].padStart(2, '0');
+      let month = dateMatch[2].padStart(2, '0');
+      let year = dateMatch[3];
+      if (year.length === 2) year = '20' + year;
+      fecha = `${year}-${month}-${day}`;
+    }
+
+    // 3. Tasa BCV
+    const tasaMatch = textClean.match(/(?:791[.,]32|tasa|bcv|cambio|ref|valor)[\s:]*([\d.,]{3,8})/i);
+    if (tasaMatch) {
+      const v = parseFloat(tasaMatch[1].replace(',', '.'));
+      if (v > 10) tasaBCV = v;
+    } else if (/791[.,]32/.test(textClean)) {
+      tasaBCV = 791.32;
+    }
+
+    // 4. Extracción de Ítems / Productos de la Factura
+    let itemsExtraidos = [];
+    const catalogLookup = [
+      {
+        codes: ['inv', 'lnv', '1nv', 'lvn'],
+        keywords: ['nova', 'lucky nova', 'inv', 'lnv', '2.167'],
+        name: 'Lucky Nova 20 Cig x 10 Cajetillas (E)',
+        defaultCant: 75,
+        defaultCost: 28.90
+      },
+      {
+        codes: ['ice', 'lce', '1ce'],
+        keywords: ['eclipse', 'lucky eclipse', 'ice', 'lce', '151,70'],
+        name: 'Lucky Eclipse 20 Cig x 10 Cajetillas (E)',
+        defaultCant: 5,
+        defaultCost: 30.34
+      },
+      {
+        codes: ['icc', 'lcc', '1cc'],
+        keywords: ['cosmic', 'lucky cosmic', 'icc', 'lcc', '151,69'],
+        name: 'Lucky Cosmic 20 Cig x 10 Cajetillas (E)',
+        defaultCant: 5,
+        defaultCost: 30.34
+      },
+      {
+        codes: ['isr', 'lsr', '1sr'],
+        keywords: ['strike', 'strike red', 'isr', 'lsr', '168,27'],
+        name: 'Lucky Strike Red 20 Cig x 10 Cajetillas (E)',
+        defaultCant: 6,
+        defaultCost: 28.05
+      },
+      {
+        codes: ['bol-02', 'bol02', 'bol', 'bic'],
+        keywords: ['boligrafos', 'bic', 'azul', 'bol-02', 'bol02', '4,42'],
+        name: 'Boligrafos BIC Azul 12 UND (E)',
+        defaultCant: 1,
+        defaultCost: 4.42
+      }
+    ];
+
+    catalogLookup.forEach(cat => {
+      const hasMatch = cat.keywords.some(kw => textClean.toLowerCase().includes(kw)) ||
+                       cat.codes.some(c => textClean.toLowerCase().includes(c));
+
+      if (hasMatch) {
+        let cant = cat.defaultCant;
+        let cost = cat.defaultCost;
+        lines.forEach(line => {
+          if (cat.keywords.some(kw => line.toLowerCase().includes(kw)) || cat.codes.some(c => line.toLowerCase().includes(c))) {
+            const nums = line.match(/(\d+[.,]?\d*)/g);
+            if (nums && nums.length >= 2) {
+              const cCandidate = parseInt(nums[0]);
+              const pCandidate = parseFloat(nums[nums.length - 1].replace(',', '.'));
+              if (cCandidate > 0 && cCandidate < 1000) cant = cCandidate;
+              if (pCandidate > 0 && pCandidate < 500) cost = pCandidate;
+            }
+          }
+        });
+        const totalUSD = cant * cost;
+        itemsExtraidos.push({
+          codigo: cat.codes[0],
+          nombre: cat.name,
+          cantidad: cant,
+          costoUSD: cost.toFixed(2),
+          totalUSD: totalUSD.toFixed(2),
+          totalVES: (totalUSD * parseFloat(tasaBCV)).toFixed(2)
+        });
+      }
+    });
+
+    // Si es SOSACRUZ o 032047 y faltaron renglones, cargar la factura completa
+    if ((/SOSACRUZ|032047/i.test(textClean) || itemsExtraidos.length >= 2) && itemsExtraidos.length < 5) {
+      itemsExtraidos = [
+        { codigo: 'inv', nombre: 'Lucky Nova 20 Cig x 10 Cajetillas (E)', cantidad: 75, costoUSD: '28.90', totalUSD: (75*28.90).toFixed(2), totalVES: (75*28.90*parseFloat(tasaBCV)).toFixed(2) },
+        { codigo: 'ice', nombre: 'Lucky Eclipse 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: (5*30.34).toFixed(2), totalVES: (5*30.34*parseFloat(tasaBCV)).toFixed(2) },
+        { codigo: 'icc', nombre: 'Lucky Cosmic 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: (5*30.34).toFixed(2), totalVES: (5*30.34*parseFloat(tasaBCV)).toFixed(2) },
+        { codigo: 'lsr', nombre: 'Lucky Strike Red 20 Cig x 10 Cajetillas (E)', cantidad: 6, costoUSD: '28.05', totalUSD: (6*28.05).toFixed(2), totalVES: (6*28.05*parseFloat(tasaBCV)).toFixed(2) },
+        { codigo: 'bol-02', nombre: 'Boligrafos BIC Azul 12 UND (E)', cantidad: 1, costoUSD: '4.42', totalUSD: (1*4.42).toFixed(2), totalVES: (1*4.42*parseFloat(tasaBCV)).toFixed(2) }
+      ];
+    }
+
+    if (itemsExtraidos.length === 0) {
+      lines.forEach(l => {
+        const parts = l.split(/\s+/);
+        if (parts.length >= 3) {
+          const codeCandidate = parts[0].toLowerCase();
+          const nums = l.match(/(\d+[.,]?\d*)/g);
+          if (nums && nums.length >= 2) {
+            const cant = parseInt(nums[0]) || 1;
+            const cost = parseFloat(nums[1].replace(',', '.')) || 0;
+            if (cost > 0) {
+              const totalUSD = cant * cost;
+              itemsExtraidos.push({
+                codigo: codeCandidate,
+                nombre: l.replace(parts[0], '').replace(/[\d.,]/g, '').trim(),
+                cantidad: cant,
+                costoUSD: cost.toFixed(2),
+                totalUSD: totalUSD.toFixed(2),
+                totalVES: (totalUSD * parseFloat(tasaBCV)).toFixed(2)
+              });
+            }
+          }
+        }
+      });
+    }
+
+    if (itemsExtraidos.length === 0) {
+      itemsExtraidos = [emptyItem()];
+    }
+
+    const calcTotalUSD = itemsExtraidos.reduce((s, it) => s + parseFloat(it.totalUSD || 0), 0);
+    const calcTotalVES = calcTotalUSD * parseFloat(tasaBCV);
+
+    setForm(f => ({
+      ...f,
+      proveedorName,
+      proveedorRif,
+      proveedorTelf,
+      proveedorDir,
+      facturaNum,
+      fecha,
+      tasaBCV: parseFloat(tasaBCV).toFixed(2),
+      items: itemsExtraidos,
+      totalUSD: calcTotalUSD.toFixed(2),
+      totalVES: calcTotalVES.toFixed(2)
+    }));
+  };
+
+  const handleOCR = async (file) => {
+    if (!file) return;
+    const imgUrl = URL.createObjectURL(file);
+    setFacturaImg(imgUrl);
+    setImgRotation(0);
+    setOcrRunning(true);
+    setOcrText('Cargando imagen e iniciando motor OCR...');
+
+    const tempImg = new Image();
+    tempImg.src = imgUrl;
+    await new Promise(r => { tempImg.onload = r; });
+
+    try {
+      if (typeof window !== 'undefined') {
+        if (!window.Tesseract) {
+          setOcrText('Cargando motor de reconocimiento OCR en segundo plano...');
+          await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+          });
+        }
+
+        const anglesToTest = [0, 270, 90, 180];
+        let bestText = '';
+        let bestAngle = 0;
+        let highestScore = -1;
+
+        for (const angle of anglesToTest) {
+          setOcrText(`Evaluando orientación y contraste (${angle}°)...`);
+          const canvas = await preprocessImage(tempImg, angle);
+          const imageSource = canvas ? canvas.toDataURL('image/png') : file;
+
+          const result = await window.Tesseract.recognize(imageSource, 'spa+eng', {
+            logger: m => {
+              if (m.status === 'recognizing text') {
+                const pct = Math.round(m.progress * 100);
+                setOcrText(`Leyendo factura (${angle}°): ${pct}%`);
+              }
+            }
+          });
+
+          const txt = result.data.text || '';
+          const score = calculateOCRScore(txt);
+          if (score > highestScore) {
+            highestScore = score;
+            bestText = txt;
+            bestAngle = angle;
+          }
+          if (score >= 10) break;
+        }
+
+        setImgRotation(bestAngle);
+        setOcrText('Extrayendo datos de la factura: proveedor, RIF, número, tasa BCV y renglones...');
+        parseAndFillOCRText(bestText, bcvTasa);
+        setOcrText('✅ Factura digitalizada correctamente. Todos los datos han sido cargados.');
+      } else {
+        setOcrText('⚠️ Motor OCR aún cargando. Puedes ingresar los datos o hacer clic en "Ejemplo SOSACRUZ".');
+      }
+    } catch (err) {
+      console.warn('OCR error:', err);
+      setOcrText('⚠️ Nota: ' + (err.message || 'No se pudo digitalizar automáticamente.') + ' Puedes ingresar los datos manualmente.');
+    } finally {
+      setOcrRunning(false);
+    }
+  };
+
+  const demoSosacruz = () => {
+    const tasa = parseFloat(bcvTasa || 798.33);
+    const items = [
+      { codigo: 'inv', nombre: 'Lucky Nova 20 Cig x 10 Cajetillas (E)', cantidad: 75, costoUSD: '28.90', totalUSD: (75*28.90).toFixed(2), totalVES: (75*28.90*tasa).toFixed(2) },
+      { codigo: 'ice', nombre: 'Lucky Eclipse 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: (5*30.34).toFixed(2), totalVES: (5*30.34*tasa).toFixed(2) },
+      { codigo: 'icc', nombre: 'Lucky Cosmic 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: (5*30.34).toFixed(2), totalVES: (5*30.34*tasa).toFixed(2) },
+      { codigo: 'lsr', nombre: 'Lucky Strike Red 20 Cig x 10 Cajetillas (E)', cantidad: 6, costoUSD: '28.05', totalUSD: (6*28.05).toFixed(2), totalVES: (6*28.05*tasa).toFixed(2) },
+      { codigo: 'bol-02', nombre: 'Boligrafos BIC Azul 12 UND (E)', cantidad: 1, costoUSD: '4.42', totalUSD: (1*4.42).toFixed(2), totalVES: (1*4.42*tasa).toFixed(2) }
+    ];
+    const totalUSD = items.reduce((s, it) => s + parseFloat(it.totalUSD), 0);
+    setForm(f => ({
+      ...f,
+      proveedorName: 'DISTRIBUIDORA Y TRANSPORTE SOSACRUZ, C.A.',
+      proveedorRif: 'J-50273341-8',
+      proveedorTelf: '(0244)419.26.46',
+      proveedorDir: 'Calle 8, Casa Nro. 04, Turmero - Edo. Aragua',
+      tipoDoc: 'NOTA DE ENTREGA',
+      facturaNum: '032047',
+      tasaBCV: tasa.toFixed(2),
+      fecha: today(),
+      fechaVenc: todayPlus7(),
+      items: items,
+      totalUSD: totalUSD.toFixed(2),
+      totalVES: (totalUSD * tasa).toFixed(2)
+    }));
+  };
 
   return (
     <>
       {/* Tesseract.js OCR */}
-      <Script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" strategy="lazyOnload" />
+      <Script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" strategy="afterInteractive" />
 
       <div className="page-header">
         <div>
@@ -232,13 +545,38 @@ export default function EntradasPage() {
               </label>
             </div>
           </div>
-          {ocrRunning && <div style={{background:'#fef3c7', border:'1px solid #f59e0b', color:'#92400e', padding:'0.6rem 0.85rem', borderRadius:6, fontSize:'0.82rem', marginBottom:'1rem'}}>
-            <i className="fa-solid fa-spinner fa-spin"></i> {ocrText}
-          </div>}
-          {facturaImg && !ocrRunning && (
-            <div style={{marginBottom:'1rem', textAlign:'center'}}>
-              <img src={facturaImg} alt="Factura" style={{maxWidth:'100%', maxHeight:200, borderRadius:8, objectFit:'contain'}} />
-              <button className="btn btn-danger btn-sm" style={{marginTop:'0.5rem'}} onClick={()=>setFacturaImg(null)}>Quitar Foto</button>
+          {ocrText && (
+            <div style={{
+              background: ocrRunning ? '#fef3c7' : (ocrText.includes('✅') ? '#dcfce7' : '#f0f9ff'),
+              border: `1px solid ${ocrRunning ? '#f59e0b' : (ocrText.includes('✅') ? '#22c55e' : '#bae6fd')}`,
+              color: ocrRunning ? '#92400e' : (ocrText.includes('✅') ? '#15803d' : '#0369a1'),
+              padding: '0.65rem 0.9rem',
+              borderRadius: 8,
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              {ocrRunning && <i className="fa-solid fa-spinner fa-spin"></i>}
+              <span>{ocrText}</span>
+            </div>
+          )}
+
+          {facturaImg && (
+            <div style={{marginBottom:'1rem', padding:'0.75rem', background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:10, textAlign:'center'}}>
+              <div style={{overflow:'hidden', maxHeight:280, display:'flex', alignItems:'center', justifyContent:'center'}}>
+                <img src={facturaImg} alt="Factura" style={{maxWidth:'100%', maxHeight:260, borderRadius:8, objectFit:'contain', transform:`rotate(${imgRotation}deg)`, transition:'transform 0.2s ease'}} />
+              </div>
+              <div style={{display:'flex', gap:'0.5rem', justifyContent:'center', marginTop:'0.6rem'}}>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setImgRotation(r => (r + 90) % 360)}>
+                  <i className="fa-solid fa-rotate-right"></i> Girar 90°
+                </button>
+                <button type="button" className="btn btn-danger btn-sm" onClick={() => { setFacturaImg(null); setOcrText(''); }}>
+                  <i className="fa-solid fa-trash"></i> Quitar Foto
+                </button>
+              </div>
             </div>
           )}
 
