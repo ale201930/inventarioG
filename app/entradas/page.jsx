@@ -169,7 +169,7 @@ export default function EntradasPage() {
               <tr key={e.id}>
                 <td><span className="badge badge-primary" style={{fontSize:'0.7rem'}}>{e.tipo_documento||'NOTA DE ENTREGA'}</span></td>
                 <td style={{fontWeight:600}}>Nº {e.factura_number}</td>
-                <td>{e.fecha}</td>
+                <td>{e.fecha ? String(e.fecha).split('T')[0] : '—'}</td>
                 <td>
                   <div style={{fontWeight:600, fontSize:'0.88rem'}}>{e.proveedor_name}</div>
                   {e.proveedor_rif && <div style={{fontSize:'0.72rem', color:'var(--text-muted)'}}>{e.proveedor_rif}</div>}

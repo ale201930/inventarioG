@@ -1,3 +1,29 @@
+/* Page Titles & Headers */
+.page-header {
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.page-title {
+  font-size: 1.5rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.page-subtitle {
+  font-size: 0.88rem !important;
+  color: #64748b !important;
+  font-weight: 500 !important;
+}
+
 :root {
   --bg-primary: #f8fafc;
   --bg-secondary: #ffffff;

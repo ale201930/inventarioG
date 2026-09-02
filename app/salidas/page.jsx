@@ -214,7 +214,7 @@ export default function SalidasPage() {
               <tr key={s.id}>
                 <td><span className="badge badge-primary" style={{fontSize:'0.7rem'}}>{s.tipo_documento||'NOTA DE ENTREGA'}</span></td>
                 <td style={{fontWeight:600}}>Nº {s.factura_number}</td>
-                <td>{s.fecha}</td>
+                <td>{s.fecha ? String(s.fecha).split('T')[0] : '—'}</td>
                 <td style={{fontWeight:500}}>{s.cliente_name}</td>
                 <td style={{color:'var(--text-secondary)', fontSize:'0.85rem'}}>{s.cedula_rif||'—'}</td>
                 <td style={{fontWeight:700}}>${Number(s.total_factura||0).toFixed(2)}</td>
