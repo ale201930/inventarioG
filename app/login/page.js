@@ -1,262 +1,139 @@
-"use client";
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { loginUser, resetPassword, isFirebaseConfigured } from "@/lib/dbService";
-import { KeyRound, User, AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react";
-import BullLogo from "@/components/BullLogo";
+// app/login/page.js — Login que usa api/auth (MySQL/cookie) en lugar de Firebase
+'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
-export default function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+export default function LoginPage() {
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isRecovering, setIsRecovering] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setSuccessMessage("");
+    setError('');
     setLoading(true);
-
     try {
-      await loginUser(email, password);
-      // Let authentication listener trigger redirection, but push just in case
-      router.push("/");
-    } catch (err) {
-      setError(err.message || "Error al iniciar sesión");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetPassword = async (e) => {
-    e.preventDefault();
-    setError("");
-    setSuccessMessage("");
-    setLoading(true);
-
-    if (!email.trim()) {
-      setError("Por favor ingresa tu usuario o correo electrónico.");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      await resetPassword(email);
-      setSuccessMessage("¡Enlace de recuperación enviado! Revisa la bandeja de entrada de tu correo (y la carpeta de spam).");
-    } catch (err) {
-      setError(err.message || "Error al enviar el enlace de recuperación");
+      const res = await fetch('/api/auth?action=login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: identifier, username: identifier, password }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        router.push('/');
+      } else {
+        setError(d.error || 'Credenciales incorrectas.');
+      }
+    } catch {
+      setError('Error de conexión. Intente de nuevo.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="login-container">
-      <div className="card login-card">
-        <div className="login-logo">
-          <BullLogo size={80} style={{ borderRadius: "16px", boxShadow: "0 4px 14px rgba(2,132,199,0.35)" }} />
-          <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-primary)", marginTop: "0.5rem" }}>InvG <span style={{ color: "#0284c7" }}>PRO</span></h1>
-          <p className="login-subtitle">Sistema de Control de Inventario y Ventas</p>
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+      fontFamily: "'Inter', system-ui, sans-serif"
+    }}>
+      <div style={{
+        background: '#fff', borderRadius: 20, boxShadow: '0 20px 60px rgba(2,132,199,0.15)',
+        padding: '2.5rem 2rem', width: '100%', maxWidth: 400,
+        border: '1px solid #e0f2fe'
+      }}>
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <div style={{
+            width: 64, height: 64, background: 'linear-gradient(135deg,#0284c7 0%,#38bdf8 100%)',
+            borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 1rem', boxShadow: '0 8px 24px rgba(2,132,199,0.3)',
+            fontSize: '2rem'
+          }}>📦</div>
+          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
+            Inv<span style={{ color: '#0284c7' }}>G</span>{' '}
+            <span style={{ fontSize: '0.65rem', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>PRO</span>
+          </h1>
+          <p style={{ color: '#64748b', fontSize: '0.9rem', marginTop: '0.25rem' }}>
+            Sistema de Control de Inventario
+          </p>
+          <p style={{ color: '#94a3b8', fontSize: '0.78rem' }}>BESTEDA 2, C.A.</p>
         </div>
 
-        {isRecovering ? (
-          <form onSubmit={handleResetPassword} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: 600, textAlign: "center", marginBottom: "0.25rem", color: "var(--text-primary)" }}>
-              Recuperar Contraseña
-            </h2>
-            <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", textAlign: "center", marginBottom: "0.5rem" }}>
-              Ingresa tu usuario o correo para recibir un enlace de restablecimiento.
-            </p>
-
-            {error && (
-              <div style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "0.5rem",
-                background: "rgba(239, 68, 68, 0.1)",
-                border: "1px solid rgba(239, 68, 68, 0.2)",
-                padding: "0.75rem",
-                borderRadius: "8px",
-                color: "var(--danger)",
-                fontSize: "0.85rem"
-              }}>
-                <AlertCircle size={16} style={{ marginTop: "2px", flexShrink: 0 }} />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {successMessage && (
-              <div style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "0.5rem",
-                background: "rgba(16, 185, 129, 0.1)",
-                border: "1px solid rgba(16, 185, 129, 0.2)",
-                padding: "0.75rem",
-                borderRadius: "8px",
-                color: "var(--success)",
-                fontSize: "0.85rem"
-              }}>
-                <CheckCircle size={16} style={{ marginTop: "2px", flexShrink: 0 }} />
-                <span>{successMessage}</span>
-              </div>
-            )}
-
-            <div className="form-group">
-              <label htmlFor="recover-email">Usuario o Correo Electrónico</label>
-              <div style={{ position: "relative" }}>
-                <User size={18} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-                <input
-                  id="recover-email"
-                  type="text"
-                  placeholder="Ej. alexander almaguer"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  style={{ paddingLeft: "40px" }}
-                  required
-                />
-              </div>
-              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
-                Ingresa el mismo usuario o correo con el que inicias sesión.
-              </p>
+        <form onSubmit={handleSubmit}>
+          {error && (
+            <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#b91c1c', borderRadius: 10, padding: '0.75rem 1rem', marginBottom: '1rem', fontSize: '0.875rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              ⚠️ {error}
             </div>
+          )}
 
-            <button
-              type="submit"
-              className="btn btn-primary"
-              style={{ marginTop: "0.5rem", width: "100%" }}
-              disabled={loading}
-            >
-              {loading ? "Enviando enlace..." : "Enviar Enlace de Recuperación"}
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => {
-                setIsRecovering(false);
-                setError("");
-                setSuccessMessage("");
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#0f172a', marginBottom: '0.4rem' }}>
+              Usuario o Correo Electrónico
+            </label>
+            <input
+              type="text"
+              id="identifier"
+              required
+              value={identifier}
+              onChange={e => setIdentifier(e.target.value)}
+              placeholder="admin o correo@dominio.com"
+              style={{
+                width: '100%', padding: '0.7rem 1rem', border: '1px solid #e2e8f0', borderRadius: 10,
+                fontSize: '0.95rem', outline: 'none', transition: 'border-color 0.2s',
+                background: '#f8fafc', color: '#0f172a'
               }}
-              style={{ width: "100%" }}
-            >
-              Volver al Inicio de Sesión
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            {error && (
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                background: "rgba(239, 68, 68, 0.1)",
-                border: "1px solid rgba(239, 68, 68, 0.2)",
-                padding: "0.75rem",
-                borderRadius: "8px",
-                color: "var(--danger)",
-                fontSize: "0.85rem"
-              }}>
-                <AlertCircle size={16} />
-                <span>{error}</span>
-              </div>
-            )}
+              onFocus={e => e.target.style.borderColor = '#0284c7'}
+              onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+            />
+          </div>
 
-            <div className="form-group">
-              <label htmlFor="email">Usuario o Correo Electrónico</label>
-              <div style={{ position: "relative" }}>
-                <User size={18} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-                <input
-                  id="email"
-                  type="text"
-                  placeholder="Ej. alexander almaguer"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  style={{ paddingLeft: "40px" }}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="password">Contraseña</label>
-              <div style={{ position: "relative" }}>
-                <KeyRound size={18} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  style={{ paddingLeft: "40px", paddingRight: "44px" }}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{
-                    position: "absolute",
-                    right: "12px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "none",
-                    border: "none",
-                    color: "var(--text-muted)",
-                    cursor: "pointer",
-                    padding: "4px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    transition: "color 0.2s"
-                  }}
-                  title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-
-            <div style={{ textAlign: "center", marginTop: "-0.25rem" }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsRecovering(true);
-                  setError("");
-                  setSuccessMessage("");
-                }}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#0f172a', marginBottom: '0.4rem' }}>
+              Contraseña
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPwd ? 'text' : 'password'}
+                id="password"
+                required
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••"
                 style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--accent-light)",
-                  fontSize: "0.8rem",
-                  cursor: "pointer",
-                  padding: 0,
-                  textDecoration: "underline"
+                  width: '100%', padding: '0.7rem 2.8rem 0.7rem 1rem', border: '1px solid #e2e8f0', borderRadius: 10,
+                  fontSize: '0.95rem', outline: 'none', background: '#f8fafc', color: '#0f172a'
                 }}
-              >
-                ¿Olvidaste tu contraseña?
+                onFocus={e => e.target.style.borderColor = '#0284c7'}
+                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+              />
+              <button type="button" onClick={() => setShowPwd(!showPwd)} style={{
+                position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1rem'
+              }}>
+                {showPwd ? '🙈' : '👁️'}
               </button>
             </div>
+          </div>
 
-            <button
-              type="submit"
-              className="btn btn-primary"
-              style={{ marginTop: "0.5rem", width: "100%" }}
-              disabled={loading}
-            >
-              {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
-            </button>
-          </form>
-        )}
+          <button type="submit" disabled={loading} style={{
+            width: '100%', padding: '0.85rem', borderRadius: 12, border: 'none',
+            background: loading ? '#94a3b8' : 'linear-gradient(135deg,#0284c7 0%,#0369a1 100%)',
+            color: '#fff', fontWeight: 700, fontSize: '1rem', cursor: loading ? 'not-allowed' : 'pointer',
+            boxShadow: '0 4px 12px rgba(2,132,199,0.3)', transition: 'all 0.2s'
+          }}>
+            {loading ? '⏳ Iniciando sesión...' : '🔐 Iniciar Sesión'}
+          </button>
+        </form>
 
-        {!isFirebaseConfigured && (
-          <></>
-        )}
-
+        <div style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.78rem', color: '#94a3b8' }}>
+          <p>InvG PRO v2.0 · BESTEDA 2, C.A.</p>
+          <p style={{ marginTop: '0.25rem', fontSize: '0.72rem' }}>Acceso seguro con credenciales del sistema</p>
+        </div>
       </div>
     </div>
   );
