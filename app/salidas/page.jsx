@@ -246,108 +246,111 @@ export default function SalidasPage() {
       </div>
 
       {/* Modal Nueva Factura */}
-      <div className={`modal-overlay ${showModal?'active':''}`} onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
-        <div className="modal-content" style={{maxWidth:750}}>
-          <div className="modal-header">
-            <div>
-              <h2><i className="fa-solid fa-file-invoice"></i> Nueva Factura (BESTEDA 2, C.A.)</h2>
-              <p style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>RIF: J-40529263-6 | San Juan de los Morros</p>
-            </div>
-            <button className="modal-close" onClick={()=>setShowModal(false)}>&times;</button>
-          </div>
-
-          <div style={{marginBottom:'1rem', background:'#e0f2fe', padding:'0.6rem 1rem', borderRadius:10, border:'1px solid #bae6fd', fontWeight:700, color:'#0369a1', fontSize:'0.88rem', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
-            <span><i className="fa-solid fa-file-invoice"></i> DOCUMENTO: NOTA DE ENTREGA</span>
-            <span className="badge badge-primary" style={{background:'#0284c7', color:'#fff'}}>Talonario 80mm</span>
-          </div>
-
-          {/* Datos Cliente */}
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem'}}>
-            <div className="form-group">
-              <label className="form-label">Cliente (Nombre y Apellido) *</label>
-              <input type="text" className="form-control" placeholder="Ej: Pedro Pérez" required value={form.clienteName} onChange={e=>setForm(f=>({...f,clienteName:e.target.value}))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Cédula / RIF *</label>
-              <input type="text" className="form-control" placeholder="Ej: V-12345678" value={form.cedulaRif} onChange={e=>setForm(f=>({...f,cedulaRif:e.target.value}))} />
-            </div>
-          </div>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem'}}>
-            <div className="form-group">
-              <label className="form-label">Teléfono</label>
-              <input type="text" className="form-control" placeholder="Ej: 0412-1234567" value={form.telefono} onChange={e=>setForm(f=>({...f,telefono:e.target.value}))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Fecha</label>
-              <input type="date" className="form-control" required value={form.fecha} onChange={e=>setForm(f=>({...f,fecha:e.target.value}))} />
-            </div>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Dirección</label>
-            <input type="text" className="form-control" placeholder="Av. Bolívar Edif. Central Piso 1" value={form.direccion} onChange={e=>setForm(f=>({...f,direccion:e.target.value}))} />
-          </div>
-
-          <hr style={{margin:'1rem 0', border:'none', borderTop:'1px solid var(--border-color)'}} />
-
-          {/* Productos */}
-          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.75rem'}}>
-            <h3 style={{fontSize:'0.95rem', fontWeight:600}}><i className="fa-solid fa-cart-shopping"></i> Productos a Facturar</h3>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setForm(f=>({...f,items:[...f.items,emptyItem()]}))}>+ Agregar Renglón</button>
-          </div>
-          <div style={{display:'grid', gridTemplateColumns:'2.2fr 1.4fr 0.7fr 1fr 1fr auto', gap:'0.5rem', marginBottom:'0.25rem', padding:'0 0.25rem'}}>
-            {['PRODUCTO','OPCION PRECIO','CANT.','PRECIO $','SUBTOTAL',''].map((h,i)=>(
-              <span key={i} style={{fontSize:'0.78rem', fontWeight:600, color:'var(--text-secondary)'}}>{h}</span>
-            ))}
-          </div>
-          <div style={{maxHeight:300, overflowY:'auto'}}>
-            {form.items.map((item, i) => (
-              <div key={i} style={{display:'grid', gridTemplateColumns:'2.2fr 1.4fr 0.7fr 1fr 1fr auto', gap:'0.5rem', marginBottom:'0.5rem', alignItems:'center'}}>
-                <select className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} value={item.productoId} onChange={e=>selectProduct(i,e.target.value)}>
-                  <option value="">-- Seleccionar --</option>
-                  {productos.map(p=>(
-                    <option key={p.id} value={p.id} disabled={parseInt(p.cantidad)<=0}>
-                      {p.nombre} {parseInt(p.cantidad)<=0?'(Sin stock)':''} (Disp: {p.cantidad})
-                    </option>
-                  ))}
-                </select>
-                <select className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} value={item.precioOpcion} onChange={e=>selectPrecio(i,e.target.value)}>
-                  <option value="1">P1 – ${Number(productos.find(p=>p.id===item.productoId)?.precio_venta1||0).toFixed(2)}</option>
-                  <option value="2">P2 – ${Number(productos.find(p=>p.id===item.productoId)?.precio_venta2||0).toFixed(2)}</option>
-                  <option value="3">P3 – ${Number(productos.find(p=>p.id===item.productoId)?.precio_venta3||0).toFixed(2)}</option>
-                </select>
-                <input type="number" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} min="1" value={item.cantidad} onChange={e=>updateItem(i,{cantidad:e.target.value, subtotal:parseInt(e.target.value||0)*parseFloat(item.precioUnitario||0)})} />
-                <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} value={item.precioUnitario} onChange={e=>updateItem(i,{precioUnitario:e.target.value, subtotal:parseInt(item.cantidad||0)*parseFloat(e.target.value||0)})} />
-                <span style={{fontWeight:700, color:'var(--success)', fontSize:'0.85rem'}}>${Number(item.subtotal||0).toFixed(2)}</span>
-                <button type="button" className="btn btn-danger btn-sm" style={{padding:'0.25rem 0.5rem'}} onClick={()=>setForm(f=>({...f,items:f.items.filter((_,j)=>j!==i)}))}>×</button>
+      {showModal && (
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
+          <div className="modal-content" style={{maxWidth:750}}>
+            <div className="modal-header">
+              <div>
+                <h2><i className="fa-solid fa-file-invoice"></i> Nueva Factura (BESTEDA 2, C.A.)</h2>
+                <p style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>RIF: J-40529263-6 | San Juan de los Morros</p>
               </div>
-            ))}
-          </div>
-
-          {/* Totales */}
-          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', background:'#f1f5f9', padding:'1rem', borderRadius:10, marginTop:'1rem'}}>
-            <div>
-              <span style={{fontSize:'0.85rem', color:'var(--text-secondary)'}}>Total Unidades:</span>
-              <strong style={{fontSize:'1.1rem', color:'var(--primary)', marginLeft:'0.5rem'}}>{totalUnidades}</strong>
+              <button className="modal-close" onClick={()=>setShowModal(false)}>&times;</button>
             </div>
-            <div>
-              <span style={{fontSize:'0.85rem', color:'var(--text-secondary)'}}>TOTAL FACTURA:</span>
-              <strong style={{fontSize:'1.4rem', color:'var(--success)', marginLeft:'0.5rem'}}>${totalFactura.toFixed(2)}</strong>
-            </div>
-          </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem', marginTop:'1.5rem'}}>
-            <button type="button" className="btn btn-secondary" style={{width:'100%'}} onClick={()=>handleSave(false)} disabled={saving}>
-              <i className="fa-solid fa-floppy-disk"></i> Solo Guardar
-            </button>
-            <button type="button" className="btn btn-primary" style={{width:'100%'}} onClick={()=>handleSave(true)} disabled={saving}>
-              {saving ? <><i className="fa-solid fa-spinner fa-spin"></i> Guardando...</> : <><i className="fa-solid fa-print"></i> Guardar e Imprimir Ticket (80mm)</>}
-            </button>
+            <div style={{marginBottom:'1rem', background:'#e0f2fe', padding:'0.6rem 1rem', borderRadius:10, border:'1px solid #bae6fd', fontWeight:700, color:'#0369a1', fontSize:'0.88rem', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+              <span><i className="fa-solid fa-file-invoice"></i> DOCUMENTO: NOTA DE ENTREGA</span>
+              <span className="badge badge-primary" style={{background:'#0284c7', color:'#fff'}}>Talonario 80mm</span>
+            </div>
+
+            {/* Datos Cliente */}
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem'}}>
+              <div className="form-group">
+                <label className="form-label">Cliente (Nombre y Apellido) *</label>
+                <input type="text" className="form-control" placeholder="Ej: Pedro Pérez" required value={form.clienteName} onChange={e=>setForm(f=>({...f,clienteName:e.target.value}))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Cédula / RIF *</label>
+                <input type="text" className="form-control" placeholder="Ej: V-12345678" value={form.cedulaRif} onChange={e=>setForm(f=>({...f,cedulaRif:e.target.value}))} />
+              </div>
+            </div>
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem'}}>
+              <div className="form-group">
+                <label className="form-label">Teléfono</label>
+                <input type="text" className="form-control" placeholder="Ej: 0412-1234567" value={form.telefono} onChange={e=>setForm(f=>({...f,telefono:e.target.value}))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Fecha</label>
+                <input type="date" className="form-control" required value={form.fecha} onChange={e=>setForm(f=>({...f,fecha:e.target.value}))} />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Dirección</label>
+              <input type="text" className="form-control" placeholder="Av. Bolívar Edif. Central Piso 1" value={form.direccion} onChange={e=>setForm(f=>({...f,direccion:e.target.value}))} />
+            </div>
+
+            <hr style={{margin:'1rem 0', border:'none', borderTop:'1px solid var(--border-color)'}} />
+
+            {/* Productos */}
+            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.75rem'}}>
+              <h3 style={{fontSize:'0.95rem', fontWeight:600}}><i className="fa-solid fa-cart-shopping"></i> Productos a Facturar</h3>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setForm(f=>({...f,items:[...f.items,emptyItem()]}))}>+ Agregar Renglón</button>
+            </div>
+            <div style={{display:'grid', gridTemplateColumns:'2.2fr 1.4fr 0.7fr 1fr 1fr auto', gap:'0.5rem', marginBottom:'0.25rem', padding:'0 0.25rem'}}>
+              {['PRODUCTO','OPCION PRECIO','CANT.','PRECIO $','SUBTOTAL',''].map((h,i)=>(
+                <span key={i} style={{fontSize:'0.78rem', fontWeight:600, color:'var(--text-secondary)'}}>{h}</span>
+              ))}
+            </div>
+            <div style={{maxHeight:300, overflowY:'auto'}}>
+              {form.items.map((item, i) => (
+                <div key={i} style={{display:'grid', gridTemplateColumns:'2.2fr 1.4fr 0.7fr 1fr 1fr auto', gap:'0.5rem', marginBottom:'0.5rem', alignItems:'center'}}>
+                  <select className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} value={item.productoId} onChange={e=>selectProduct(i,e.target.value)}>
+                    <option value="">-- Seleccionar --</option>
+                    {productos.map(p=>(
+                      <option key={p.id} value={p.id} disabled={parseInt(p.cantidad)<=0}>
+                        {p.nombre} {parseInt(p.cantidad)<=0?'(Sin stock)':''} (Disp: {p.cantidad})
+                      </option>
+                    ))}
+                  </select>
+                  <select className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} value={item.precioOpcion} onChange={e=>selectPrecio(i,e.target.value)}>
+                    <option value="1">P1 – ${Number(productos.find(p=>p.id===item.productoId)?.precio_venta1||0).toFixed(2)}</option>
+                    <option value="2">P2 – ${Number(productos.find(p=>p.id===item.productoId)?.precio_venta2||0).toFixed(2)}</option>
+                    <option value="3">P3 – ${Number(productos.find(p=>p.id===item.productoId)?.precio_venta3||0).toFixed(2)}</option>
+                  </select>
+                  <input type="number" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} min="1" value={item.cantidad} onChange={e=>updateItem(i,{cantidad:e.target.value, subtotal:parseInt(e.target.value||0)*parseFloat(item.precioUnitario||0)})} />
+                  <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} value={item.precioUnitario} onChange={e=>updateItem(i,{precioUnitario:e.target.value, subtotal:parseInt(item.cantidad||0)*parseFloat(e.target.value||0)})} />
+                  <span style={{fontWeight:700, color:'var(--success)', fontSize:'0.85rem'}}>${Number(item.subtotal||0).toFixed(2)}</span>
+                  <button type="button" className="btn btn-danger btn-sm" style={{padding:'0.25rem 0.5rem'}} onClick={()=>setForm(f=>({...f,items:f.items.filter((_,j)=>j!==i)}))}>×</button>
+                </div>
+              ))}
+            </div>
+
+            {/* Totales */}
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', background:'#f1f5f9', padding:'1rem', borderRadius:10, marginTop:'1rem'}}>
+              <div>
+                <span style={{fontSize:'0.85rem', color:'var(--text-secondary)'}}>Total Unidades:</span>
+                <strong style={{fontSize:'1.1rem', color:'var(--primary)', marginLeft:'0.5rem'}}>{totalUnidades}</strong>
+              </div>
+              <div>
+                <span style={{fontSize:'0.85rem', color:'var(--text-secondary)'}}>TOTAL FACTURA:</span>
+                <strong style={{fontSize:'1.4rem', color:'var(--success)', marginLeft:'0.5rem'}}>${totalFactura.toFixed(2)}</strong>
+              </div>
+            </div>
+
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem', marginTop:'1.5rem'}}>
+              <button type="button" className="btn btn-secondary" style={{width:'100%'}} onClick={()=>handleSave(false)} disabled={saving}>
+                <i className="fa-solid fa-floppy-disk"></i> Solo Guardar
+              </button>
+              <button type="button" className="btn btn-primary" style={{width:'100%'}} onClick={()=>handleSave(true)} disabled={saving}>
+                {saving ? <><i className="fa-solid fa-spinner fa-spin"></i> Guardando...</> : <><i className="fa-solid fa-print"></i> Guardar e Imprimir Ticket (80mm)</>}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Modal Ticket 80mm */}
-      <div className={`modal-overlay ${showTicketModal?'active':''}`} onClick={e=>e.target===e.currentTarget&&setShowTicketModal(false)}>
+      {showTicketModal && (
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowTicketModal(false)}>
         <div className="modal-content" style={{maxWidth:480}}>
           <div className="modal-header" style={{marginBottom:'0.75rem'}}>
             <h2><i className="fa-solid fa-receipt"></i> Vista Previa · Ticket 80mm</h2>
@@ -397,121 +400,126 @@ export default function SalidasPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Modal Abono de Cliente */}
-      <div className={`modal-overlay ${showAbonoModal?'active':''}`} onClick={e=>e.target===e.currentTarget&&setShowAbonoModal(false)}>
-        <div className="modal-content" style={{maxWidth:500}}>
-          <div className="modal-header">
-            <div>
-              <h2><i className="fa-solid fa-hand-holding-dollar"></i> Registrar Abono de Cliente</h2>
-              <p style={{fontSize:'0.82rem', color:'var(--text-secondary)', fontWeight:600, margin:0}}>{abonoForm.clienteName}</p>
+      {showAbonoModal && (
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowAbonoModal(false)}>
+          <div className="modal-content" style={{maxWidth:500}}>
+            <div className="modal-header">
+              <div>
+                <h2><i className="fa-solid fa-hand-holding-dollar"></i> Registrar Abono de Cliente</h2>
+                <p style={{fontSize:'0.82rem', color:'var(--text-secondary)', fontWeight:600, margin:0}}>{abonoForm.clienteName}</p>
+              </div>
+              <button className="modal-close" onClick={()=>setShowAbonoModal(false)}>&times;</button>
             </div>
-            <button className="modal-close" onClick={()=>setShowAbonoModal(false)}>&times;</button>
+            <form onSubmit={handleAbonoSave}>
+              <div style={{background:'#f0f9ff', border:'1px solid #bae6fd', padding:'0.5rem 0.75rem', borderRadius:6, marginBottom:'1rem', fontSize:'0.8rem', color:'#0369a1', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                <span><i className="fa-solid fa-coins"></i> Tasa BCV de Conversión:</span>
+                <strong style={{color:'#0284c7', fontSize:'0.9rem'}}>Bs. {bcvTasa.toFixed(2)} / $</strong>
+              </div>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.85rem', marginBottom:'0.5rem'}}>
+                <div className="form-group" style={{margin:0}}>
+                  <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700}}>Monto en USD ($)</label>
+                  <input type="number" step="0.01" className="form-control" placeholder="0.00" required style={{fontSize:'1rem', fontWeight:700, color:'#166534'}}
+                    value={abonoForm.montoUSD} onChange={e=>setAbonoForm(f=>({...f,montoUSD:e.target.value,montoVES:(parseFloat(e.target.value||0)*bcvTasa).toFixed(2)}))} />
+                  <small style={{fontSize:'0.72rem', color:'#0284c7', fontWeight:600, display:'block', marginTop:3}}>= Bs. {(parseFloat(abonoForm.montoUSD||0)*bcvTasa).toLocaleString('es-VE',{minimumFractionDigits:2})}</small>
+                </div>
+                <div className="form-group" style={{margin:0}}>
+                  <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700}}>Monto en BS (VES)</label>
+                  <input type="number" step="0.01" className="form-control" placeholder="0.00" style={{fontSize:'1rem', fontWeight:700, color:'#0284c7'}}
+                    value={abonoForm.montoVES} onChange={e=>setAbonoForm(f=>({...f,montoVES:e.target.value}))} />
+                  <small style={{fontSize:'0.72rem', color:'#166534', fontWeight:600, display:'block', marginTop:3}}>= ${(parseFloat(abonoForm.montoVES||0)/bcvTasa).toFixed(2)} USD</small>
+                </div>
+              </div>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.85rem', marginTop:'0.85rem'}}>
+                <div className="form-group" style={{margin:0}}>
+                  <label className="form-label" style={{fontSize:'0.8rem'}}>Fecha de Pago</label>
+                  <input type="date" className="form-control" required style={{fontSize:'0.85rem'}} value={abonoForm.fecha} onChange={e=>setAbonoForm(f=>({...f,fecha:e.target.value}))} />
+                </div>
+                <div className="form-group" style={{margin:0}}>
+                  <label className="form-label" style={{fontSize:'0.8rem'}}>Nº Referencia / Método</label>
+                  <input type="text" className="form-control" placeholder="Ej: Pago Móvil 583920" style={{fontSize:'0.85rem'}} value={abonoForm.referencia} onChange={e=>setAbonoForm(f=>({...f,referencia:e.target.value}))} />
+                </div>
+              </div>
+              <div style={{marginTop:'1.25rem'}}>
+                <button type="submit" className="btn btn-primary" style={{width:'100%', padding:'0.7rem', fontSize:'0.95rem'}}>
+                  <i className="fa-solid fa-check"></i> Procesar Abono de Cliente
+                </button>
+              </div>
+            </form>
           </div>
-          <form onSubmit={handleAbonoSave}>
-            <div style={{background:'#f0f9ff', border:'1px solid #bae6fd', padding:'0.5rem 0.75rem', borderRadius:6, marginBottom:'1rem', fontSize:'0.8rem', color:'#0369a1', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-              <span><i className="fa-solid fa-coins"></i> Tasa BCV de Conversión:</span>
-              <strong style={{color:'#0284c7', fontSize:'0.9rem'}}>Bs. {bcvTasa.toFixed(2)} / $</strong>
-            </div>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.85rem', marginBottom:'0.5rem'}}>
-              <div className="form-group" style={{margin:0}}>
-                <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700}}>Monto en USD ($)</label>
-                <input type="number" step="0.01" className="form-control" placeholder="0.00" required style={{fontSize:'1rem', fontWeight:700, color:'#166534'}}
-                  value={abonoForm.montoUSD} onChange={e=>setAbonoForm(f=>({...f,montoUSD:e.target.value,montoVES:(parseFloat(e.target.value||0)*bcvTasa).toFixed(2)}))} />
-                <small style={{fontSize:'0.72rem', color:'#0284c7', fontWeight:600, display:'block', marginTop:3}}>= Bs. {(parseFloat(abonoForm.montoUSD||0)*bcvTasa).toLocaleString('es-VE',{minimumFractionDigits:2})}</small>
-              </div>
-              <div className="form-group" style={{margin:0}}>
-                <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700}}>Monto en BS (VES)</label>
-                <input type="number" step="0.01" className="form-control" placeholder="0.00" style={{fontSize:'1rem', fontWeight:700, color:'#0284c7'}}
-                  value={abonoForm.montoVES} onChange={e=>setAbonoForm(f=>({...f,montoVES:e.target.value}))} />
-                <small style={{fontSize:'0.72rem', color:'#166534', fontWeight:600, display:'block', marginTop:3}}>= ${(parseFloat(abonoForm.montoVES||0)/bcvTasa).toFixed(2)} USD</small>
-              </div>
-            </div>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.85rem', marginTop:'0.85rem'}}>
-              <div className="form-group" style={{margin:0}}>
-                <label className="form-label" style={{fontSize:'0.8rem'}}>Fecha de Pago</label>
-                <input type="date" className="form-control" required style={{fontSize:'0.85rem'}} value={abonoForm.fecha} onChange={e=>setAbonoForm(f=>({...f,fecha:e.target.value}))} />
-              </div>
-              <div className="form-group" style={{margin:0}}>
-                <label className="form-label" style={{fontSize:'0.8rem'}}>Nº Referencia / Método</label>
-                <input type="text" className="form-control" placeholder="Ej: Pago Móvil 583920" style={{fontSize:'0.85rem'}} value={abonoForm.referencia} onChange={e=>setAbonoForm(f=>({...f,referencia:e.target.value}))} />
-              </div>
-            </div>
-            <div style={{marginTop:'1.25rem'}}>
-              <button type="submit" className="btn btn-primary" style={{width:'100%', padding:'0.7rem', fontSize:'0.95rem'}}>
-                <i className="fa-solid fa-check"></i> Procesar Abono de Cliente
-              </button>
-            </div>
-          </form>
         </div>
-      </div>
+      )}
 
       {/* Modal Estado de Cuenta */}
-      <div className={`modal-overlay ${showEstadoModal?'active':''}`} onClick={e=>e.target===e.currentTarget&&setShowEstadoModal(false)}>
-        <div className="modal-content" style={{maxWidth:850}}>
-          <div className="modal-header">
-            <div>
-              <h2><i className="fa-solid fa-file-invoice-dollar" style={{color:'#0284c7'}}></i> Estado de Cuenta del Cliente</h2>
-              <p style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>Resumen detallado de compras, abonos y saldo deudor pendiente</p>
+      {showEstadoModal && (
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowEstadoModal(false)}>
+          <div className="modal-content" style={{maxWidth:850}}>
+            <div className="modal-header">
+              <div>
+                <h2><i className="fa-solid fa-file-invoice-dollar" style={{color:'#0284c7'}}></i> Estado de Cuenta del Cliente</h2>
+                <p style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>Resumen detallado de compras, abonos y saldo deudor pendiente</p>
+              </div>
+              <button className="modal-close" onClick={()=>setShowEstadoModal(false)}>&times;</button>
             </div>
-            <button className="modal-close" onClick={()=>setShowEstadoModal(false)}>&times;</button>
-          </div>
-          <div style={{background:'#f8fafc', border:'1px solid #e2e8f0', padding:'0.85rem', borderRadius:8, marginBottom:'1rem', display:'flex', gap:'0.75rem', alignItems:'flex-end', flexWrap:'wrap'}}>
-            <div style={{flex:1, minWidth:220}}>
-              <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700}}>Seleccionar Cliente:</label>
-              <select className="form-control" style={{fontSize:'0.9rem'}} value={selectedCliente} onChange={e=>setSelectedCliente(e.target.value)}>
-                <option value="">-- Seleccionar cliente --</option>
-                {clientes.map((c,i) => <option key={i} value={c.cliente_name}>{c.cliente_name} (Deuda: ${Number(c.saldo_pendiente_usd||0).toFixed(2)})</option>)}
-              </select>
+            <div style={{background:'#f8fafc', border:'1px solid #e2e8f0', padding:'0.85rem', borderRadius:8, marginBottom:'1rem', display:'flex', gap:'0.75rem', alignItems:'flex-end', flexWrap:'wrap'}}>
+              <div style={{flex:1, minWidth:220}}>
+                <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700}}>Seleccionar Cliente:</label>
+                <select className="form-control" style={{fontSize:'0.9rem'}} value={selectedCliente} onChange={e=>setSelectedCliente(e.target.value)}>
+                  <option value="">-- Seleccionar cliente --</option>
+                  {clientes.map((c,i) => <option key={i} value={c.cliente_name}>{c.cliente_name} (Deuda: ${Number(c.saldo_pendiente_usd||0).toFixed(2)})</option>)}
+                </select>
+              </div>
+              <button className="btn btn-secondary" onClick={()=>loadEstadoCuenta(selectedCliente)}>
+                <i className="fa-solid fa-arrows-rotate"></i> Ver Estado
+              </button>
             </div>
-            <button className="btn btn-secondary" onClick={()=>loadEstadoCuenta(selectedCliente)}>
-              <i className="fa-solid fa-arrows-rotate"></i> Ver Estado
-            </button>
-          </div>
 
-          {estadoCuenta && (
-            <div style={{background:'#fff', border:'1px solid #cbd5e1', borderRadius:8, padding:'1.25rem', maxHeight:'55vh', overflowY:'auto'}}>
-              <div style={{textAlign:'center', marginBottom:'1rem'}}>
-                <h3 style={{fontSize:'1.1rem', fontWeight:800}}>{estadoCuenta.cliente?.name}</h3>
-                <p style={{fontSize:'0.85rem', color:'var(--text-secondary)'}}>C.I./RIF: {estadoCuenta.cliente?.cedula_rif||'—'} | Telf: {estadoCuenta.cliente?.telefono||'—'}</p>
+            {estadoCuenta && (
+              <div style={{background:'#fff', border:'1px solid #cbd5e1', borderRadius:8, padding:'1.25rem', maxHeight:'55vh', overflowY:'auto'}}>
+                <div style={{textAlign:'center', marginBottom:'1rem'}}>
+                  <h3 style={{fontSize:'1.1rem', fontWeight:800}}>{estadoCuenta.cliente?.name}</h3>
+                  <p style={{fontSize:'0.85rem', color:'var(--text-secondary)'}}>C.I./RIF: {estadoCuenta.cliente?.cedula_rif||'—'} | Telf: {estadoCuenta.cliente?.telefono||'—'}</p>
+                </div>
+                <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'1rem', marginBottom:'1rem'}}>
+                  <div style={{textAlign:'center', background:'#f0fdf4', padding:'0.75rem', borderRadius:8}}>
+                    <div style={{fontSize:'0.75rem', color:'#166534', fontWeight:700}}>TOTAL COMPRAS</div>
+                    <div style={{fontSize:'1.2rem', fontWeight:800, color:'#166534'}}>${Number(estadoCuenta.totales?.total_compras_usd||0).toFixed(2)}</div>
+                  </div>
+                  <div style={{textAlign:'center', background:'#eff6ff', padding:'0.75rem', borderRadius:8}}>
+                    <div style={{fontSize:'0.75rem', color:'#0369a1', fontWeight:700}}>ABONADO</div>
+                    <div style={{fontSize:'1.2rem', fontWeight:800, color:'#0369a1'}}>${Number(estadoCuenta.totales?.total_abonado_usd||0).toFixed(2)}</div>
+                  </div>
+                  <div style={{textAlign:'center', background:'#fef2f2', padding:'0.75rem', borderRadius:8}}>
+                    <div style={{fontSize:'0.75rem', color:'#dc2626', fontWeight:700}}>SALDO DEUDOR</div>
+                    <div style={{fontSize:'1.2rem', fontWeight:800, color:'#dc2626'}}>${Number(estadoCuenta.totales?.saldo_pendiente_usd||0).toFixed(2)}</div>
+                  </div>
+                </div>
+                <table>
+                  <thead><tr><th>Nº Factura</th><th>Fecha</th><th>Total</th><th>Saldo</th></tr></thead>
+                  <tbody>
+                    {(estadoCuenta.salidas||[]).map(s => (
+                      <tr key={s.id}>
+                        <td>Nº {s.factura_number}</td>
+                        <td>{s.fecha}</td>
+                        <td>${Number(s.total_factura||0).toFixed(2)}</td>
+                        <td><span className={`badge ${Number(s.saldo_adeudado)>0?'badge-danger':'badge-success'}`}>${Number(s.saldo_adeudado||0).toFixed(2)}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'1rem', marginBottom:'1rem'}}>
-                <div style={{textAlign:'center', background:'#f0fdf4', padding:'0.75rem', borderRadius:8}}>
-                  <div style={{fontSize:'0.75rem', color:'#166534', fontWeight:700}}>TOTAL COMPRAS</div>
-                  <div style={{fontSize:'1.2rem', fontWeight:800, color:'#166534'}}>${Number(estadoCuenta.totales?.total_compras_usd||0).toFixed(2)}</div>
-                </div>
-                <div style={{textAlign:'center', background:'#eff6ff', padding:'0.75rem', borderRadius:8}}>
-                  <div style={{fontSize:'0.75rem', color:'#0369a1', fontWeight:700}}>ABONADO</div>
-                  <div style={{fontSize:'1.2rem', fontWeight:800, color:'#0369a1'}}>${Number(estadoCuenta.totales?.total_abonado_usd||0).toFixed(2)}</div>
-                </div>
-                <div style={{textAlign:'center', background:'#fef2f2', padding:'0.75rem', borderRadius:8}}>
-                  <div style={{fontSize:'0.75rem', color:'#dc2626', fontWeight:700}}>SALDO DEUDOR</div>
-                  <div style={{fontSize:'1.2rem', fontWeight:800, color:'#dc2626'}}>${Number(estadoCuenta.totales?.saldo_pendiente_usd||0).toFixed(2)}</div>
-                </div>
+            )}
+            {!estadoCuenta && (
+              <div style={{textAlign:'center', color:'var(--text-muted)', padding:'2rem'}}>
+                <i className="fa-solid fa-user-tag" style={{fontSize:'2.5rem', marginBottom:'0.5rem', color:'#94a3b8'}}></i>
+                <p>Selecciona un cliente arriba para generar su Estado de Cuenta.</p>
               </div>
-              <table>
-                <thead><tr><th>Nº Factura</th><th>Fecha</th><th>Total</th><th>Saldo</th></tr></thead>
-                <tbody>
-                  {(estadoCuenta.salidas||[]).map(s => (
-                    <tr key={s.id}>
-                      <td>Nº {s.factura_number}</td>
-                      <td>{s.fecha}</td>
-                      <td>${Number(s.total_factura||0).toFixed(2)}</td>
-                      <td><span className={`badge ${Number(s.saldo_adeudado)>0?'badge-danger':'badge-success'}`}>${Number(s.saldo_adeudado||0).toFixed(2)}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {!estadoCuenta && (
-            <div style={{textAlign:'center', color:'var(--text-muted)', padding:'2rem'}}>
-              <i className="fa-solid fa-user-tag" style={{fontSize:'2.5rem', marginBottom:'0.5rem', color:'#94a3b8'}}></i>
-              <p>Selecciona un cliente arriba para generar su Estado de Cuenta.</p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

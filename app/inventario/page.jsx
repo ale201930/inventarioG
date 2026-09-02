@@ -112,44 +112,46 @@ export default function InventarioPage() {
       </div>
 
       {/* Modal */}
-      <div className={`modal-overlay ${showModal ? 'active' : ''}`} onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
-        <div className="modal-content" style={{maxWidth:550}}>
-          <div className="modal-header">
-            <h2>{editing ? 'Editar Producto' : 'Nuevo Producto'}</h2>
-            <button className="modal-close" onClick={()=>setShowModal(false)}>&times;</button>
+      {showModal && (
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
+          <div className="modal-content" style={{maxWidth:550}}>
+            <div className="modal-header">
+              <h2>{editing ? 'Editar Producto' : 'Nuevo Producto'}</h2>
+              <button className="modal-close" onClick={()=>setShowModal(false)}>&times;</button>
+            </div>
+            <form onSubmit={handleSave}>
+              <div className="form-group">
+                <label className="form-label">Nombre del Producto</label>
+                <input type="text" className="form-control" placeholder="Ej: Lucky Cosmic 20 Cig x 10 Cajetillas" required value={form.nombre} onChange={e=>setForm({...form,nombre:e.target.value})} />
+              </div>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem'}}>
+                <div className="form-group">
+                  <label className="form-label">Cantidad / Stock</label>
+                  <input type="number" className="form-control" min="0" required value={form.cantidad} onChange={e=>setForm({...form,cantidad:e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Costo de Compra ($)</label>
+                  <input type="number" step="0.01" className="form-control" min="0" required value={form.costoUnitario} onChange={e=>setForm({...form,costoUnitario:e.target.value})} />
+                </div>
+              </div>
+              <div style={{background:'#f8fafc', border:'1px solid #cbd5e1', borderRadius:6, padding:'0.75rem', marginTop:'0.5rem', marginBottom:'1rem'}}>
+                <h4 style={{fontSize:'0.8rem', fontWeight:700, color:'var(--primary)', textTransform:'uppercase', marginBottom:'0.5rem'}}>Precios de Venta de Salida</h4>
+                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'0.5rem'}}>
+                  {[1,2,3].map(n => (
+                    <div className="form-group" key={n} style={{margin:0}}>
+                      <label className="form-label" style={{fontSize:'0.75rem'}}>Precio {n} ($)</label>
+                      <input type="number" step="0.01" className="form-control" min="0" placeholder="0.00"
+                        value={form[`precioVenta${n}`]}
+                        onChange={e=>setForm({...form,[`precioVenta${n}`]:e.target.value})} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button type="submit" className="btn btn-primary" style={{width:'100%'}}>Guardar Producto</button>
+            </form>
           </div>
-          <form onSubmit={handleSave}>
-            <div className="form-group">
-              <label className="form-label">Nombre del Producto</label>
-              <input type="text" className="form-control" placeholder="Ej: Lucky Cosmic 20 Cig x 10 Cajetillas" required value={form.nombre} onChange={e=>setForm({...form,nombre:e.target.value})} />
-            </div>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem'}}>
-              <div className="form-group">
-                <label className="form-label">Cantidad / Stock</label>
-                <input type="number" className="form-control" min="0" required value={form.cantidad} onChange={e=>setForm({...form,cantidad:e.target.value})} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Costo de Compra ($)</label>
-                <input type="number" step="0.01" className="form-control" min="0" required value={form.costoUnitario} onChange={e=>setForm({...form,costoUnitario:e.target.value})} />
-              </div>
-            </div>
-            <div style={{background:'#f8fafc', border:'1px solid #cbd5e1', borderRadius:6, padding:'0.75rem', marginTop:'0.5rem', marginBottom:'1rem'}}>
-              <h4 style={{fontSize:'0.8rem', fontWeight:700, color:'var(--primary)', textTransform:'uppercase', marginBottom:'0.5rem'}}>Precios de Venta de Salida</h4>
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'0.5rem'}}>
-                {[1,2,3].map(n => (
-                  <div className="form-group" key={n} style={{margin:0}}>
-                    <label className="form-label" style={{fontSize:'0.75rem'}}>Precio {n} ($)</label>
-                    <input type="number" step="0.01" className="form-control" min="0" placeholder="0.00"
-                      value={form[`precioVenta${n}`]}
-                      onChange={e=>setForm({...form,[`precioVenta${n}`]:e.target.value})} />
-                  </div>
-                ))}
-              </div>
-            </div>
-            <button type="submit" className="btn btn-primary" style={{width:'100%'}}>Guardar Producto</button>
-          </form>
         </div>
-      </div>
+      )}
     </>
   );
 }

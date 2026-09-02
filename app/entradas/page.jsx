@@ -202,7 +202,8 @@ export default function EntradasPage() {
       </div>
 
       {/* Modal Registrar Entrada */}
-      <div className={`modal-overlay ${showModal?'active':''}`} onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
+      {showModal && (
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
         <div className="modal-content" style={{maxWidth:950}}>
           <div className="modal-header">
             <div>
@@ -332,9 +333,11 @@ export default function EntradasPage() {
           </button>
         </div>
       </div>
+      )}
 
       {/* Modal Preview */}
-      <div className={`modal-overlay ${showPreviewModal?'active':''}`} onClick={e=>e.target===e.currentTarget&&setShowPreviewModal(false)}>
+      {showPreviewModal && (
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowPreviewModal(false)}>
         <div className="modal-content" style={{maxWidth:900}}>
           <div className="modal-header" style={{marginBottom:'0.75rem', borderBottom:'2px solid var(--primary-light)', paddingBottom:'0.5rem'}}>
             <div>
@@ -367,41 +370,44 @@ export default function EntradasPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Modal Abono */}
-      <div className={`modal-overlay ${showAbonoModal?'active':''}`} onClick={e=>e.target===e.currentTarget&&setShowAbonoModal(false)}>
-        <div className="modal-content">
-          <div className="modal-header">
-            <h2>Registrar Abono a Proveedor</h2>
-            <button className="modal-close" onClick={()=>setShowAbonoModal(false)}>&times;</button>
+      {showAbonoModal && (
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowAbonoModal(false)}>
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>Registrar Abono a Proveedor</h2>
+              <button className="modal-close" onClick={()=>setShowAbonoModal(false)}>&times;</button>
+            </div>
+            <form onSubmit={handleAbonoSave}>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem'}}>
+                <div className="form-group">
+                  <label className="form-label">Monto en USD ($)</label>
+                  <input type="number" step="0.01" className="form-control" placeholder="0.00" required value={abonoForm.montoUSD} onChange={e=>setAbonoForm(f=>({...f,montoUSD:e.target.value,montoVES:(parseFloat(e.target.value||0)*bcvTasa).toFixed(2)}))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Monto en BS (VES)</label>
+                  <input type="number" step="0.01" className="form-control" placeholder="0.00" value={abonoForm.montoVES} onChange={e=>setAbonoForm(f=>({...f,montoVES:e.target.value}))} />
+                </div>
+              </div>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem'}}>
+                <div className="form-group">
+                  <label className="form-label">Fecha de Pago</label>
+                  <input type="date" className="form-control" required value={abonoForm.fecha} onChange={e=>setAbonoForm(f=>({...f,fecha:e.target.value}))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Nº Referencia / Pago Móvil</label>
+                  <input type="text" className="form-control" placeholder="Ej: 948302" value={abonoForm.referencia} onChange={e=>setAbonoForm(f=>({...f,referencia:e.target.value}))} />
+                </div>
+              </div>
+              <div style={{marginTop:'1.5rem'}}>
+                <button type="submit" className="btn btn-primary" style={{width:'100%'}}>Procesar Abono a Proveedor</button>
+              </div>
+            </form>
           </div>
-          <form onSubmit={handleAbonoSave}>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem'}}>
-              <div className="form-group">
-                <label className="form-label">Monto en USD ($)</label>
-                <input type="number" step="0.01" className="form-control" placeholder="0.00" required value={abonoForm.montoUSD} onChange={e=>setAbonoForm(f=>({...f,montoUSD:e.target.value,montoVES:(parseFloat(e.target.value||0)*bcvTasa).toFixed(2)}))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Monto en BS (VES)</label>
-                <input type="number" step="0.01" className="form-control" placeholder="0.00" value={abonoForm.montoVES} onChange={e=>setAbonoForm(f=>({...f,montoVES:e.target.value}))} />
-              </div>
-            </div>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem'}}>
-              <div className="form-group">
-                <label className="form-label">Fecha de Pago</label>
-                <input type="date" className="form-control" required value={abonoForm.fecha} onChange={e=>setAbonoForm(f=>({...f,fecha:e.target.value}))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Nº Referencia / Pago Móvil</label>
-                <input type="text" className="form-control" placeholder="Ej: 948302" value={abonoForm.referencia} onChange={e=>setAbonoForm(f=>({...f,referencia:e.target.value}))} />
-              </div>
-            </div>
-            <div style={{marginTop:'1.5rem'}}>
-              <button type="submit" className="btn btn-primary" style={{width:'100%'}}>Procesar Abono a Proveedor</button>
-            </div>
-          </form>
         </div>
-      </div>
+      )}
     </>
   );
 }
