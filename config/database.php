@@ -29,12 +29,33 @@ function getPDOConnection() {
         }
     }
 
-    $host = getenv('DB_HOST') ?: '127.0.0.1';
-    $port = getenv('DB_PORT') ?: '3306';
-    $dbname = getenv('DB_NAME') ?: 'inventario_db';
-    $username = getenv('DB_USER') ?: 'root';
-    $password = getenv('DB_PASS') !== false ? getenv('DB_PASS') : '';
-    $useSSL = getenv('DB_SSL') === 'true' || getenv('DB_SSL') === '1';
+    $host = '127.0.0.1';
+    $port = '3306';
+    $dbname = 'inventario_db';
+    $username = 'root';
+    $password = '';
+    $useSSL = false;
+
+    // Detectar si TiDB Cloud inyectó DATABASE_URL
+    $databaseUrl = getenv('DATABASE_URL') ?: (getenv('TIDB_DATABASE_URL') ?: '');
+    if ($databaseUrl) {
+        $parsed = parse_url($databaseUrl);
+        if ($parsed) {
+            $host = $parsed['host'] ?? $host;
+            $port = isset($parsed['port']) ? (string)$parsed['port'] : '4000';
+            $username = $parsed['user'] ?? $username;
+            $password = isset($parsed['pass']) ? urldecode($parsed['pass']) : $password;
+            $dbname = isset($parsed['path']) ? ltrim($parsed['path'], '/') : $dbname;
+            $useSSL = true;
+        }
+    } else {
+        $host = getenv('TIDB_HOST') ?: (getenv('DB_HOST') ?: '127.0.0.1');
+        $port = getenv('TIDB_PORT') ?: (getenv('DB_PORT') ?: '3306');
+        $dbname = getenv('TIDB_DATABASE') ?: (getenv('DB_NAME') ?: 'inventario_db');
+        $username = getenv('TIDB_USER') ?: (getenv('DB_USER') ?: 'root');
+        $password = getenv('TIDB_PASSWORD') !== false ? getenv('TIDB_PASSWORD') : (getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');
+        $useSSL = getenv('DB_SSL') === 'true' || getenv('DB_SSL') === '1' || getenv('TIDB_HOST') !== false || strpos($host, 'tidbcloud.com') !== false;
+    }
 
     $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
 
@@ -55,6 +76,20 @@ function getPDOConnection() {
 
     try {
         $pdo = new PDO($dsn, $username, $password, $options);
+        
+        // Auto-creación de tablas si es la primera conexión en la nube (TiDB)
+        try {
+            $checkTable = $pdo->query("SHOW TABLES LIKE 'inventario'");
+            if ($checkTable && $checkTable->rowCount() === 0) {
+                $schemaFile = __DIR__ . '/../schema.sql';
+                if (file_exists($schemaFile)) {
+                    $sql = file_get_contents($schemaFile);
+                    if ($sql) $pdo->exec($sql);
+                }
+            }
+        } catch (Exception $e1) {
+            // Ignorar advertencias si las tablas ya existen
+        }
         
         // Auto-migración de columnas para Facturación 80mm - agrega si no existen
         $migraciones = [
