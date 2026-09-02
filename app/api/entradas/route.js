@@ -102,16 +102,29 @@ export async function POST(request) {
         if (r[0][0]) prodId = r[0][0].id;
       }
 
+      const pVenta1 = parseFloat(item.precioVenta1 ?? item.precio_venta1 ?? (costoUSD > 0 ? costoUSD * 1.15 : 0));
+      const pVenta2 = parseFloat(item.precioVenta2 ?? item.precio_venta2 ?? (costoUSD > 0 ? costoUSD * 1.20 : 0));
+      const pVenta3 = parseFloat(item.precioVenta3 ?? item.precio_venta3 ?? (costoUSD > 0 ? costoUSD * 1.25 : 0));
+
       if (prodId) {
         await conn.execute(
-          'UPDATE inventario SET cantidad = cantidad + ?, costo_unitario = ? WHERE id = ?',
-          [cant, costoUSD, prodId]
+          `UPDATE inventario 
+           SET cantidad = cantidad + ?, 
+               costo_unitario = ?, 
+               precio_venta1 = CASE WHEN ? > 0 THEN ? ELSE precio_venta1 END,
+               precio_venta2 = CASE WHEN ? > 0 THEN ? ELSE precio_venta2 END,
+               precio_venta3 = CASE WHEN ? > 0 THEN ? ELSE precio_venta3 END,
+               precio_unitario = CASE WHEN ? > 0 THEN ? ELSE precio_unitario END
+           WHERE id = ?`,
+          [cant, costoUSD, pVenta1, pVenta1, pVenta2, pVenta2, pVenta3, pVenta3, pVenta1, pVenta1, prodId]
         );
       } else {
         prodId = codigo ? 'prod_' + codigo.toLowerCase().replace(/[^a-z0-9]/g, '') : randId('prod');
         await conn.execute(
-          'INSERT INTO inventario (id, codigo_producto, nombre, cantidad, costo_unitario, precio_unitario) VALUES (?,?,?,?,?,?)',
-          [prodId, codigo, prodNombre, cant, costoUSD, costoUSD * 1.30]
+          `INSERT INTO inventario 
+           (id, codigo_producto, nombre, cantidad, costo_unitario, precio_unitario, precio_venta1, precio_venta2, precio_venta3) 
+           VALUES (?,?,?,?,?,?,?,?,?)`,
+          [prodId, codigo, prodNombre, cant, costoUSD, pVenta1, pVenta1, pVenta2, pVenta3]
         );
       }
 
