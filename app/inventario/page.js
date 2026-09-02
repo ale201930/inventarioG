@@ -1,15 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { getInventario } from "@/lib/dbService";
-import { 
-  Package, 
-  Search, 
-  ArrowDownCircle, 
-  ArrowUpCircle, 
-  AlertTriangle,
-  Layers,
-  CheckCircle
-} from "lucide-react";
 
 export default function InventarioPage() {
   const [inventario, setInventario] = useState([]);
@@ -32,146 +23,105 @@ export default function InventarioPage() {
     }
   };
 
-  // Filter products by name
-  const filteredStock = inventario.filter(prod => 
-    prod.nombre.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const defaultProds = [
+    { id: 'prod_bol02', codigo_producto: 'bol-02', nombre: 'Boligrafos BIC Azul 12 UND (E)', cantidad: 1, costo_unitario: 4.42, precio_venta1: 5.00, precio_venta2: 5.20, precio_venta3: 5.40 },
+    { id: 'prod_icc', codigo_producto: 'icc', nombre: 'Lucky Cosmic 20 Cig x 10 Cajetillas (E)', cantidad: 5, costo_unitario: 30.34, precio_venta1: 29.45, precio_venta2: 30.45, precio_venta3: 31.45 },
+    { id: 'prod_ice', codigo_producto: 'ice', nombre: 'Lucky Eclipse 20 Cig x 10 Cajetillas (E)', cantidad: 5, costo_unitario: 30.34, precio_venta1: 29.45, precio_venta2: 30.45, precio_venta3: 31.45 },
+    { id: 'prod_inv', codigo_producto: 'inv', nombre: 'Lucky Nova 20 Cig x 10 Cajetillas (E)', cantidad: 75, costo_unitario: 28.90, precio_venta1: 29.45, precio_venta2: 30.45, precio_venta3: 31.45 },
+    { id: 'prod_isr', codigo_producto: 'isr', nombre: 'Lucky Strike Red 20 Cig x 10 Cajetillas (E)', cantidad: 6, costo_unitario: 28.05, precio_venta1: 27.10, precio_venta2: 28.15, precio_venta3: 29.15 }
+  ];
 
-  // Statistics
-  const totalProducts = inventario.length;
-  const lowStockCount = inventario.filter(p => p.stockBultos <= 0 && p.stockKg <= 0).length;
+  const activeStock = inventario.length > 0 ? inventario : defaultProds;
+
+  const filteredStock = activeStock.filter(prod => 
+    (prod.nombre || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (prod.codigo_producto || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <>
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: "1.5rem" }}>
         <div>
-          <h1>Existencias en Inventario</h1>
-          <p style={{ color: "var(--text-secondary)", marginTop: "0.25rem" }}>
-            Control de stock en tiempo real contrastando entradas vs salidas
+          <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ color: "#0284c7" }}>📦</span> Control de Inventario
+          </h1>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginTop: "0.2rem" }}>
+            Gestión de stock en tiempo real y catálogo de 3 precios de venta por producto
           </p>
         </div>
-        <button className="btn btn-secondary" onClick={loadData}>
-          Actualizar Vista
+        <button className="btn btn-primary" onClick={loadData} style={{ background: "#0284c7", fontWeight: 700 }}>
+          🔄 Actualizar Lista
         </button>
       </div>
 
-      {/* Metrics Row */}
-      <div className="metrics-grid">
-        <div className="card metric-card">
-          <div className="metric-icon-box accent">
-            <Package size={24} />
-          </div>
-          <div className="metric-content">
-            <h3>Productos Registrados</h3>
-            <div className="value">{totalProducts}</div>
-          </div>
-        </div>
-
-        <div className="card metric-card">
-          <div className="metric-icon-box warning">
-            <AlertTriangle size={24} />
-          </div>
-          <div className="metric-content">
-            <h3>Sin Stock (Bultos y Kg)</h3>
-            <div className="value" style={{ color: lowStockCount > 0 ? "var(--warning)" : "var(--text-primary)" }}>
-              {lowStockCount}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Stock Table */}
-      <div className="card">
-        <div className="card-header-flex">
-          <h2 style={{ fontSize: "1.25rem", fontWeight: 600 }}>Nivel de Existencias</h2>
-          <div style={{ position: "relative", width: "100%", maxWidth: "300px" }}>
-            <Search size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+      <div className="card" style={{ background: "#fff", border: "1px solid #e2e8f0" }}>
+        <div className="card-header-flex" style={{ marginBottom: "1rem" }}>
+          <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#0f172a" }}>Catálogo de Productos y Precios</h2>
+          <div style={{ position: "relative", width: "100%", maxWidth: "320px" }}>
             <input 
               type="text" 
-              placeholder="Buscar producto..." 
+              placeholder="🔍 Buscar por nombre o código..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ paddingLeft: "36px", fontSize: "0.85rem" }}
+              style={{ padding: "0.5rem 1rem", fontSize: "0.85rem", borderRadius: "8px", border: "1px solid #cbd5e1" }}
             />
           </div>
         </div>
 
-        {loading ? (
-          <p style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)" }}>Cargando stock...</p>
-        ) : filteredStock.length === 0 ? (
-          <p style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)" }}>No se encontraron productos en el inventario.</p>
-        ) : (
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th style={{ width: "30%" }}>Producto</th>
-                  <th style={{ width: "20%" }}>Entradas Totales</th>
-                  <th style={{ width: "20%" }}>Salidas Totales</th>
-                  <th style={{ width: "30%" }}>Stock Actual disponible</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredStock.map((prod, idx) => {
-                  const noStockBultos = prod.stockBultos <= 0;
-                  const noStockKg = prod.stockKg <= 0;
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr style={{ background: "#f8fafc" }}>
+                <th style={{ padding: "0.75rem 1rem", fontSize: "0.75rem", color: "#64748b" }}>CÓDIGO</th>
+                <th style={{ padding: "0.75rem 1rem", fontSize: "0.75rem", color: "#64748b" }}>DESCRIPCIÓN / PRODUCTO</th>
+                <th style={{ padding: "0.75rem 1rem", fontSize: "0.75rem", color: "#64748b", textAlign: "center" }}>CANT. DISPONIBLE</th>
+                <th style={{ padding: "0.75rem 1rem", fontSize: "0.75rem", color: "#64748b", textAlign: "right" }}>COSTO ($)</th>
+                <th style={{ padding: "0.75rem 1rem", fontSize: "0.75rem", color: "#0284c7", textAlign: "right" }}>PRECIO 1 ($)</th>
+                <th style={{ padding: "0.75rem 1rem", fontSize: "0.75rem", color: "#0284c7", textAlign: "right" }}>PRECIO 2 ($)</th>
+                <th style={{ padding: "0.75rem 1rem", fontSize: "0.75rem", color: "#0284c7", textAlign: "right" }}>PRECIO 3 ($)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredStock.map((prod, idx) => {
+                const code = prod.codigo_producto || prod.codigoProducto || (prod.id || '').toUpperCase();
+                const name = prod.nombre;
+                const cant = parseInt(prod.cantidad || prod.stockBultos) || 0;
+                const costo = parseFloat(prod.costo_unitario || prod.costoUnitario) || 0;
+                const p1 = parseFloat(prod.precio_venta1 || prod.precioVenta1 || prod.precio_unitario) || 0;
+                const p2 = parseFloat(prod.precio_venta2 || prod.precioVenta2) || p1;
+                const p3 = parseFloat(prod.precio_venta3 || prod.precioVenta3) || p1;
 
-                  return (
-                    <tr key={idx}>
-                      <td style={{ fontWeight: 600, fontSize: "1rem" }}>
-                        <span style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                          <Layers size={18} style={{ color: "var(--accent-light)" }} />
-                          {prod.nombre}
-                        </span>
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "2px", fontSize: "0.85rem" }}>
-                          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <ArrowDownCircle size={12} style={{ color: "var(--success)" }} />
-                            <strong>{prod.entradasBultos}</strong> bultos
-                          </span>
-                          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <ArrowDownCircle size={12} style={{ color: "var(--success)" }} />
-                            <strong>{prod.entradasKg.toFixed(2)}</strong> kg
-                          </span>
-                        </div>
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "2px", fontSize: "0.85rem" }}>
-                          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <ArrowUpCircle size={12} style={{ color: "var(--danger)" }} />
-                            <strong>{prod.salidasBultos}</strong> bultos
-                          </span>
-                          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <ArrowUpCircle size={12} style={{ color: "var(--danger)" }} />
-                            <strong>{prod.salidasKg.toFixed(2)}</strong> kg
-                          </span>
-                        </div>
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Bultos:</span>
-                            <span className={`badge ${noStockBultos ? "danger" : "success"}`} style={{ fontWeight: 700, fontSize: "0.9rem" }}>
-                              {prod.stockBultos} bultos
-                            </span>
-                          </div>
-                          
-                          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Kilogramos:</span>
-                            <span className={`badge ${noStockKg ? "danger" : "success"}`} style={{ fontWeight: 700, fontSize: "0.9rem" }}>
-                              {prod.stockKg.toFixed(2)} kg
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                return (
+                  <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: "0.75rem 1rem", fontWeight: 800, fontSize: "0.85rem", color: "#0284c7" }}>
+                      {code}
+                    </td>
+                    <td style={{ padding: "0.75rem 1rem", fontWeight: 600, fontSize: "0.9rem", color: "#0f172a" }}>
+                      {name}
+                    </td>
+                    <td style={{ padding: "0.75rem 1rem", textAlign: "center" }}>
+                      <span className={`badge ${cant <= 0 ? "danger" : "success"}`} style={{ background: cant <= 0 ? "#fef2f2" : "#ecfdf5", color: cant <= 0 ? "#ef4444" : "#10b981", border: "1px solid", padding: "3px 10px", borderRadius: "6px", fontWeight: 800, fontSize: "0.85rem" }}>
+                        {cant} unds
+                      </span>
+                    </td>
+                    <td style={{ padding: "0.75rem 1rem", textAlign: "right", fontWeight: 700, fontSize: "0.9rem", color: "#475569" }}>
+                      ${costo.toFixed(2)}
+                    </td>
+                    <td style={{ padding: "0.75rem 1rem", textAlign: "right", fontWeight: 800, fontSize: "0.9rem", color: "#0284c7" }}>
+                      ${p1.toFixed(2)}
+                    </td>
+                    <td style={{ padding: "0.75rem 1rem", textAlign: "right", fontWeight: 800, fontSize: "0.9rem", color: "#0284c7" }}>
+                      ${p2.toFixed(2)}
+                    </td>
+                    <td style={{ padding: "0.75rem 1rem", textAlign: "right", fontWeight: 800, fontSize: "0.9rem", color: "#0284c7" }}>
+                      ${p3.toFixed(2)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   );
