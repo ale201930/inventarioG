@@ -254,23 +254,9 @@ export default function Login() {
         )}
 
         {!isFirebaseConfigured && (
-          <div style={{
-            fontSize: "0.75rem",
-            color: "var(--text-muted)",
-            textAlign: "center",
-            marginTop: "0.5rem",
-            background: "rgba(255, 255, 255, 0.02)",
-            padding: "0.75rem",
-            borderRadius: "8px",
-            border: "1px solid var(--card-border)"
-          }}>
-            <p style={{ fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
-              Credenciales de prueba (Fallback Local):
-            </p>
-            <p>Usuario: <code>admin</code> o <code>admin@admin.com</code></p>
-            <p>Contraseña: <code>admin</code></p>
-          </div>
+          <></>
         )}
+
       </div>
     </div>
   );

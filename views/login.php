@@ -49,11 +49,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
         <form id="loginForm">
             <div class="form-group">
                 <label class="form-label">Usuario / Correo</label>
-                <input type="text" id="loginUser" class="form-control" placeholder="admin" required value="admin">
+                <input type="text" id="loginUser" class="form-control" placeholder="Usuario o correo" required>
             </div>
             <div class="form-group">
                 <label class="form-label">Contraseña</label>
-                <input type="password" id="loginPass" class="form-control" placeholder="••••••••" required value="admin">
+                <input type="password" id="loginPass" class="form-control" placeholder="Contraseña" required>
             </div>
             <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem; padding: 0.75rem;">
                 Entrar al Sistema <i class="fa-solid fa-arrow-right-to-bracket"></i>
