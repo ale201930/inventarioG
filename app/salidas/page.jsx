@@ -71,6 +71,10 @@ export default function SalidasPage() {
   };
 
   const selectPrecio = (i, opcion) => {
+    if (opcion === 'custom') {
+      updateItem(i, { precioOpcion: 'custom' });
+      return;
+    }
     const prod = productos.find(p=>p.id===form.items[i]?.productoId);
     if (!prod) { updateItem(i,{precioOpcion:opcion}); return; }
     const precio = parseFloat(opcion==='2'?prod.precio_venta2:opcion==='3'?prod.precio_venta3:prod.precio_venta1)||0;
@@ -98,10 +102,13 @@ export default function SalidasPage() {
       if (d.success) {
         setLastSalida({...d.data, cliente_name:form.clienteName, cedula_rif:form.cedulaRif, telefono:form.telefono,
           direccion:form.direccion, vendedor_name:form.vendedorName, fecha:form.fecha, observaciones:form.observaciones,
-          items:payload.items});
+          items: form.items.filter(it=>it.productoId&&parseInt(it.cantidad||0)>0).map(it=>({
+            producto_nombre:it.productoNombre, cantidad:parseInt(it.cantidad), precio_unitario:parseFloat(it.precioUnitario||0)
+          }))
+        });
+        load();
         setShowModal(false);
         if (printTicket) setShowTicketModal(true);
-        load();
         setForm({ clienteName:'', cedulaRif:'', telefono:'', fecha:today(), direccion:'', vendedorName:'JUAN MORA', facturaNumber:'', observaciones:'', items:[emptyItem()] });
       } else alert('Error: ' + d.error);
     } finally { setSaving(false); }
@@ -158,7 +165,7 @@ export default function SalidasPage() {
     win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Nota de Entrega Nº ${lastSalida.factura_number}</title>
       <style>
         @page { size: 76mm auto; margin: 0; }
-        body { width: 72mm; margin: 0 auto; padding: 4mm 2mm; font-family: system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #000; background: #fff; line-height: 1.35; }
+        body { width: 72mm; margin: 0 auto; padding: 4mm 2mm; font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; background: #fff; line-height: 1.35; }
         .header-title { font-size: 15px; font-weight: 800; text-align: center; margin: 0 0 2px 0; }
         .header-sub { font-size: 10px; text-align: center; color: #111; margin: 1px 0; }
         .divider-solid { border: none; border-top: 1.5px solid #000; margin: 8px 0; }
@@ -169,12 +176,12 @@ export default function SalidasPage() {
         .info-table td { padding: 2px 0; vertical-align: top; }
         .info-label { font-weight: 700; color: #000; }
         .info-val { text-align: right; word-break: break-word; }
-        .items-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 6px 0; }
+        .items-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 6px 0; table-layout: fixed; }
         .items-table th { font-size: 10.5px; font-weight: 800; padding: 4px 0; text-align: left; border-bottom: 1.5px solid #000; }
-        .items-table td { padding: 4px 0; vertical-align: top; }
+        .items-table td { padding: 4px 0; vertical-align: top; word-break: break-word; }
         .text-right { text-align: right; }
         .totals-row { display: flex; justify-content: space-between; align-items: center; font-size: 13.5px; font-weight: 800; margin: 10px 0; }
-        .payment-box { border: 1px solid #777; border-radius: 8px; padding: 8px 10px; margin: 12px 0; background: #fdfdfd; font-size: 9.5px; text-align: center; line-height: 1.45; }
+        .payment-box { border: 1px solid #666; border-radius: 8px; padding: 8px 10px; margin: 12px 0; background: #fafafa; font-size: 9.5px; text-align: center; line-height: 1.45; }
         .payment-title { font-weight: 800; font-size: 10px; margin: 2px 0; }
         .signature-area { margin-top: 32px; text-align: center; font-size: 10px; }
         .signature-line { border-top: 1.5px solid #000; width: 65%; margin: 0 auto 5px auto; }
@@ -199,10 +206,10 @@ export default function SalidasPage() {
       <table class="items-table">
         <thead>
           <tr>
-            <th style="width: 10%;">CAN</th>
-            <th style="width: 50%;">DESCRIPCIÓN</th>
-            <th style="width: 20%; text-align: right;">P/U</th>
-            <th style="width: 20%; text-align: right;">TOTAL</th>
+            <th style="width: 12%;">CAN</th>
+            <th style="width: 46%;">DESCRIPCIÓN</th>
+            <th style="width: 21%; text-align: right;">P/U</th>
+            <th style="width: 21%; text-align: right;">TOTAL</th>
           </tr>
         </thead>
         <tbody>
@@ -378,13 +385,14 @@ export default function SalidasPage() {
                       </option>
                     ))}
                   </select>
-                  <select className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} value={item.precioOpcion} onChange={e=>selectPrecio(i, e.target.value)}>
+                  <select className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} value={item.precioOpcion || '1'} onChange={e=>selectPrecio(i, e.target.value)}>
                     <option value="1">Precio 1</option>
                     <option value="2">Precio 2</option>
                     <option value="3">Precio 3</option>
+                    <option value="custom">Personalizado</option>
                   </select>
                   <input type="number" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} min="1" value={item.cantidad} onChange={e=>updateItem(i, {cantidad:e.target.value})} />
-                  <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', fontWeight:600}} value={item.precioUnitario} onChange={e=>updateItem(i, {precioUnitario:e.target.value})} />
+                  <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', fontWeight:600}} value={item.precioUnitario} onChange={e=>updateItem(i, {precioUnitario:e.target.value, precioOpcion:'custom'})} />
                   <span style={{fontWeight:700, color:'var(--primary)', fontSize:'0.88rem'}}>${Number(item.subtotal||0).toFixed(2)}</span>
                   <button type="button" className="btn btn-danger btn-sm" style={{width:32, height:32, minWidth:32, padding:0, borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center'}} title="Eliminar renglón" onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}>
                     <i className="fa-solid fa-trash" style={{fontSize:'0.75rem'}}></i>
@@ -421,7 +429,7 @@ export default function SalidasPage() {
       {/* Modal Ticket 80mm / 7.6cm */}
       {showTicketModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{maxWidth:420, width:'95%'}}>
+          <div className="modal-content" style={{maxWidth:460, width:'95%'}}>
             <div className="modal-header" style={{marginBottom:'0.75rem'}}>
               <h2><i className="fa-solid fa-receipt"></i> Vista Previa · Ticket (7.6 cm)</h2>
               <button type="button" className="modal-close" onClick={()=>setShowTicketModal(false)}>&times;</button>
@@ -432,12 +440,12 @@ export default function SalidasPage() {
               const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
               const cleanFecha = String(lastSalida.fecha || '').split('T')[0];
               return (
-                <div style={{background:'#fff', border:'1px solid #cbd5e1', borderRadius:8, padding:'1.25rem 1rem', fontFamily:'system-ui, -apple-system, "Segoe UI", Arial, sans-serif', fontSize:'11px', color:'#000', maxHeight:'68vh', overflowY:'auto', overflowX:'hidden', lineHeight:1.35, width:'100%', boxSizing:'border-box'}}>
+                <div style={{background:'#fff', border:'1px solid #cbd5e1', borderRadius:8, padding:'1.25rem 1rem', fontFamily:'Arial, Helvetica, sans-serif', fontSize:'11px', color:'#000', maxHeight:'68vh', overflowY:'auto', overflowX:'hidden', lineHeight:1.35, width:'100%', boxSizing:'border-box'}}>
                   <div style={{textAlign:'center', fontWeight:800, fontSize:'15px'}}>BESTEDA 2, C.A.</div>
                   <div style={{textAlign:'center', fontWeight:700, fontSize:'11px', marginTop:'2px'}}>RIF: J-40529263-6</div>
                   <div style={{textAlign:'center', fontSize:'9.5px', color:'#111', marginTop:'2px'}}>Calle Principal Casa Nº A-13, Urb. Alto de Fenix II</div>
-                  <div style={{textAlign:'center', fontSize:'10px', color:'#111'}}>San Juan de los Morros - Estado Guárico</div>
-                  <div style={{textAlign:'center', fontSize:'10px', color:'#111'}}>Tlfs: 0424-313.68.05 / 0424-300.48.02</div>
+                  <div style={{textAlign:'center', fontSize:'9.5px', color:'#111'}}>San Juan de los Morros - Estado Guárico</div>
+                  <div style={{textAlign:'center', fontSize:'9.5px', color:'#111'}}>Tlfs: 0424-313.68.05 / 0424-300.48.02</div>
                   
                   <hr style={{border:'none', borderTop:'1.5px solid #000', margin:'8px 0'}} />
                   
@@ -454,13 +462,13 @@ export default function SalidasPage() {
                   
                   <hr style={{border:'none', borderTop:'1px dashed #444', margin:'8px 0'}} />
                   
-                  <table style={{width:'100%', borderCollapse:'collapse', fontSize:'11px', margin:'6px 0'}}>
+                  <table style={{width:'100%', borderCollapse:'collapse', fontSize:'11px', margin:'6px 0', tableLayout:'fixed'}}>
                     <thead>
                       <tr style={{fontSize:'10.5px', fontWeight:800, borderBottom:'1.5px solid #000'}}>
-                        <th style={{textAlign:'left', width:'10%', paddingBottom:'4px'}}>CAN</th>
-                        <th style={{textAlign:'left', width:'50%', paddingBottom:'4px'}}>DESCRIPCIÓN</th>
-                        <th style={{textAlign:'right', width:'20%', paddingBottom:'4px'}}>P/U</th>
-                        <th style={{textAlign:'right', width:'20%', paddingBottom:'4px'}}>TOTAL</th>
+                        <th style={{textAlign:'left', width:'12%', paddingBottom:'4px'}}>CAN</th>
+                        <th style={{textAlign:'left', width:'46%', paddingBottom:'4px'}}>DESCRIPCIÓN</th>
+                        <th style={{textAlign:'right', width:'21%', paddingBottom:'4px'}}>P/U</th>
+                        <th style={{textAlign:'right', width:'21%', paddingBottom:'4px'}}>TOTAL</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -471,7 +479,7 @@ export default function SalidasPage() {
                         return (
                           <tr key={i} style={{borderBottom:'1px dashed #f1f5f9'}}>
                             <td style={{padding:'4px 0', verticalAlign:'top'}}>{cant}</td>
-                            <td style={{padding:'4px 0', verticalAlign:'top', fontWeight:600}}>{it.productoNombre || it.producto_nombre}</td>
+                            <td style={{padding:'4px 0', verticalAlign:'top', fontWeight:600, wordBreak:'break-word'}}>{it.productoNombre || it.producto_nombre}</td>
                             <td style={{textAlign:'right', padding:'4px 0', verticalAlign:'top'}}>${pu.toFixed(2)}</td>
                             <td style={{textAlign:'right', padding:'4px 0', verticalAlign:'top', fontWeight:700}}>${tot.toFixed(2)}</td>
                           </tr>
@@ -487,7 +495,7 @@ export default function SalidasPage() {
                     <span>TOTAL: ${Number(lastSalida.total_factura || totalFactura).toFixed(2)}</span>
                   </div>
                   
-                  <div style={{border:'1px solid #94a3b8', borderRadius:'8px', padding:'8px 10px', margin:'12px 0', background:'#f8fafc', fontSize:'9.5px', textAlign:'center', lineHeight:1.45}}>
+                  <div style={{border:'1px solid #666', borderRadius:'8px', padding:'8px 10px', margin:'12px 0', background:'#fafafa', fontSize:'9.5px', textAlign:'center', lineHeight:1.45}}>
                     <div style={{fontWeight:800, fontSize:'10px'}}>— PAGO MÓVIL BDV —</div>
                     <div>0102 | 0424 3136805 | C.I. 10668263</div>
                     <div>0102 | 0424 3004802 | C.I. 28012615</div>
