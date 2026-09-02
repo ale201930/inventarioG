@@ -204,7 +204,6 @@ export default function EntradasPage() {
       {/* Modal Registrar Entrada */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" />
           <div className="modal-content" style={{maxWidth:950}}>
             <div className="modal-header">
               <div>
@@ -339,7 +338,6 @@ export default function EntradasPage() {
       {/* Modal Preview */}
       {showPreviewModal && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" />
           <div className="modal-content" style={{maxWidth:900}}>
             <div className="modal-header" style={{marginBottom:'0.75rem', borderBottom:'2px solid var(--primary-light)', paddingBottom:'0.5rem'}}>
               <div>
@@ -377,7 +375,6 @@ export default function EntradasPage() {
       {/* Modal Abono */}
       {showAbonoModal && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" />
           <div className="modal-content">
             <div className="modal-header">
               <h2>Registrar Abono a Proveedor</h2>

@@ -120,7 +120,6 @@ export default function InventarioPage() {
       {/* Modal */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" />
           <div className="modal-content" style={{maxWidth:550}}>
             <div className="modal-header">
               <h2>{editing ? 'Editar Producto' : 'Nuevo Producto'}</h2>

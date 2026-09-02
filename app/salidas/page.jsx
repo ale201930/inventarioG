@@ -248,7 +248,6 @@ export default function SalidasPage() {
       {/* Modal Nueva Factura */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" />
           <div className="modal-content" style={{maxWidth:750}}>
             <div className="modal-header">
               <div>
@@ -352,7 +351,6 @@ export default function SalidasPage() {
       {/* Modal Ticket 80mm */}
       {showTicketModal && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" />
           <div className="modal-content" style={{maxWidth:480}}>
             <div className="modal-header" style={{marginBottom:'0.75rem'}}>
               <h2><i className="fa-solid fa-receipt"></i> Vista Previa · Ticket 80mm</h2>
@@ -407,7 +405,6 @@ export default function SalidasPage() {
       {/* Modal Abono de Cliente */}
       {showAbonoModal && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" />
           <div className="modal-content" style={{maxWidth:500}}>
             <div className="modal-header">
               <div>
@@ -458,7 +455,6 @@ export default function SalidasPage() {
       {/* Modal Estado de Cuenta */}
       {showEstadoModal && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" />
           <div className="modal-content" style={{maxWidth:850}}>
             <div className="modal-header">
               <div>
