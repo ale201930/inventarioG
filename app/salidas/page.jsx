@@ -373,40 +373,29 @@ export default function SalidasPage() {
       <div>• <strong>0102 0467 4500 0096 7787</strong> <span style="font-size: 8.5px; color: #475569;">(JORGE FLORES)</span></div>
     </div>
   </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        try {
+          window.print();
+        } catch(e) {}
+      }, 200);
+    };
+    window.onafterprint = function() {
+      try {
+        window.close();
+      } catch(e) {}
+    };
+  </script>
 </body>
 </html>`;
 
-    let iframe = document.getElementById('ticket_direct_print_iframe');
-    if (iframe) {
-      iframe.remove();
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.open();
+      win.document.write(htmlContent);
+      win.document.close();
     }
-    
-    iframe = document.createElement('iframe');
-    iframe.id = 'ticket_direct_print_iframe';
-    iframe.style.position = 'fixed';
-    iframe.style.top = '0';
-    iframe.style.left = '0';
-    iframe.style.width = '76mm';
-    iframe.style.height = '800px';
-    iframe.style.border = 'none';
-    iframe.style.opacity = '0.001';
-    iframe.style.pointerEvents = 'none';
-    iframe.style.zIndex = '-9999';
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow || iframe.contentDocument.document || iframe.contentDocument;
-    doc.document.open();
-    doc.document.write(htmlContent);
-    doc.document.close();
-
-    setTimeout(() => {
-      try {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-      } catch (err) {
-        console.error(err);
-      }
-    }, 300);
   };
 
   return (
