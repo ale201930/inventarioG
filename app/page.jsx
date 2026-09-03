@@ -73,7 +73,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Acceso Rápido */}
-      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(280px, 1fr))', gap:'1.5rem', marginBottom:'2rem'}}>
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap:'1.25rem', marginBottom:'1.5rem'}}>
         <div className="card">
           <div style={{display:'flex', alignItems:'center', gap:'0.75rem', marginBottom:'0.75rem'}}>
             <i className="fa-solid fa-cart-plus" style={{color:'var(--primary)', fontSize:'1.25rem'}}></i>
@@ -97,7 +97,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Actividad Reciente */}
-      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(400px, 1fr))', gap:'1.5rem'}}>
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap:'1.25rem'}}>
         <div className="table-container">
           <div style={{padding:'1rem 1.25rem', borderBottom:'1px solid var(--border-color)', backgroundColor:'#fff'}}>
             <h3 style={{fontSize:'1rem', fontWeight:600}}><i className="fa-solid fa-clock-rotate-left"></i> Compras Recientes</h3>

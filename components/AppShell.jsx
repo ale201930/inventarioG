@@ -1,4 +1,4 @@
-// components/AppShell.jsx — Estructura persistente con protección de rutas
+// components/AppShell.jsx — Estructura persistente con protección de rutas y optimización móvil
 'use client';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -12,6 +12,21 @@ export default function AppShell({ children }) {
   const [bcvFuente, setBcvFuente] = useState('BCV');
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
+
+  // Bloquear scroll de fondo cuando el menú lateral móvil esté abierto
+  useEffect(() => {
+    if (sidebarOpen) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [sidebarOpen]);
 
   // Check authentication status
   useEffect(() => {
@@ -99,10 +114,12 @@ export default function AppShell({ children }) {
       {/* Mobile top bar */}
       <div className="mobile-top-bar">
         <div className="mobile-brand">
-          <img src="/logo.png" alt="Logo Besteda 2" style={{ width: 30, height: 30, borderRadius: 6, objectFit: 'cover' }} />
-          <span>Besteda <span style={{ color: '#0284c7' }}>2</span> <small style={{ fontSize: '0.6rem', background: '#e0f2fe', color: '#0369a1', padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>C.A.</small></span>
+          <img src="/logo.png" alt="Logo Besteda 2" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover' }} />
+          <span style={{ fontWeight: 800, fontSize: '1.05rem', color: '#0f172a' }}>
+            Besteda <span style={{ color: '#0284c7' }}>2</span> <small style={{ fontSize: '0.65rem', background: '#e0f2fe', color: '#0369a1', padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>C.A.</small>
+          </span>
         </div>
-        <button className="mobile-nav-btn" onClick={() => setSidebarOpen(true)} aria-label="Menu">
+        <button className="mobile-nav-btn" onClick={() => setSidebarOpen(true)} aria-label="Abrir Menú">
           <i className="fa-solid fa-bars" />
         </button>
       </div>
@@ -115,41 +132,53 @@ export default function AppShell({ children }) {
 
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'mobile-open' : ''}`}>
-        <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1.15rem 1.25rem' }}>
-          <img src="/logo.png" alt="Logo Besteda 2" style={{ width: 42, height: 42, borderRadius: 10, objectFit: 'cover', boxShadow: '0 4px 12px rgba(2,132,199,0.35)' }} />
-          <div className="brand-title" style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--text-primary)', lineHeight: 1.1 }}>
-            Besteda <span style={{ color: '#0284c7' }}>2</span>{' '}
-            <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginTop: 2 }}>C.A. · Control de Inventario</div>
+        <div className="sidebar-header-area">
+          <div className="sidebar-brand">
+            <img src="/logo.png" alt="Logo Besteda 2" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', boxShadow: '0 4px 12px rgba(2,132,199,0.35)' }} />
+            <div className="brand-title">
+              <div style={{ fontWeight: 800, fontSize: '1.2rem', color: '#0f172a', lineHeight: 1.1 }}>
+                Besteda <span style={{ color: '#0284c7' }}>2</span>
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, marginTop: 2 }}>C.A. · Control de Inventario</div>
+            </div>
+          </div>
+          {/* Botón cerrar en móvil */}
+          <button className="sidebar-close-btn" onClick={() => setSidebarOpen(false)} aria-label="Cerrar Menú">
+            <i className="fa-solid fa-xmark" />
+          </button>
+        </div>
+
+        {/* Contenedor scrolleable del menú */}
+        <div className="sidebar-scrollable-content">
+          <ul className="nav-menu">
+            {navItems.map(item => (
+              <li key={item.key} className={`nav-item ${route === item.key ? 'active' : ''}`}>
+                <Link href={item.href} onClick={() => setSidebarOpen(false)}>
+                  <i className={`fa-solid ${item.icon}`} />
+                  <span>{item.label}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          {/* BCV Widget */}
+          <div id="bcvWidgetSidebar" className="bcv-sidebar-box">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span style={{ fontWeight: 700, color: '#0284c7', fontSize: '0.82rem' }}>ve Tasa BCV</span>
+              <a href="https://www.bcv.org.ve" target="_blank" rel="noopener" style={{ color: '#0284c7', fontSize: '0.75rem' }}>
+                <i className="fa-solid fa-arrow-up-right-from-square" />
+              </a>
+            </div>
+            <div style={{ fontWeight: 800, fontSize: '1.2rem', color: '#0f172a' }}>
+              Bs. {Number(bcvTasa).toLocaleString('es-VE', { minimumFractionDigits: 2 })} <span style={{ fontWeight: 500, fontSize: '0.75rem', color: '#64748b' }}>/ USD</span>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 2 }}>Fuente: {bcvFuente}</div>
           </div>
         </div>
 
-        <ul className="nav-menu">
-          {navItems.map(item => (
-            <li key={item.key} className={`nav-item ${route === item.key ? 'active' : ''}`}>
-              <Link href={item.href} onClick={() => setSidebarOpen(false)}>
-                <i className={`fa-solid ${item.icon}`} />
-                <span>{item.label}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-
-        {/* BCV Widget */}
-        <div id="bcvWidgetSidebar" style={{ margin: '1rem 0.75rem 0', padding: '0.75rem', background: '#f0f9ff', borderRadius: 10, border: '1px solid #bae6fd', fontSize: '0.82rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontWeight: 700, color: '#0284c7' }}>ve Tasa BCV</span>
-            <a href="https://www.bcv.org.ve" target="_blank" rel="noopener" style={{ color: '#0284c7', fontSize: '0.7rem' }}>
-              <i className="fa-solid fa-arrow-up-right-from-square" />
-            </a>
-          </div>
-          <div style={{ fontWeight: 800, fontSize: '1.15rem', color: '#0f172a' }}>
-            Bs. {Number(bcvTasa).toLocaleString('es-VE', { minimumFractionDigits: 2 })} <span style={{ fontWeight: 400, fontSize: '0.75rem', color: '#64748b' }}>/ USD</span>
-          </div>
-          <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: 2 }}>Fuente: {bcvFuente}</div>
-        </div>
-
+        {/* Footer fijo del menú */}
         <div className="sidebar-footer">
-          <button onClick={handleLogout} className="btn btn-secondary" style={{ width: '100%', justifyContent: 'flex-start' }}>
+          <button onClick={handleLogout} className="btn btn-secondary btn-logout-sidebar">
             <i className="fa-solid fa-right-from-bracket" />
             <span>Cerrar Sesión</span>
           </button>
