@@ -10,8 +10,8 @@ export const viewport = {
 };
 
 export const metadata = {
-  title: 'InvG PRO - Sistema de Control de Inventario',
-  description: 'Sistema de Control de Inventario, Ventas y Proveedores — BESTEDA 2 C.A.',
+  title: 'Besteda 2, C.A. - Sistema de Control de Inventario',
+  description: 'Sistema de Control de Inventario, Ventas y Proveedores — Besteda 2, C.A.',
   manifest: '/manifest.webmanifest',
   icons: {
     icon: '/icon-192.png',
@@ -20,7 +20,7 @@ export const metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'InvG PRO',
+    title: 'Besteda 2, C.A.',
   },
 };
 

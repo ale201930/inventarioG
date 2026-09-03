@@ -47,21 +47,25 @@ export default function LoginPage() {
         border: '1px solid #e0f2fe'
       }}>
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{
-            width: 64, height: 64, background: 'linear-gradient(135deg,#0284c7 0%,#38bdf8 100%)',
-            borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 1rem', boxShadow: '0 8px 24px rgba(2,132,199,0.3)',
-            fontSize: '2rem'
-          }}>📦</div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
-            Inv<span style={{ color: '#0284c7' }}>G</span>{' '}
-            <span style={{ fontSize: '0.65rem', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>PRO</span>
+        <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
+          <img
+            src="/logo.png"
+            alt="Logo Besteda 2, C.A."
+            style={{
+              width: 80,
+              height: 80,
+              borderRadius: 18,
+              margin: '0 auto 0.75rem',
+              boxShadow: '0 8px 24px rgba(2,132,199,0.3)',
+              objectFit: 'cover'
+            }}
+          />
+          <h1 style={{ fontSize: '1.65rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', margin: 0 }}>
+            BESTEDA <span style={{ color: '#0284c7' }}>2</span>, C.A.
           </h1>
-          <p style={{ color: '#64748b', fontSize: '0.9rem', marginTop: '0.25rem' }}>
-            Sistema de Control de Inventario
+          <p style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '0.25rem', marginBottom: 0 }}>
+            Sistema de Control de Inventario & Facturación
           </p>
-          <p style={{ color: '#94a3b8', fontSize: '0.78rem' }}>BESTEDA 2, C.A.</p>
         </div>
 
         <form onSubmit={handleSubmit}>

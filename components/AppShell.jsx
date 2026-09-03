@@ -99,8 +99,8 @@ export default function AppShell({ children }) {
       {/* Mobile top bar */}
       <div className="mobile-top-bar">
         <div className="mobile-brand">
-          <img src="/logo.png" alt="Logo InvG" style={{ width: 28, height: 28, borderRadius: 6 }} />
-          <span>Inv<span style={{ color: '#0284c7' }}>G</span> <small style={{ fontSize: '0.6rem', background: '#e0f2fe', color: '#0369a1', padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>PRO</small></span>
+          <img src="/logo.png" alt="Logo Besteda 2" style={{ width: 30, height: 30, borderRadius: 6, objectFit: 'cover' }} />
+          <span>Besteda <span style={{ color: '#0284c7' }}>2</span> <small style={{ fontSize: '0.6rem', background: '#e0f2fe', color: '#0369a1', padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>C.A.</small></span>
         </div>
         <button className="mobile-nav-btn" onClick={() => setSidebarOpen(true)} aria-label="Menu">
           <i className="fa-solid fa-bars" />
@@ -115,11 +115,11 @@ export default function AppShell({ children }) {
 
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'mobile-open' : ''}`}>
-        <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 1.25rem' }}>
-          <img src="/logo.png" alt="Logo InvG" style={{ width: 38, height: 38, borderRadius: 8, objectFit: 'cover', boxShadow: '0 2px 8px rgba(2,132,199,0.3)' }} />
-          <div className="brand-title" style={{ fontWeight: 800, fontSize: '1.2rem', color: 'var(--text-primary)' }}>
-            Inv<span style={{ color: '#0284c7' }}>G</span>{' '}
-            <small style={{ fontSize: '0.65rem', background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: 4, fontWeight: 700, marginLeft: 2 }}>PRO</small>
+        <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1.15rem 1.25rem' }}>
+          <img src="/logo.png" alt="Logo Besteda 2" style={{ width: 42, height: 42, borderRadius: 10, objectFit: 'cover', boxShadow: '0 4px 12px rgba(2,132,199,0.35)' }} />
+          <div className="brand-title" style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--text-primary)', lineHeight: 1.1 }}>
+            Besteda <span style={{ color: '#0284c7' }}>2</span>{' '}
+            <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginTop: 2 }}>C.A. · Control de Inventario</div>
           </div>
         </div>
 

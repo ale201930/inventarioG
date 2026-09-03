@@ -1,11 +1,11 @@
 export default function manifest() {
   return {
-    name: "InvG PRO - Sistema de Control de Inventario",
-    short_name: "InvG PRO",
-    description: "Sistema de Control de Inventarios, Ventas, Compras y Proveedores.",
+    name: "Besteda 2, C.A. - Sistema de Inventario",
+    short_name: "Besteda 2",
+    description: "Sistema de Control de Inventarios, Ventas, Compras y Proveedores — Besteda 2, C.A.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f8fafc",
+    background_color: "#0f172a",
     theme_color: "#0284c7",
     icons: [
       {
