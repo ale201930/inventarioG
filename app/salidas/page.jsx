@@ -377,18 +377,22 @@ export default function SalidasPage() {
 </html>`;
 
     let iframe = document.getElementById('ticket_direct_print_iframe');
-    if (!iframe) {
-      iframe = document.createElement('iframe');
-      iframe.id = 'ticket_direct_print_iframe';
-      iframe.style.position = 'fixed';
-      iframe.style.right = '0';
-      iframe.style.bottom = '0';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
-      iframe.style.border = '0';
-      iframe.style.zIndex = '-9999';
-      document.body.appendChild(iframe);
+    if (iframe) {
+      iframe.remove();
     }
+    
+    iframe = document.createElement('iframe');
+    iframe.id = 'ticket_direct_print_iframe';
+    iframe.style.position = 'fixed';
+    iframe.style.top = '0';
+    iframe.style.left = '0';
+    iframe.style.width = '76mm';
+    iframe.style.height = '800px';
+    iframe.style.border = 'none';
+    iframe.style.opacity = '0.001';
+    iframe.style.pointerEvents = 'none';
+    iframe.style.zIndex = '-9999';
+    document.body.appendChild(iframe);
 
     const doc = iframe.contentWindow || iframe.contentDocument.document || iframe.contentDocument;
     doc.document.open();
@@ -402,7 +406,7 @@ export default function SalidasPage() {
       } catch (err) {
         console.error(err);
       }
-    }, 250);
+    }, 300);
   };
 
   return (
