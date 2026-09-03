@@ -1070,3 +1070,46 @@ input:focus, select:focus, textarea:focus {
   @page { size: 80mm auto; margin: 0; }
 }
 
+/* ========================================================================
+   RESPONSIVIDAD MÓVIL PROFESIONAL (Teléfonos y Pantallas Pequeñas)
+   ======================================================================== */
+@media (max-width: 640px) {
+  .modal-overlay {
+    padding: 0.5rem 0.25rem !important;
+    align-items: flex-end !important;
+  }
+  
+  .modal-content {
+    padding: 1.15rem 0.85rem !important;
+    max-height: 94vh !important;
+    border-radius: 16px 16px 0 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  .modal-header {
+    margin-bottom: 0.75rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+
+  .modal-header h2 {
+    font-size: 1.05rem !important;
+  }
+
+  .form-control {
+    font-size: 0.88rem !important;
+    padding: 0.5rem 0.75rem !important;
+    min-height: 40px !important;
+  }
+
+  .btn {
+    min-height: 38px !important;
+    font-size: 0.85rem !important;
+  }
+
+  .main-content {
+    padding: 1rem 0.75rem !important;
+  }
+}
+
+

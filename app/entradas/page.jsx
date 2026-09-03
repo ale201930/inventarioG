@@ -662,7 +662,7 @@ export default function EntradasPage() {
           {/* Formulario */}
           <div style={{background:'#f8fafc', border:'1px solid #e2e8f0', padding:'0.85rem 1rem', borderRadius:10, marginBottom:'1rem'}}>
             <h4 style={{fontSize:'0.85rem', fontWeight:700, color:'var(--text-secondary)', marginBottom:'0.6rem', textTransform:'uppercase'}}><i className="fa-solid fa-building"></i> Datos del Proveedor</h4>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:'0.75rem', marginBottom:'0.5rem'}}>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:'0.75rem', marginBottom:'0.5rem'}}>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Nombre o Razón Social *</label>
                 <input type="text" className="form-control" placeholder="Distribuidora Central, C.A." required style={{fontSize:'0.88rem'}} value={form.proveedorName} onChange={e=>setForm(f=>({...f,proveedorName:e.target.value}))} />
@@ -680,7 +680,7 @@ export default function EntradasPage() {
 
           <div style={{background:'#f8fafc', border:'1px solid #e2e8f0', padding:'0.85rem 1rem', borderRadius:10, marginBottom:'1rem'}}>
             <h4 style={{fontSize:'0.85rem', fontWeight:700, color:'var(--text-secondary)', marginBottom:'0.6rem', textTransform:'uppercase'}}><i className="fa-solid fa-file-invoice"></i> Datos del Documento y Tasa BCV</h4>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1.5fr', gap:'0.75rem', marginBottom:'0.75rem'}}>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'0.75rem', marginBottom:'0.75rem'}}>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Tipo Documento</label>
                 <select className="form-control" style={{fontSize:'0.85rem'}} value={form.tipoDoc} onChange={e=>setForm(f=>({...f,tipoDoc:e.target.value}))}>
@@ -696,7 +696,7 @@ export default function EntradasPage() {
                 <input type="number" step="0.0001" className="form-control" placeholder="798.33" required style={{fontSize:'0.92rem', fontWeight:700, color:'#0284c7'}} value={form.tasaBCV} onChange={e=>setForm(f=>({...f,tasaBCV:e.target.value}))} />
               </div>
             </div>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem'}}>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'0.75rem'}}>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Fecha Emisión</label>
                 <input type="date" className="form-control" required style={{fontSize:'0.85rem'}} value={form.fecha} onChange={e=>setForm(f=>({...f,fecha:e.target.value}))} />
@@ -708,40 +708,45 @@ export default function EntradasPage() {
             </div>
           </div>
 
-          {/* Items */}
+          {/* Items con scroll horizontal garantizado para móviles */}
           <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.5rem'}}>
             <h3 style={{fontSize:'0.95rem', fontWeight:700}}><i className="fa-solid fa-boxes-stacked"></i> Renglones de la Factura / Nota de Entrega</h3>
             <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setForm(f=>({...f, items:[...f.items, emptyItem()]}))}>+ Agregar Renglón</button>
           </div>
-          <div style={{display:'grid', gridTemplateColumns:'0.8fr 2.5fr 0.8fr 1.2fr 1.2fr auto', gap:'0.5rem', marginBottom:'0.35rem', padding:'0 0.25rem', alignItems:'center'}}>
-            {['CÓDIGO','DESCRIPCIÓN','CANTIDAD','PRECIO USD $','TOTAL USD $',''].map((h,i) => (
-              <span key={i} style={{fontSize:'0.75rem', fontWeight:700, color:'var(--text-secondary)'}}>{h}</span>
-            ))}
-          </div>
-          <div style={{maxHeight:300, overflowY:'auto'}}>
-            {form.items.map((item, i) => (
-              <div key={i} style={{display:'grid', gridTemplateColumns:'0.8fr 2.5fr 0.8fr 1.2fr 1.2fr auto', gap:'0.5rem', marginBottom:'0.4rem', alignItems:'center'}}>
-                <input type="text" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} placeholder="Código" value={item.codigo} onChange={e=>updateItem(i,'codigo',e.target.value)} />
-                <input type="text" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} placeholder="Descripción del producto" required value={item.nombre} onChange={e=>updateItem(i,'nombre',e.target.value)} />
-                <input type="number" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} min="1" value={item.cantidad} onChange={e=>updateItem(i,'cantidad',e.target.value)} />
-                <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', fontWeight:600}} placeholder="0.00" value={item.costoUSD} onChange={e=>updateItem(i,'costoUSD',e.target.value)} title="Precio unitario en USD $" />
-                <input type="number" step="0.01" className="form-control" style={{fontSize:'0.85rem', padding:'0.35rem 0.5rem', fontWeight:800, color:'var(--primary)', borderColor:'var(--primary-light)'}} placeholder="0.00" value={item.totalUSD} onChange={e=>updateItem(i,'totalUSD',e.target.value)} title="Total del renglón en USD $ (Editable)" />
-                <button type="button" className="btn btn-danger btn-sm" style={{padding:'0.25rem 0.5rem'}} onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}>×</button>
+
+          <div style={{overflowX:'auto', WebkitOverflowScrolling:'touch', border:'1px solid #e2e8f0', borderRadius:10, padding:'0.6rem', background:'#fff', marginBottom:'1rem'}}>
+            <div style={{minWidth:620}}>
+              <div style={{display:'grid', gridTemplateColumns:'85px 1fr 75px 105px 115px 38px', gap:'0.5rem', marginBottom:'0.35rem', padding:'0 0.25rem', alignItems:'center'}}>
+                {['CÓDIGO','DESCRIPCIÓN','CANTIDAD','PRECIO USD $','TOTAL USD $',''].map((h,i) => (
+                  <span key={i} style={{fontSize:'0.75rem', fontWeight:700, color:'var(--text-secondary)'}}>{h}</span>
+                ))}
               </div>
-            ))}
+              <div style={{maxHeight:300, overflowY:'auto'}}>
+                {form.items.map((item, i) => (
+                  <div key={i} style={{display:'grid', gridTemplateColumns:'85px 1fr 75px 105px 115px 38px', gap:'0.5rem', marginBottom:'0.4rem', alignItems:'center'}}>
+                    <input type="text" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', minHeight:38}} placeholder="Código" value={item.codigo} onChange={e=>updateItem(i,'codigo',e.target.value)} />
+                    <input type="text" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', minHeight:38}} placeholder="Descripción del producto" required value={item.nombre} onChange={e=>updateItem(i,'nombre',e.target.value)} />
+                    <input type="number" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', minHeight:38}} min="1" value={item.cantidad} onChange={e=>updateItem(i,'cantidad',e.target.value)} />
+                    <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', minHeight:38, fontWeight:600}} placeholder="0.00" value={item.costoUSD} onChange={e=>updateItem(i,'costoUSD',e.target.value)} title="Precio unitario en USD $" />
+                    <input type="number" step="0.01" className="form-control" style={{fontSize:'0.85rem', padding:'0.35rem 0.5rem', minHeight:38, fontWeight:800, color:'var(--primary)', borderColor:'var(--primary-light)'}} placeholder="0.00" value={item.totalUSD} onChange={e=>updateItem(i,'totalUSD',e.target.value)} title="Total del renglón en USD $ (Editable)" />
+                    <button type="button" className="btn btn-danger btn-sm" style={{padding:'0.25rem 0.5rem', minHeight:38, width:38}} onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}>×</button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {/* Totales */}
-          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', background:'#0f172a', color:'#fff', padding:'0.85rem 1.25rem', borderRadius:10, marginTop:'1rem', flexWrap:'wrap', gap:'0.75rem'}}>
+          {/* Totales adaptados a móvil */}
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', background:'#0f172a', color:'#fff', padding:'0.85rem 1rem', borderRadius:10, marginTop:'1rem', flexWrap:'wrap', gap:'0.75rem'}}>
             <div style={{fontSize:'0.85rem'}}>Unidades: <strong style={{color:'#fbbf24', fontSize:'1.05rem'}}>{form.items.reduce((s,it)=>s+parseInt(it.cantidad||0),0)}</strong></div>
-            <div style={{display:'flex', alignItems:'center', gap:'1rem', flexWrap:'wrap'}}>
-              <div style={{display:'flex', alignItems:'center', gap:'0.4rem'}}>
-                <label style={{fontSize:'0.82rem', color:'#38bdf8', fontWeight:700, margin:0}}>Total Operación USD $:</label>
-                <input type="number" step="0.01" className="form-control" style={{width:130, fontSize:'1.1rem', fontWeight:800, color:'#38bdf8', background:'#1e293b', border:'1.5px solid #38bdf8', textAlign:'right', padding:'4px 8px'}} value={form.totalUSD} onChange={e=>setForm(f=>({...f, totalUSD:e.target.value, totalVES:(parseFloat(e.target.value||0)*parseFloat(f.tasaBCV||798.33)).toFixed(2)}))} />
+            <div style={{display:'flex', alignItems:'center', gap:'0.75rem', flexWrap:'wrap', width:'100%', justifyContent:'space-between'}}>
+              <div style={{display:'flex', alignItems:'center', gap:'0.4rem', flex:'1 1 180px'}}>
+                <label style={{fontSize:'0.8rem', color:'#38bdf8', fontWeight:700, margin:0, whiteSpace:'nowrap'}}>Total USD $:</label>
+                <input type="number" step="0.01" className="form-control" style={{flex:1, minWidth:90, fontSize:'1.05rem', fontWeight:800, color:'#38bdf8', background:'#1e293b', border:'1.5px solid #38bdf8', textAlign:'right', padding:'4px 8px'}} value={form.totalUSD} onChange={e=>setForm(f=>({...f, totalUSD:e.target.value, totalVES:(parseFloat(e.target.value||0)*parseFloat(f.tasaBCV||798.33)).toFixed(2)}))} />
               </div>
-              <div style={{display:'flex', alignItems:'center', gap:'0.4rem'}}>
-                <label style={{fontSize:'0.82rem', color:'#a7f3d0', fontWeight:700, margin:0}}>(Bs.):</label>
-                <input type="number" step="0.01" className="form-control" style={{width:145, fontSize:'1.05rem', fontWeight:800, color:'#a7f3d0', background:'#1e293b', border:'1.5px solid #a7f3d0', textAlign:'right', padding:'4px 8px'}} value={form.totalVES} onChange={e=>setForm(f=>({...f, totalVES:e.target.value}))} />
+              <div style={{display:'flex', alignItems:'center', gap:'0.4rem', flex:'1 1 180px'}}>
+                <label style={{fontSize:'0.8rem', color:'#a7f3d0', fontWeight:700, margin:0, whiteSpace:'nowrap'}}>(Bs.):</label>
+                <input type="number" step="0.01" className="form-control" style={{flex:1, minWidth:110, fontSize:'1rem', fontWeight:800, color:'#a7f3d0', background:'#1e293b', border:'1.5px solid #a7f3d0', textAlign:'right', padding:'4px 8px'}} value={form.totalVES} onChange={e=>setForm(f=>({...f, totalVES:e.target.value}))} />
               </div>
             </div>
           </div>

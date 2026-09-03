@@ -420,10 +420,10 @@ export default function SalidasPage() {
               <button type="button" className="modal-close" onClick={()=>setShowModal(false)}>&times;</button>
             </div>
 
-            {/* Formulario Cliente y Factura */}
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'0.75rem', marginBottom:'1rem'}}>
+            {/* Formulario Cliente y Factura Adaptado a Móvil */}
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', gap:'0.75rem', marginBottom:'0.75rem'}}>
               <div className="form-group" style={{margin:0}}>
-                <label className="form-label" style={{fontSize:'0.8rem'}}>Nombre del Cliente</label>
+                <label className="form-label" style={{fontSize:'0.8rem'}}>Nombre del Cliente *</label>
                 <input type="text" className="form-control" required style={{fontSize:'0.85rem'}} placeholder="Ej: Alexander Almaguer" value={form.clienteName} onChange={e=>setForm(f=>({...f,clienteName:e.target.value}))} />
               </div>
               <div className="form-group" style={{margin:0}}>
@@ -436,7 +436,7 @@ export default function SalidasPage() {
               </div>
             </div>
 
-            <div style={{display:'grid', gridTemplateColumns:'1.5fr 1fr 1fr', gap:'0.75rem', marginBottom:'1rem'}}>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', gap:'0.75rem', marginBottom:'1rem'}}>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Dirección del Cliente</label>
                 <input type="text" className="form-control" style={{fontSize:'0.85rem'}} placeholder="Ej: Calle Santa Rosa" value={form.direccion} onChange={e=>setForm(f=>({...f,direccion:e.target.value}))} />
@@ -451,74 +451,80 @@ export default function SalidasPage() {
               </div>
             </div>
 
-            {/* Tabla Productos */}
+            {/* Tabla Productos con Scroll Horizontal Garantizado */}
             <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.5rem'}}>
               <h3 style={{fontSize:'0.9rem', fontWeight:700}}><i className="fa-solid fa-box-open"></i> Productos a Despachar</h3>
               <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setForm(f=>({...f, items:[...f.items, emptyItem()]}))}>+ Agregar Producto</button>
             </div>
-            <div style={{display:'grid', gridTemplateColumns:'2.4fr 1.1fr 0.8fr 1fr 1fr 38px', gap:'0.5rem', marginBottom:'0.35rem', padding:'0 0.25rem', alignItems:'center'}}>
-              {['PRODUCTO','PRECIO CUAL','CANT.','PRECIO $','SUBTOTAL $',''].map((h,i) => (
-                <span key={i} style={{fontSize:'0.75rem', fontWeight:700, color:'var(--text-secondary)'}}>{h}</span>
-              ))}
-            </div>
-            <div style={{maxHeight:250, overflowY:'auto'}}>
-              {form.items.map((item, i) => (
-                <div key={i} style={{display:'grid', gridTemplateColumns:'2.4fr 1.1fr 0.8fr 1fr 1fr 38px', gap:'0.5rem', marginBottom:'0.4rem', alignItems:'center'}}>
-                  <select className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} value={item.productoId} onChange={e=>selectProduct(i, e.target.value)}>
-                    <option value="">-- Seleccionar producto --</option>
-                    {productos.map(p => (
-                      <option key={p.id} value={p.id} disabled={Number(p.cantidad)<=0}>
-                        {p.nombre} (Stock: {p.cantidad} | P1:${Number(p.precio_venta1||0).toFixed(2)})
-                      </option>
-                    ))}
-                  </select>
-                  <select className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} value={item.precioOpcion || '1'} onChange={e=>selectPrecio(i, e.target.value)}>
-                    <option value="1">Precio 1</option>
-                    <option value="2">Precio 2</option>
-                    <option value="3">Precio 3</option>
-                    <option value="custom">Personalizado</option>
-                  </select>
-                  <input type="number" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem'}} min="1" value={item.cantidad} onChange={e=>updateItem(i, {cantidad:e.target.value})} />
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="form-control"
-                    placeholder={item.precioOpcion === 'custom' ? '0.00' : ''}
-                    readOnly={item.precioOpcion !== 'custom'}
-                    style={{
-                      fontSize:'0.82rem',
-                      padding:'0.35rem 0.5rem',
-                      fontWeight:600,
-                      backgroundColor: item.precioOpcion === 'custom' ? '#fff' : '#f1f5f9',
-                      color: item.precioOpcion === 'custom' ? '#0284c7' : '#334155',
-                      borderColor: item.precioOpcion === 'custom' ? '#0284c7' : '#cbd5e1',
-                      cursor: item.precioOpcion === 'custom' ? 'text' : 'not-allowed'
-                    }}
-                    value={item.precioUnitario}
-                    onChange={e => {
-                      if (item.precioOpcion === 'custom') {
-                        updateItem(i, { precioUnitario: e.target.value });
-                      }
-                    }}
-                    title={item.precioOpcion !== 'custom' ? 'Precio de catálogo protegido (selecciona "Personalizado" para modificar)' : 'Escribe el precio libre'}
-                  />
-                  <span style={{fontWeight:700, color:'var(--primary)', fontSize:'0.88rem'}}>${Number(item.subtotal||0).toFixed(2)}</span>
-                  <button type="button" className="btn btn-danger btn-sm" style={{width:32, height:32, minWidth:32, padding:0, borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center'}} title="Eliminar renglón" onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}>
-                    <i className="fa-solid fa-trash" style={{fontSize:'0.75rem'}}></i>
-                  </button>
+
+            <div style={{overflowX:'auto', WebkitOverflowScrolling:'touch', border:'1px solid #e2e8f0', borderRadius:10, padding:'0.6rem', background:'#fff', marginBottom:'1rem'}}>
+              <div style={{minWidth:620}}>
+                <div style={{display:'grid', gridTemplateColumns:'2.2fr 1.1fr 75px 95px 95px 38px', gap:'0.5rem', marginBottom:'0.35rem', padding:'0 0.25rem', alignItems:'center'}}>
+                  {['PRODUCTO','PRECIO CUAL','CANT.','PRECIO $','SUBTOTAL $',''].map((h,i) => (
+                    <span key={i} style={{fontSize:'0.75rem', fontWeight:700, color:'var(--text-secondary)'}}>{h}</span>
+                  ))}
                 </div>
-              ))}
+                <div style={{maxHeight:260, overflowY:'auto'}}>
+                  {form.items.map((item, i) => (
+                    <div key={i} style={{display:'grid', gridTemplateColumns:'2.2fr 1.1fr 75px 95px 95px 38px', gap:'0.5rem', marginBottom:'0.4rem', alignItems:'center'}}>
+                      <select className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', minHeight:38}} value={item.productoId} onChange={e=>selectProduct(i, e.target.value)}>
+                        <option value="">-- Seleccionar producto --</option>
+                        {productos.map(p => (
+                          <option key={p.id} value={p.id} disabled={Number(p.cantidad)<=0}>
+                            {p.nombre} (Stock: {p.cantidad} | P1:${Number(p.precio_venta1||0).toFixed(2)})
+                          </option>
+                        ))}
+                      </select>
+                      <select className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', minHeight:38}} value={item.precioOpcion || '1'} onChange={e=>selectPrecio(i, e.target.value)}>
+                        <option value="1">Precio 1</option>
+                        <option value="2">Precio 2</option>
+                        <option value="3">Precio 3</option>
+                        <option value="custom">Personalizado</option>
+                      </select>
+                      <input type="number" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', minHeight:38}} min="1" value={item.cantidad} onChange={e=>updateItem(i, {cantidad:e.target.value})} />
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="form-control"
+                        placeholder={item.precioOpcion === 'custom' ? '0.00' : ''}
+                        readOnly={item.precioOpcion !== 'custom'}
+                        style={{
+                          fontSize:'0.82rem',
+                          padding:'0.35rem 0.5rem',
+                          minHeight:38,
+                          fontWeight:600,
+                          backgroundColor: item.precioOpcion === 'custom' ? '#fff' : '#f1f5f9',
+                          color: item.precioOpcion === 'custom' ? '#0284c7' : '#334155',
+                          borderColor: item.precioOpcion === 'custom' ? '#0284c7' : '#cbd5e1',
+                          cursor: item.precioOpcion === 'custom' ? 'text' : 'not-allowed'
+                        }}
+                        value={item.precioUnitario}
+                        onChange={e => {
+                          if (item.precioOpcion === 'custom') {
+                            updateItem(i, { precioUnitario: e.target.value });
+                          }
+                        }}
+                        title={item.precioOpcion !== 'custom' ? 'Precio de catálogo protegido (selecciona "Personalizado" para modificar)' : 'Escribe el precio libre'}
+                      />
+                      <span style={{fontWeight:700, color:'var(--primary)', fontSize:'0.88rem', textAlign:'right', paddingRight:'0.25rem'}}>${Number(item.subtotal||0).toFixed(2)}</span>
+                      <button type="button" className="btn btn-danger btn-sm" style={{width:38, height:38, minHeight:38, minWidth:38, padding:0, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center'}} title="Eliminar renglón" onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}>
+                        <i className="fa-solid fa-trash" style={{fontSize:'0.8rem'}}></i>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Totales Venta */}
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', background:'#0f172a', color:'#fff', padding:'0.85rem 1.25rem', borderRadius:10, marginTop:'1rem', flexWrap:'wrap', gap:'0.75rem'}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', background:'#0f172a', color:'#fff', padding:'0.85rem 1rem', borderRadius:10, marginTop:'1rem', flexWrap:'wrap', gap:'0.75rem'}}>
               <div style={{fontSize:'0.85rem'}}>Unidades Totales: <strong style={{color:'#fbbf24', fontSize:'1.05rem'}}>{totalUnidades}</strong></div>
-              <div style={{display:'flex', alignItems:'center', gap:'1.5rem'}}>
+              <div style={{display:'flex', alignItems:'center', gap:'1rem', flexWrap:'wrap'}}>
                 <div style={{fontSize:'0.85rem'}}>
-                  TOTAL ($): <strong style={{color:'#38bdf8', fontSize:'1.2rem'}}>${totalFactura.toFixed(2)}</strong>
+                  TOTAL ($): <strong style={{color:'#38bdf8', fontSize:'1.15rem'}}>${totalFactura.toFixed(2)}</strong>
                 </div>
                 <div style={{fontSize:'0.85rem'}}>
-                  (Bs.): <strong style={{color:'#a7f3d0', fontSize:'1.1rem'}}>Bs. {(totalFactura * bcvTasa).toLocaleString('es-VE',{minimumFractionDigits:2})}</strong>
+                  (Bs.): <strong style={{color:'#a7f3d0', fontSize:'1.05rem'}}>Bs. {(totalFactura * bcvTasa).toLocaleString('es-VE',{minimumFractionDigits:2})}</strong>
                 </div>
               </div>
             </div>

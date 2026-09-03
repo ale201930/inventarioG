@@ -4,10 +4,10 @@ import { NextResponse } from 'next/server';
 export function middleware(request) {
   const { pathname } = request.nextUrl;
 
-  // Archivos estáticos y ruta de autenticación son públicos
+  // Rutas de API, archivos estáticos y recursos públicos NUNCA se redirigen a HTML de login
   if (
+    pathname.startsWith('/api/') ||
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/api/auth') ||
     pathname === '/favicon.ico' ||
     pathname === '/icon.png' ||
     pathname === '/logo.png' ||
@@ -27,7 +27,7 @@ export function middleware(request) {
     return NextResponse.next();
   }
 
-  // Si NO inició sesión y quiere entrar a cualquier página del sistema, redirigir obligatoriamente a /login
+  // Si NO inició sesión y quiere entrar a cualquier página web del sistema, redirigir obligatoriamente a /login
   if (!userCookie) {
     const loginUrl = new URL('/login', request.url);
     return NextResponse.redirect(loginUrl);
@@ -37,5 +37,5 @@ export function middleware(request) {
 }
 
 export const config = {
-  matcher: ['/((?!api/auth|_next/static|_next/image|favicon.ico|logo.png|icon.png).*)'],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|logo.png|icon.png).*)'],
 };
