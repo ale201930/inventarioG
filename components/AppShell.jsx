@@ -13,30 +13,39 @@ export default function AppShell({ children }) {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
 
-  // Check authentication status on mount and route change
+  // Check authentication status
   useEffect(() => {
+    // Si estamos en la página de login, no bloquear renderizado
+    if (pathname === '/login' || pathname?.startsWith('/login')) {
+      setCheckingAuth(false);
+      return;
+    }
+
+    // Comprobación rápida del cookie en cliente
+    const hasUserCookie = typeof document !== 'undefined' && document.cookie.includes('invg_user');
+    if (hasUserCookie) {
+      setAuthenticated(true);
+      setCheckingAuth(false);
+    }
+
+    // Validación formal con el servidor
     fetch('/api/auth?action=check')
       .then(r => r.json())
       .then(d => {
         if (d.authenticated) {
           setAuthenticated(true);
           setCheckingAuth(false);
-          if (pathname === '/login' || pathname?.startsWith('/login')) {
-            router.push('/');
-          }
         } else {
           setAuthenticated(false);
           setCheckingAuth(false);
-          if (pathname !== '/login' && !pathname?.startsWith('/login')) {
-            router.push('/login');
-          }
+          router.replace('/login');
         }
       })
       .catch(() => {
-        setAuthenticated(false);
-        setCheckingAuth(false);
-        if (pathname !== '/login' && !pathname?.startsWith('/login')) {
-          router.push('/login');
+        if (!hasUserCookie) {
+          setAuthenticated(false);
+          setCheckingAuth(false);
+          router.replace('/login');
         }
       });
   }, [pathname, router]);
@@ -64,7 +73,7 @@ export default function AppShell({ children }) {
   const handleLogout = async () => {
     await fetch('/api/auth?action=logout');
     setAuthenticated(false);
-    router.push('/login');
+    router.replace('/login');
   };
 
   const navItems = [
@@ -80,27 +89,9 @@ export default function AppShell({ children }) {
     return <>{children}</>;
   }
 
-  // If checking authentication or not authenticated, render loading screen
-  if (checkingAuth || !authenticated) {
-    return (
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        background: '#f8fafc',
-        fontFamily: 'Inter, system-ui, sans-serif'
-      }}>
-        <img src="/logo.png" alt="Logo InvG" style={{ width: 56, height: 56, borderRadius: 12, marginBottom: 16 }} />
-        <div style={{ fontWeight: 700, fontSize: '1.2rem', color: '#0f172a', marginBottom: 8 }}>
-          Verificando sesión...
-        </div>
-        <div style={{ color: '#64748b', fontSize: '0.9rem' }}>
-          Por favor espera un momento
-        </div>
-      </div>
-    );
+  // If unauthenticated on protected page, redirect to login
+  if (!checkingAuth && !authenticated) {
+    return null;
   }
 
   return (
