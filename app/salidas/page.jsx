@@ -256,124 +256,9 @@ export default function SalidasPage() {
   };
 
   const printTicket = () => {
-    if (!lastSalida) return;
-    const items = lastSalida.items || [];
-    const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
-    const cleanFecha = String(lastSalida.fecha || '').split('T')[0];
-
-    // Imprimir directamente en la misma página usando un iframe invisible
-    let printFrame = document.getElementById('ticket_direct_print_frame');
-    if (!printFrame) {
-      printFrame = document.createElement('iframe');
-      printFrame.id = 'ticket_direct_print_frame';
-      printFrame.style.position = 'fixed';
-      printFrame.style.right = '0';
-      printFrame.style.bottom = '0';
-      printFrame.style.width = '0';
-      printFrame.style.height = '0';
-      printFrame.style.border = '0';
-      document.body.appendChild(printFrame);
+    if (typeof window !== 'undefined') {
+      window.print();
     }
-
-    const frameDoc = printFrame.contentWindow || printFrame.contentDocument.document || printFrame.contentDocument;
-    frameDoc.document.open();
-    frameDoc.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Nota de Entrega Nº ${lastSalida.factura_number}</title>
-      <style>
-        @page { size: 76mm auto; margin: 0; }
-        @media print {
-          body { width: 72mm; margin: 0 auto; padding: 4mm 2mm; -webkit-print-color-adjust: exact; }
-        }
-        body { width: 72mm; margin: 0 auto; padding: 4mm 2mm; font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; background: #fff; line-height: 1.35; }
-        .header-title { font-size: 15px; font-weight: 800; text-align: center; margin: 0 0 2px 0; }
-        .header-sub { font-size: 10px; text-align: center; color: #111; margin: 1px 0; }
-        .divider-solid { border: none; border-top: 1.5px solid #000; margin: 8px 0; }
-        .divider-dashed { border: none; border-top: 1px dashed #444; margin: 8px 0; }
-        .doc-title { font-size: 14px; font-weight: 800; text-align: center; letter-spacing: 0.5px; }
-        .doc-num { font-size: 14px; font-weight: 800; text-align: center; margin-top: 2px; }
-        .info-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        .info-table td { padding: 2px 0; vertical-align: top; }
-        .info-label { font-weight: 700; color: #000; }
-        .info-val { text-align: right; word-break: break-word; }
-        .items-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 6px 0; table-layout: fixed; }
-        .items-table th { font-size: 10.5px; font-weight: 800; padding: 4px 0; text-align: left; border-bottom: 1.5px solid #000; }
-        .items-table td { padding: 4px 0; vertical-align: top; word-break: break-word; }
-        .text-right { text-align: right; }
-        .totals-row { display: flex; justify-content: space-between; align-items: center; font-size: 13.5px; font-weight: 800; margin: 10px 0; }
-        .payment-box { border: 1px solid #475569; border-radius: 8px; padding: 8px 10px; margin: 12px 0 6px 0; background: #fafafa; font-size: 9.5px; line-height: 1.45; }
-        .payment-title { font-weight: 800; font-size: 10.5px; text-align: center; margin-bottom: 4px; }
-        .payment-data { text-align: left; padding-left: 2px; display: flex; flex-direction: column; gap: 2px; }
-      </style></head><body>
-      <div class="header-title">BESTEDA 2, C.A.</div>
-      <div class="header-sub" style="font-weight:700;">RIF: J-40529263-6</div>
-      <div class="header-sub">Calle Principal Casa Nº A-13, Urb. Alto de Fenix II</div>
-      <div class="header-sub">San Juan de los Morros - Estado Guárico</div>
-      <div class="header-sub">Tlfs: 0424-313.68.05 / 0424-300.48.02</div>
-      <hr class="divider-solid" />
-      <div class="doc-title">NOTA DE ENTREGA</div>
-      <div class="doc-num">Nº ${lastSalida.factura_number}</div>
-      <hr class="divider-dashed" />
-      <table class="info-table">
-        <tr><td class="info-label">FECHA:</td><td class="info-val">${cleanFecha}</td></tr>
-        <tr><td class="info-label">CLIENTE:</td><td class="info-val">${lastSalida.cliente_name || ''}</td></tr>
-        <tr><td class="info-label">C.I./RIF:</td><td class="info-val">${lastSalida.cedula_rif || '—'}</td></tr>
-        <tr><td class="info-label">TELF:</td><td class="info-val">${lastSalida.telefono || '—'}</td></tr>
-        <tr><td class="info-label">DIR:</td><td class="info-val">${lastSalida.direccion || '—'}</td></tr>
-      </table>
-      <hr class="divider-dashed" />
-      <table class="items-table">
-        <thead>
-          <tr>
-            <th style="width: 12%;">CAN</th>
-            <th style="width: 46%;">DESCRIPCIÓN</th>
-            <th style="width: 21%; text-align: right;">P/U</th>
-            <th style="width: 21%; text-align: right;">TOTAL</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${items.map(it => {
-            const pu = Number(it.precioUnitario || it.precio_unitario || 0);
-            const cant = Number(it.cantidad || 0);
-            const tot = pu * cant;
-            return `
-              <tr>
-                <td>${cant}</td>
-                <td>${it.productoNombre || it.producto_nombre || ''}</td>
-                <td class="text-right">$${pu.toFixed(2)}</td>
-                <td class="text-right">$${tot.toFixed(2)}</td>
-              </tr>
-            `;
-          }).join('')}
-        </tbody>
-      </table>
-      <hr class="divider-solid" />
-      <div class="totals-row">
-        <span>UND: ${totalUnits}</span>
-        <span>TOTAL: $${Number(lastSalida.total_factura || 0).toFixed(2)}</span>
-      </div>
-      <div class="payment-box">
-        <div class="payment-title">— PAGO MÓVIL BDV —</div>
-        <div class="payment-data">
-          <div>• <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3136805</strong> &nbsp;|&nbsp; C.I. 10.668.263</div>
-          <div>• <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3004802</strong> &nbsp;|&nbsp; C.I. 28.012.615</div>
-        </div>
-        <div style="border-top: 1px dashed #cbd5e1; margin: 6px 0;"></div>
-        <div class="payment-title">— DEPÓSITO BANCARIO BDV —</div>
-        <div class="payment-data">
-          <div>• <strong>0102 0467 4501 0162 8166</strong> <span style="font-size: 8.5px; color: #475569;">(JUAN MORA)</span></div>
-          <div>• <strong>0102 0467 4500 0096 7787</strong> <span style="font-size: 8.5px; color: #475569;">(JORGE FLORES)</span></div>
-        </div>
-      </div>
-      </body></html>`);
-    frameDoc.document.close();
-
-    setTimeout(() => {
-      try {
-        printFrame.contentWindow.focus();
-        printFrame.contentWindow.print();
-      } catch {
-        window.print();
-      }
-    }, 250);
   };
 
   return (
@@ -594,25 +479,15 @@ export default function SalidasPage() {
       {/* Modal Ticket 80mm / 7.6cm */}
       {showTicketModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{maxWidth:460, width:'95%', maxHeight:'90dvh', display:'flex', flexDirection:'column', padding:'1rem 1.25rem'}}>
-            <div className="modal-header" style={{marginBottom:'0.75rem', paddingBottom:'0.5rem', flexShrink:0}}>
+          <div className="modal-content" style={{maxWidth:460, width:'95%', maxHeight:'86dvh', display:'flex', flexDirection:'column', padding:'1rem 1.15rem'}}>
+            <div className="modal-header" style={{marginBottom:'0.6rem', paddingBottom:'0.4rem', flexShrink:0}}>
               <div>
                 <h2 style={{fontSize:'1.1rem', fontWeight:800, color:'#0f172a', margin:0}}>
                   <i className="fa-solid fa-receipt" style={{color:'#0284c7', marginRight:6}}></i> Vista Previa · Ticket (7.6 cm)
                 </h2>
                 <div style={{fontSize:'0.75rem', color:'#64748b', fontWeight:600}}>Listo para enviar a tu impresora térmica</div>
               </div>
-              <div style={{display:'flex', alignItems:'center', gap:'0.5rem'}}>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={printTicket}
-                  style={{background:'#0284c7', color:'#fff', fontWeight:700, padding:'0.35rem 0.75rem', fontSize:'0.82rem', borderRadius:6}}
-                >
-                  <i className="fa-solid fa-print"></i> Imprimir
-                </button>
-                <button type="button" className="modal-close" onClick={()=>setShowTicketModal(false)}>&times;</button>
-              </div>
+              <button type="button" className="modal-close" onClick={()=>setShowTicketModal(false)}>&times;</button>
             </div>
 
             {/* Ticket Preview Exact Matching User Photo */}
@@ -621,7 +496,7 @@ export default function SalidasPage() {
               const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
               const cleanFecha = String(lastSalida.fecha || '').split('T')[0];
               return (
-                <div className="ticket-preview-box" style={{background:'#fff', border:'1px solid #94a3b8', borderRadius:6, padding:'14px 10px', fontFamily:'Arial, Helvetica, sans-serif', fontSize:'11px', color:'#000', flex:'1 1 auto', maxHeight:'52vh', overflowY:'auto', overflowX:'hidden', lineHeight:1.35, width:'100%', boxSizing:'border-box', touchAction:'pan-y', WebkitOverflowScrolling:'touch'}}>
+                <div id="ticketPrintableArea" className="ticket-preview-box" style={{background:'#fff', border:'1px solid #94a3b8', borderRadius:6, padding:'14px 10px', fontFamily:'Arial, Helvetica, sans-serif', fontSize:'11px', color:'#000', flex:'1 1 auto', maxHeight:'46dvh', overflowY:'auto', overflowX:'hidden', lineHeight:1.35, width:'100%', boxSizing:'border-box', touchAction:'pan-y', WebkitOverflowScrolling:'touch'}}>
                   <div style={{textAlign:'center', fontWeight:800, fontSize:'15px'}}>BESTEDA 2, C.A.</div>
                   <div style={{textAlign:'center', fontWeight:700, fontSize:'11px', marginTop:'2px'}}>RIF: J-40529263-6</div>
                   <div style={{textAlign:'center', fontSize:'9.5px', color:'#111', marginTop:'2px'}}>Calle Principal Casa Nº A-13, Urb. Alto de Fenix II</div>
@@ -693,7 +568,7 @@ export default function SalidasPage() {
               );
             })()}
 
-            <div style={{display:'flex', gap:'0.75rem', marginTop:'0.85rem', flexShrink:0}}>
+            <div style={{display:'flex', gap:'0.75rem', marginTop:'0.75rem', flexShrink:0}}>
               <button
                 type="button"
                 className="btn btn-primary"
