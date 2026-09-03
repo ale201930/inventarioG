@@ -1231,56 +1231,6 @@ input:focus, select:focus, textarea:focus {
 .badge-danger { background-color: #fee2e2; color: #ef4444; }
 .badge-warning { background-color: #fef3c7; color: #f59e0b; }
 
-@media print {
-  /* Ocultar fondos, barras y elementos de la app */
-  html, body {
-    background: #ffffff !important;
-    color: #000000 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
-    height: auto !important;
-    min-height: auto !important;
-    overflow: visible !important;
-  }
-
-  body * {
-    visibility: hidden !important;
-  }
-
-  #ticketPrintableArea,
-  #ticketPrintableArea * {
-    visibility: visible !important;
-  }
-
-  #ticketPrintableArea {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 72mm !important;
-    max-width: 72mm !important;
-    margin: 0 auto !important;
-    padding: 2mm 1mm !important;
-    background: #ffffff !important;
-    color: #000000 !important;
-    border: none !important;
-    box-shadow: none !important;
-    max-height: none !important;
-    overflow: visible !important;
-    display: block !important;
-    font-family: Arial, Helvetica, sans-serif !important;
-    font-size: 11px !important;
-    line-height: 1.35 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  @page {
-    size: 76mm auto;
-    margin: 0;
-  }
-}
-
 /* ========================================================================
    RESPONSIVIDAD MÓVIL PROFESIONAL (Teléfonos y Pantallas Pequeñas)
    ======================================================================== */
