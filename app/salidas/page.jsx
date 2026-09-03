@@ -376,20 +376,33 @@ export default function SalidasPage() {
 </body>
 </html>`;
 
-    const win = window.open('', '_blank', 'width=450,height=750');
-    if (win) {
-      win.document.open();
-      win.document.write(htmlContent);
-      win.document.close();
-      win.focus();
-      setTimeout(() => {
-        try {
-          win.print();
-        } catch (e) {
-          console.error(e);
-        }
-      }, 350);
+    let iframe = document.getElementById('ticket_direct_print_iframe');
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'ticket_direct_print_iframe';
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.style.zIndex = '-9999';
+      document.body.appendChild(iframe);
     }
+
+    const doc = iframe.contentWindow || iframe.contentDocument.document || iframe.contentDocument;
+    doc.document.open();
+    doc.document.write(htmlContent);
+    doc.document.close();
+
+    setTimeout(() => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (err) {
+        console.error(err);
+      }
+    }, 250);
   };
 
   return (
