@@ -479,13 +479,13 @@ export default function SalidasPage() {
       {/* Modal Ticket 80mm / 7.6cm */}
       {showTicketModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{maxWidth:460, width:'95%', maxHeight:'86dvh', display:'flex', flexDirection:'column', padding:'1rem 1.15rem'}}>
-            <div className="modal-header" style={{marginBottom:'0.6rem', paddingBottom:'0.4rem', flexShrink:0}}>
+          <div className="modal-content" style={{maxWidth:460, width:'95%', maxHeight:'80dvh', display:'flex', flexDirection:'column', padding:'1rem 1.15rem', margin:'auto'}}>
+            <div className="modal-header" style={{marginBottom:'0.5rem', paddingBottom:'0.35rem', flexShrink:0}}>
               <div>
-                <h2 style={{fontSize:'1.1rem', fontWeight:800, color:'#0f172a', margin:0}}>
+                <h2 style={{fontSize:'1.05rem', fontWeight:800, color:'#0f172a', margin:0}}>
                   <i className="fa-solid fa-receipt" style={{color:'#0284c7', marginRight:6}}></i> Vista Previa · Ticket (7.6 cm)
                 </h2>
-                <div style={{fontSize:'0.75rem', color:'#64748b', fontWeight:600}}>Listo para enviar a tu impresora térmica</div>
+                <div style={{fontSize:'0.72rem', color:'#64748b', fontWeight:600}}>Listo para enviar a tu impresora térmica</div>
               </div>
               <button type="button" className="modal-close" onClick={()=>setShowTicketModal(false)}>&times;</button>
             </div>
@@ -496,7 +496,7 @@ export default function SalidasPage() {
               const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
               const cleanFecha = String(lastSalida.fecha || '').split('T')[0];
               return (
-                <div id="ticketPrintableArea" className="ticket-preview-box" style={{background:'#fff', border:'1px solid #94a3b8', borderRadius:6, padding:'14px 10px', fontFamily:'Arial, Helvetica, sans-serif', fontSize:'11px', color:'#000', flex:'1 1 auto', maxHeight:'46dvh', overflowY:'auto', overflowX:'hidden', lineHeight:1.35, width:'100%', boxSizing:'border-box', touchAction:'pan-y', WebkitOverflowScrolling:'touch'}}>
+                <div id="ticketPrintableArea" className="ticket-preview-box" style={{background:'#fff', border:'1px solid #94a3b8', borderRadius:6, padding:'12px 10px', fontFamily:'Arial, Helvetica, sans-serif', fontSize:'11px', color:'#000', flex:'1 1 auto', maxHeight:'38dvh', overflowY:'auto', overflowX:'hidden', lineHeight:1.35, width:'100%', boxSizing:'border-box', touchAction:'pan-y', WebkitOverflowScrolling:'touch'}}>
                   <div style={{textAlign:'center', fontWeight:800, fontSize:'15px'}}>BESTEDA 2, C.A.</div>
                   <div style={{textAlign:'center', fontWeight:700, fontSize:'11px', marginTop:'2px'}}>RIF: J-40529263-6</div>
                   <div style={{textAlign:'center', fontSize:'9.5px', color:'#111', marginTop:'2px'}}>Calle Principal Casa Nº A-13, Urb. Alto de Fenix II</div>
@@ -551,7 +551,7 @@ export default function SalidasPage() {
                     <span>TOTAL: ${Number(lastSalida.total_factura || totalFactura).toFixed(2)}</span>
                   </div>
                   
-                  <div style={{border:'1px solid #475569', borderRadius:'8px', padding:'8px 10px', margin:'12px 0 6px 0', background:'#fafafa', fontSize:'9.5px', lineHeight:1.45}}>
+                  <div style={{border:'1px solid #475569', borderRadius:'8px', padding:'8px 10px', margin:'10px 0 4px 0', background:'#fafafa', fontSize:'9.5px', lineHeight:1.45}}>
                     <div style={{fontWeight:800, fontSize:'10.5px', textAlign:'center', color:'#0f172a', marginBottom:'4px'}}>— PAGO MÓVIL BDV —</div>
                     <div style={{textAlign:'left', paddingLeft:'2px', display:'flex', flexDirection:'column', gap:'2px', color:'#1e293b'}}>
                       <div>• <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3136805</strong> &nbsp;|&nbsp; C.I. 10.668.263</div>
@@ -572,7 +572,7 @@ export default function SalidasPage() {
               <button
                 type="button"
                 className="btn btn-primary"
-                style={{width:'100%', fontSize:'0.95rem', padding:'0.75rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem', background:'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'}}
+                style={{width:'100%', fontSize:'0.95rem', padding:'0.75rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem', background:'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', borderRadius:10}}
                 onClick={printTicket}
               >
                 <i className="fa-solid fa-print" style={{fontSize:'1.1rem'}}></i> Enviar a Impresora Térmica (7.6 cm)
