@@ -15,35 +15,36 @@ export default function AppShell({ children }) {
 
   // Bloquear scroll de fondo cuando el menú lateral móvil esté abierto
   useEffect(() => {
-    if (sidebarOpen) {
-      document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
+    if (typeof document !== 'undefined') {
+      if (sidebarOpen) {
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      }
     }
     return () => {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      }
     };
   }, [sidebarOpen]);
 
   // Check authentication status
   useEffect(() => {
-    // Si estamos en la página de login, no bloquear renderizado
     if (pathname === '/login' || pathname?.startsWith('/login')) {
       setCheckingAuth(false);
       return;
     }
 
-    // Comprobación rápida del cookie en cliente
     const hasUserCookie = typeof document !== 'undefined' && document.cookie.includes('invg_user');
     if (hasUserCookie) {
       setAuthenticated(true);
       setCheckingAuth(false);
     }
 
-    // Validación formal con el servidor
     fetch('/api/auth?action=check')
       .then(r => r.json())
       .then(d => {
@@ -99,12 +100,10 @@ export default function AppShell({ children }) {
     { key: 'reportes', href: '/reportes', icon: 'fa-file-invoice-dollar', label: 'Reportes' },
   ];
 
-  // If on login page, render children directly without sidebar shell
   if (pathname === '/login' || pathname?.startsWith('/login')) {
     return <>{children}</>;
   }
 
-  // If unauthenticated on protected page, redirect to login
   if (!checkingAuth && !authenticated) {
     return null;
   }
@@ -148,8 +147,8 @@ export default function AppShell({ children }) {
           </button>
         </div>
 
-        {/* Contenedor scrolleable del menú */}
-        <div className="sidebar-scrollable-content">
+        {/* Cuerpo con scroll completo */}
+        <div className="sidebar-body">
           <ul className="nav-menu">
             {navItems.map(item => (
               <li key={item.key} className={`nav-item ${route === item.key ? 'active' : ''}`}>
@@ -174,14 +173,13 @@ export default function AppShell({ children }) {
             </div>
             <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 2 }}>Fuente: {bcvFuente}</div>
           </div>
-        </div>
 
-        {/* Footer fijo del menú */}
-        <div className="sidebar-footer">
-          <button onClick={handleLogout} className="btn btn-secondary btn-logout-sidebar">
-            <i className="fa-solid fa-right-from-bracket" />
-            <span>Cerrar Sesión</span>
-          </button>
+          <div style={{ marginTop: '1.25rem', paddingBottom: '3rem' }}>
+            <button onClick={handleLogout} className="btn btn-secondary btn-logout-sidebar">
+              <i className="fa-solid fa-right-from-bracket" />
+              <span>Cerrar Sesión</span>
+            </button>
+          </div>
         </div>
       </aside>
 
