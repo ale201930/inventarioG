@@ -48,6 +48,26 @@ export default function EntradasPage() {
     });
   }, []);
 
+  // Bloquear scroll de fondo cuando cualquier modal esté abierto
+  useEffect(() => {
+    const isModalOpen = showModal || showAbonoModal || showPreviewModal;
+    if (typeof document !== 'undefined') {
+      if (isModalOpen) {
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      }
+    }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      }
+    };
+  }, [showModal, showAbonoModal, showPreviewModal]);
+
   const filteredEntradas = entradas.filter(e => {
     const q = searchText.toLowerCase();
     const matchText = !q || e.proveedor_name.toLowerCase().includes(q) || (e.factura_number||'').toLowerCase().includes(q);

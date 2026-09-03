@@ -33,6 +33,26 @@ export default function SalidasPage() {
   });
   const [abonoForm, setAbonoForm] = useState({ salidaId:'', clienteName:'', montoUSD:0, montoVES:0, referencia:'', fecha:today() });
 
+  // Bloquear scroll de fondo cuando cualquier modal esté abierto
+  useEffect(() => {
+    const isModalOpen = showModal || showTicketModal || showAbonoModal || showEstadoModal;
+    if (typeof document !== 'undefined') {
+      if (isModalOpen) {
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      }
+    }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      }
+    };
+  }, [showModal, showTicketModal, showAbonoModal, showEstadoModal]);
+
   const load = () => {
     setLoading(true);
     Promise.all([
@@ -548,18 +568,34 @@ export default function SalidasPage() {
       {/* Modal Ticket 80mm / 7.6cm */}
       {showTicketModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{maxWidth:440, width:'95%', padding:'1.25rem'}}>
-            <div className="modal-header" style={{marginBottom:'0.75rem'}}>
-              <h2><i className="fa-solid fa-receipt"></i> Vista Previa · Ticket (7.6 cm)</h2>
-              <button type="button" className="modal-close" onClick={()=>setShowTicketModal(false)}>&times;</button>
+          <div className="modal-content" style={{maxWidth:460, width:'95%', maxHeight:'90dvh', display:'flex', flexDirection:'column', padding:'1rem 1.25rem'}}>
+            <div className="modal-header" style={{marginBottom:'0.75rem', paddingBottom:'0.5rem', flexShrink:0}}>
+              <div>
+                <h2 style={{fontSize:'1.1rem', fontWeight:800, color:'#0f172a', margin:0}}>
+                  <i className="fa-solid fa-receipt" style={{color:'#0284c7', marginRight:6}}></i> Vista Previa · Ticket (7.6 cm)
+                </h2>
+                <div style={{fontSize:'0.75rem', color:'#64748b', fontWeight:600}}>Listo para enviar a tu impresora térmica</div>
+              </div>
+              <div style={{display:'flex', alignItems:'center', gap:'0.5rem'}}>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={printTicket}
+                  style={{background:'#0284c7', color:'#fff', fontWeight:700, padding:'0.35rem 0.75rem', fontSize:'0.82rem', borderRadius:6}}
+                >
+                  <i className="fa-solid fa-print"></i> Imprimir
+                </button>
+                <button type="button" className="modal-close" onClick={()=>setShowTicketModal(false)}>&times;</button>
+              </div>
             </div>
+
             {/* Ticket Preview Exact Matching User Photo */}
             {lastSalida && (() => {
               const items = lastSalida.items || [];
               const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
               const cleanFecha = String(lastSalida.fecha || '').split('T')[0];
               return (
-                <div className="ticket-preview-box" style={{background:'#fff', border:'1px solid #94a3b8', borderRadius:6, padding:'14px 10px', fontFamily:'Arial, Helvetica, sans-serif', fontSize:'11px', color:'#000', maxHeight:'68vh', overflowY:'auto', overflowX:'hidden', lineHeight:1.35, width:'100%', boxSizing:'border-box'}}>
+                <div className="ticket-preview-box" style={{background:'#fff', border:'1px solid #94a3b8', borderRadius:6, padding:'14px 10px', fontFamily:'Arial, Helvetica, sans-serif', fontSize:'11px', color:'#000', flex:'1 1 auto', maxHeight:'52vh', overflowY:'auto', overflowX:'hidden', lineHeight:1.35, width:'100%', boxSizing:'border-box', touchAction:'pan-y', WebkitOverflowScrolling:'touch'}}>
                   <div style={{textAlign:'center', fontWeight:800, fontSize:'15px'}}>BESTEDA 2, C.A.</div>
                   <div style={{textAlign:'center', fontWeight:700, fontSize:'11px', marginTop:'2px'}}>RIF: J-40529263-6</div>
                   <div style={{textAlign:'center', fontSize:'9.5px', color:'#111', marginTop:'2px'}}>Calle Principal Casa Nº A-13, Urb. Alto de Fenix II</div>
@@ -630,9 +666,15 @@ export default function SalidasPage() {
                 </div>
               );
             })()}
-            <div style={{display:'flex', gap:'0.75rem', marginTop:'1rem'}}>
-              <button type="button" className="btn btn-primary" style={{width:'100%', fontSize:'1rem', padding:'0.75rem'}} onClick={printTicket}>
-                <i className="fa-solid fa-print"></i> Enviar a Impresora Térmica (7.6 cm)
+
+            <div style={{display:'flex', gap:'0.75rem', marginTop:'0.85rem', flexShrink:0}}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{width:'100%', fontSize:'0.95rem', padding:'0.75rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem', background:'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'}}
+                onClick={printTicket}
+              >
+                <i className="fa-solid fa-print" style={{fontSize:'1.1rem'}}></i> Enviar a Impresora Térmica (7.6 cm)
               </button>
             </div>
           </div>

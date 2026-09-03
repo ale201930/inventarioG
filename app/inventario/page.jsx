@@ -24,6 +24,25 @@ export default function InventarioPage() {
 
   useEffect(() => { load(); }, []);
 
+  // Bloquear scroll de fondo cuando el modal esté abierto
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      if (showModal) {
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      }
+    }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      }
+    };
+  }, [showModal]);
+
   useEffect(() => {
     const q = search.toLowerCase();
     setFiltered(q ? productos.filter(p => p.nombre.toLowerCase().includes(q) || (p.codigo_producto||'').toLowerCase().includes(q)) : productos);
