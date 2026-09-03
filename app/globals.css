@@ -236,9 +236,8 @@ button, input, select, textarea {
   gap: 0.75rem;
   font-weight: 700;
   font-size: 1.25rem;
-  background: var(--accent-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #0f172a;
+  -webkit-text-fill-color: #0f172a;
   margin-bottom: 3rem;
   letter-spacing: -0.025em;
 }
@@ -449,9 +448,27 @@ h1 {
   font-size: 2.25rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  background: linear-gradient(to right, #fff, #9ca3af);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #0f172a !important;
+  background: none !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+p {
+  color: #475569 !important;
 }
 
 .page-header {
