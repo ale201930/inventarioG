@@ -35,36 +35,51 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Métricas Principales */}
+      {/* Métricas Principales (Interactivos) */}
       <div className="metrics-grid" id="metricsContainer" style={{ marginBottom: '1.75rem' }}>
-        <div className="card metric-card">
+        <Link href="/salidas" className="card metric-card clickable-metric" title="Ver Cuentas por Cobrar y Facturación">
           <div className="metric-icon-box success"><i className="fa-solid fa-hand-holding-dollar"></i></div>
           <div className="metric-info">
-            <h3>Cuentas por Cobrar</h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+              <h3>Cuentas por Cobrar</h3>
+              <i className="fa-solid fa-arrow-up-right-from-square metric-arrow" />
+            </div>
             <div className="value" style={{color:'var(--success)'}}>{metrics ? fmt(metrics.totalCobrar) : '$0.00'}</div>
           </div>
-        </div>
-        <div className="card metric-card">
+        </Link>
+
+        <Link href="/entradas" className="card metric-card clickable-metric" title="Ver Cuentas por Pagar a Proveedores">
           <div className="metric-icon-box danger"><i className="fa-solid fa-money-bill-transfer"></i></div>
           <div className="metric-info">
-            <h3>Cuentas por Pagar</h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+              <h3>Cuentas por Pagar</h3>
+              <i className="fa-solid fa-arrow-up-right-from-square metric-arrow" />
+            </div>
             <div className="value" style={{color:'var(--danger)'}}>{metrics ? fmt(metrics.totalPagar) : '$0.00'}</div>
           </div>
-        </div>
-        <div className="card metric-card">
+        </Link>
+
+        <Link href="/salidas" className="card metric-card clickable-metric" title="Ver Historial de Ventas">
           <div className="metric-icon-box primary"><i className="fa-solid fa-chart-line"></i></div>
           <div className="metric-info">
-            <h3>Total Ventas</h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+              <h3>Total Ventas</h3>
+              <i className="fa-solid fa-arrow-up-right-from-square metric-arrow" />
+            </div>
             <div className="value">{metrics ? fmt(metrics.totalVentas) : '$0.00'}</div>
           </div>
-        </div>
-        <div className="card metric-card">
+        </Link>
+
+        <Link href="/inventario" className="card metric-card clickable-metric" title="Ver Stock y Productos en Inventario">
           <div className="metric-icon-box warning"><i className="fa-solid fa-boxes-stacked"></i></div>
           <div className="metric-info">
-            <h3>Stock Productos</h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+              <h3>Stock Productos</h3>
+              <i className="fa-solid fa-arrow-up-right-from-square metric-arrow" />
+            </div>
             <div className="value">{metrics ? `${metrics.totalItems} ítems` : '0 ítems'}</div>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Acceso Rápido a Operaciones */}
