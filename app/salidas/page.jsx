@@ -260,10 +260,29 @@ export default function SalidasPage() {
     const items = lastSalida.items || [];
     const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
     const cleanFecha = String(lastSalida.fecha || '').split('T')[0];
-    const win = window.open('', '_blank', 'width=450,height=800');
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Nota de Entrega Nº ${lastSalida.factura_number}</title>
+
+    // Imprimir directamente en la misma página usando un iframe invisible
+    let printFrame = document.getElementById('ticket_direct_print_frame');
+    if (!printFrame) {
+      printFrame = document.createElement('iframe');
+      printFrame.id = 'ticket_direct_print_frame';
+      printFrame.style.position = 'fixed';
+      printFrame.style.right = '0';
+      printFrame.style.bottom = '0';
+      printFrame.style.width = '0';
+      printFrame.style.height = '0';
+      printFrame.style.border = '0';
+      document.body.appendChild(printFrame);
+    }
+
+    const frameDoc = printFrame.contentWindow || printFrame.contentDocument.document || printFrame.contentDocument;
+    frameDoc.document.open();
+    frameDoc.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Nota de Entrega Nº ${lastSalida.factura_number}</title>
       <style>
         @page { size: 76mm auto; margin: 0; }
+        @media print {
+          body { width: 72mm; margin: 0 auto; padding: 4mm 2mm; -webkit-print-color-adjust: exact; }
+        }
         body { width: 72mm; margin: 0 auto; padding: 4mm 2mm; font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; background: #fff; line-height: 1.35; }
         .header-title { font-size: 15px; font-weight: 800; text-align: center; margin: 0 0 2px 0; }
         .header-sub { font-size: 10px; text-align: center; color: #111; margin: 1px 0; }
@@ -280,10 +299,9 @@ export default function SalidasPage() {
         .items-table td { padding: 4px 0; vertical-align: top; word-break: break-word; }
         .text-right { text-align: right; }
         .totals-row { display: flex; justify-content: space-between; align-items: center; font-size: 13.5px; font-weight: 800; margin: 10px 0; }
-        .payment-box { border: 1px solid #666; border-radius: 8px; padding: 8px 10px; margin: 12px 0; background: #fafafa; font-size: 9.5px; text-align: center; line-height: 1.45; }
-        .payment-title { font-weight: 800; font-size: 10px; margin: 2px 0; }
-        .signature-area { margin-top: 32px; text-align: center; font-size: 10px; }
-        .signature-line { border-top: 1.5px solid #000; width: 65%; margin: 0 auto 5px auto; }
+        .payment-box { border: 1px solid #475569; border-radius: 8px; padding: 8px 10px; margin: 12px 0 6px 0; background: #fafafa; font-size: 9.5px; line-height: 1.45; }
+        .payment-title { font-weight: 800; font-size: 10.5px; text-align: center; margin-bottom: 4px; }
+        .payment-data { text-align: left; padding-left: 2px; display: flex; flex-direction: column; gap: 2px; }
       </style></head><body>
       <div class="header-title">BESTEDA 2, C.A.</div>
       <div class="header-sub" style="font-weight:700;">RIF: J-40529263-6</div>
@@ -334,20 +352,28 @@ export default function SalidasPage() {
       </div>
       <div class="payment-box">
         <div class="payment-title">— PAGO MÓVIL BDV —</div>
-        <div>0102 | 0424 3136805 | C.I. 10668263</div>
-        <div>0102 | 0424 3004802 | C.I. 28012615</div>
-        <div class="payment-title" style="margin-top: 6px;">— DEPÓSITO BANCARIO BDV —</div>
-        <div>01020467450101628166 (JUAN MORA)</div>
-        <div>01020467450000967787 (JORGE FLORES)</div>
-      </div>
-      <div class="signature-area">
-        <div class="signature-line"></div>
-        <div style="font-weight:600;">Firma del Cliente</div>
+        <div class="payment-data">
+          <div>• <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3136805</strong> &nbsp;|&nbsp; C.I. 10.668.263</div>
+          <div>• <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3004802</strong> &nbsp;|&nbsp; C.I. 28.012.615</div>
+        </div>
+        <div style="border-top: 1px dashed #cbd5e1; margin: 6px 0;"></div>
+        <div class="payment-title">— DEPÓSITO BANCARIO BDV —</div>
+        <div class="payment-data">
+          <div>• <strong>0102 0467 4501 0162 8166</strong> <span style="font-size: 8.5px; color: #475569;">(JUAN MORA)</span></div>
+          <div>• <strong>0102 0467 4500 0096 7787</strong> <span style="font-size: 8.5px; color: #475569;">(JORGE FLORES)</span></div>
+        </div>
       </div>
       </body></html>`);
-    win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); }, 500);
+    frameDoc.document.close();
+
+    setTimeout(() => {
+      try {
+        printFrame.contentWindow.focus();
+        printFrame.contentWindow.print();
+      } catch {
+        window.print();
+      }
+    }, 250);
   };
 
   return (
@@ -650,18 +676,18 @@ export default function SalidasPage() {
                     <span>TOTAL: ${Number(lastSalida.total_factura || totalFactura).toFixed(2)}</span>
                   </div>
                   
-                  <div style={{border:'1px solid #666', borderRadius:'8px', padding:'8px 10px', margin:'12px 0', background:'#fafafa', fontSize:'9.5px', textAlign:'center', lineHeight:1.45}}>
-                    <div style={{fontWeight:800, fontSize:'10px'}}>— PAGO MÓVIL BDV —</div>
-                    <div>0102 | 0424 3136805 | C.I. 10668263</div>
-                    <div>0102 | 0424 3004802 | C.I. 28012615</div>
-                    <div style={{fontWeight:800, fontSize:'10px', marginTop:'6px'}}>— DEPÓSITO BANCARIO BDV —</div>
-                    <div>01020467450101628166 (JUAN MORA)</div>
-                    <div>01020467450000967787 (JORGE FLORES)</div>
-                  </div>
-                  
-                  <div style={{marginTop:'32px', textAlign:'center'}}>
-                    <div style={{borderTop:'1.5px solid #000', width:'65%', margin:'0 auto 5px auto'}}></div>
-                    <div style={{fontSize:'10.5px', fontWeight:600}}>Firma del Cliente</div>
+                  <div style={{border:'1px solid #475569', borderRadius:'8px', padding:'8px 10px', margin:'12px 0 6px 0', background:'#fafafa', fontSize:'9.5px', lineHeight:1.45}}>
+                    <div style={{fontWeight:800, fontSize:'10.5px', textAlign:'center', color:'#0f172a', marginBottom:'4px'}}>— PAGO MÓVIL BDV —</div>
+                    <div style={{textAlign:'left', paddingLeft:'2px', display:'flex', flexDirection:'column', gap:'2px', color:'#1e293b'}}>
+                      <div>• <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3136805</strong> &nbsp;|&nbsp; C.I. 10.668.263</div>
+                      <div>• <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3004802</strong> &nbsp;|&nbsp; C.I. 28.012.615</div>
+                    </div>
+                    <div style={{borderTop:'1px dashed #cbd5e1', margin:'6px 0'}}></div>
+                    <div style={{fontWeight:800, fontSize:'10.5px', textAlign:'center', color:'#0f172a', marginBottom:'4px'}}>— DEPÓSITO BANCARIO BDV —</div>
+                    <div style={{textAlign:'left', paddingLeft:'2px', display:'flex', flexDirection:'column', gap:'2px', color:'#1e293b'}}>
+                      <div>• <strong>0102 0467 4501 0162 8166</strong> <span style={{fontSize:'8.5px', color:'#475569'}}>(JUAN MORA)</span></div>
+                      <div>• <strong>0102 0467 4500 0096 7787</strong> <span style={{fontSize:'8.5px', color:'#475569'}}>(JORGE FLORES)</span></div>
+                    </div>
                   </div>
                 </div>
               );
