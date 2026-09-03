@@ -101,10 +101,14 @@ export default function InventarioPage() {
 
   return (
     <>
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: '1.75rem' }}>
         <div>
-          <h1 className="page-title"><i className="fa-solid fa-box" style={{color:'var(--primary)'}}></i> Gestión de Inventario</h1>
-          <p className="page-subtitle">Listado de productos, existencias en almacén y edición directa de precios individuales ($)</p>
+          <h1 className="page-title" style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem' }}>
+            <i className="fa-solid fa-box" style={{ color: '#0284c7' }}></i> Gestión de Inventario
+          </h1>
+          <p className="page-subtitle" style={{ color: '#475569', fontSize: '0.92rem', fontWeight: 500, margin: 0 }}>
+            Listado de productos, existencias en almacén y edición directa de precios individuales ($)
+          </p>
         </div>
         <button type="button" className="btn btn-primary" onClick={openNew}><i className="fa-solid fa-plus"></i> Nuevo Producto</button>
       </div>

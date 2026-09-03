@@ -29,10 +29,14 @@ export default function DashboardPage() {
 
   return (
     <>
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: '1.75rem' }}>
         <div>
-          <h1 className="page-title"><i className="fa-solid fa-chart-pie" style={{color:'var(--primary)'}}></i> Panel de Control</h1>
-          <p className="page-subtitle">Resumen del estado de tu inventario, ventas y saldos pendientes</p>
+          <h1 className="page-title" style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem' }}>
+            <i className="fa-solid fa-chart-pie" style={{ color: '#0284c7' }}></i> Panel de Control
+          </h1>
+          <p className="page-subtitle" style={{ color: '#475569', fontSize: '0.92rem', fontWeight: 500, margin: 0 }}>
+            Resumen en tiempo real del estado de tu inventario, ventas y saldos pendientes · Besteda 2, C.A.
+          </p>
         </div>
       </div>
 

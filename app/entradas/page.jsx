@@ -532,10 +532,14 @@ export default function EntradasPage() {
       {/* Tesseract.js OCR */}
       <Script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" strategy="afterInteractive" />
 
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: '1.75rem' }}>
         <div>
-          <h1 className="page-title"><i className="fa-solid fa-truck-loading" style={{color:'var(--primary)'}}></i> Entradas / Compras a Proveedores</h1>
-          <p className="page-subtitle">Carga de facturas/notas de entrega, escaneo OCR automático, control dual ($ / Bs.) e incremento de inventario</p>
+          <h1 className="page-title" style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem' }}>
+            <i className="fa-solid fa-truck-loading" style={{ color: '#0284c7' }}></i> Entradas / Compras a Proveedores
+          </h1>
+          <p className="page-subtitle" style={{ color: '#475569', fontSize: '0.92rem', fontWeight: 500, margin: 0 }}>
+            Carga de facturas/notas de entrega, escaneo OCR automático, control dual ($ / Bs.) e incremento de inventario
+          </p>
         </div>
         <button className="btn btn-primary" onClick={openNewModal}><i className="fa-solid fa-plus"></i> Registrar Nueva Compra</button>
       </div>

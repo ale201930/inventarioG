@@ -332,13 +332,17 @@ export default function SalidasPage() {
 
   return (
     <>
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: '1.75rem' }}>
         <div>
-          <h1 className="page-title"><i className="fa-solid fa-receipt" style={{color:'var(--primary)'}}></i> Facturación y Despachos (Salidas)</h1>
-          <p className="page-subtitle">Facturación digital compatible con impresoras de ticket de 80mm (7.6 cm) · Sustitución de talonario</p>
+          <h1 className="page-title" style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem' }}>
+            <i className="fa-solid fa-receipt" style={{ color: '#0284c7' }}></i> Facturación y Despachos (Salidas)
+          </h1>
+          <p className="page-subtitle" style={{ color: '#475569', fontSize: '0.92rem', fontWeight: 500, margin: 0 }}>
+            Facturación digital compatible con impresoras de ticket de 80mm (7.6 cm) · Sustitución de talonario
+          </p>
         </div>
         <div style={{display:'flex', gap:'0.6rem', flexWrap:'wrap'}}>
-          <button className="btn btn-secondary" style={{background:'#0284c7', color:'#fff', borderColor:'#0284c7'}} onClick={()=>setShowEstadoModal(true)}>
+          <button className="btn btn-secondary" style={{background:'#e0f2fe', color:'#0369a1', fontWeight:700}} onClick={()=>setShowEstadoModal(true)}>
             <i className="fa-solid fa-file-invoice-dollar"></i> Estado de Cuenta Cliente
           </button>
           <button className="btn btn-primary" onClick={openNewModal}><i className="fa-solid fa-plus"></i> Nueva Venta / Factura</button>

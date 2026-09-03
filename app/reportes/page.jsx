@@ -43,12 +43,16 @@ export default function ReportesPage() {
 
   return (
     <>
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: '1.75rem' }}>
         <div>
-          <h1 className="page-title"><i className="fa-solid fa-chart-line" style={{color:'var(--primary)'}}></i> Panel Financiero · Ganancias y Pérdidas</h1>
-          <p className="page-subtitle">Balance de utilidad real, margen de ganancias, ingresos por ventas y cuentas por cobrar/pagar</p>
+          <h1 className="page-title" style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.25rem' }}>
+            <i className="fa-solid fa-chart-line" style={{ color: '#0284c7' }}></i> Panel Financiero · Ganancias y Pérdidas
+          </h1>
+          <p className="page-subtitle" style={{ color: '#475569', fontSize: '0.92rem', fontWeight: 500, margin: 0 }}>
+            Balance de utilidad real, margen de ganancias, ingresos por ventas y cuentas por cobrar/pagar · Besteda 2, C.A.
+          </p>
         </div>
-        <button className="btn btn-primary" onClick={handleExportCSV} style={{background:'#0284c7', border:'none', fontWeight:700}}>
+        <button className="btn btn-primary" onClick={handleExportCSV} style={{ background: '#0284c7', border: 'none', fontWeight: 700 }}>
           <i className="fa-solid fa-file-excel"></i> Exportar Informe Financiero
         </button>
       </div>
