@@ -26,38 +26,81 @@ export async function GET(request) {
 
     if (action === 'clientes') {
       const rows = await query(
-        `SELECT cliente_name, MAX(cedula_rif) AS cedula_rif, MAX(telefono) AS telefono,
-         COUNT(id) AS total_notas, SUM(total_factura) AS total_compras_usd, SUM(saldo_adeudado) AS saldo_pendiente_usd
-         FROM salidas GROUP BY cliente_name ORDER BY saldo_pendiente_usd DESC`
+        `SELECT 
+           MAX(cliente_name) AS cliente_name,
+           TRIM(cedula_rif) AS cedula_rif,
+           MAX(telefono) AS telefono,
+           MAX(direccion) AS direccion,
+           COUNT(id) AS total_notas,
+           SUM(total_factura) AS total_compras_usd,
+           SUM(saldo_adeudado) AS saldo_pendiente_usd
+         FROM salidas
+         WHERE cliente_name IS NOT NULL AND TRIM(cliente_name) != ''
+         GROUP BY 
+           CASE 
+             WHEN cedula_rif IS NOT NULL AND TRIM(cedula_rif) != '' THEN CONCAT('CI:', TRIM(LOWER(cedula_rif)))
+             ELSE CONCAT('NAME:', TRIM(LOWER(cliente_name)))
+           END
+         ORDER BY cliente_name ASC`
       );
       return NextResponse.json({ success: true, data: rows });
     }
 
     if (action === 'estado_cuenta') {
-      const rawQuery = (searchParams.get('cliente') || '').trim();
-      const cleanName = rawQuery.split('(')[0].trim() || rawQuery;
-      const salidas = await query(
-        `SELECT * FROM salidas WHERE LOWER(TRIM(cliente_name))=LOWER(TRIM(?)) OR LOWER(TRIM(cedula_rif))=LOWER(TRIM(?)) OR LOWER(TRIM(cliente_name)) LIKE ? ORDER BY fecha DESC`,
-        [cleanName, cleanName, `%${cleanName}%`]
-      );
+      const clienteParam = (searchParams.get('cliente') || '').trim();
+      const cedulaParam = (searchParams.get('cedula') || '').trim();
+
+      let salidas = [];
+      if (cedulaParam) {
+        salidas = await query(
+          `SELECT * FROM salidas WHERE LOWER(TRIM(cedula_rif)) = LOWER(TRIM(?)) ORDER BY fecha DESC`,
+          [cedulaParam]
+        );
+      } else if (clienteParam) {
+        salidas = await query(
+          `SELECT * FROM salidas WHERE (cedula_rif IS NULL OR TRIM(cedula_rif) = '') AND LOWER(TRIM(cliente_name)) = LOWER(TRIM(?)) ORDER BY fecha DESC`,
+          [clienteParam]
+        );
+      }
 
       let tasaBCV = 798.33;
       try { const t = await query('SELECT tasa_hoy FROM tasa_bcv ORDER BY id DESC LIMIT 1'); tasaBCV = parseFloat(t[0]?.tasa_hoy ?? 798.33); } catch {}
 
-      const abonosCliente = await query(
-        `SELECT a.*, s.factura_number FROM abonos_salidas a LEFT JOIN salidas s ON a.salida_id = s.id
-         WHERE LOWER(TRIM(a.cliente_name))=LOWER(TRIM(?)) OR LOWER(TRIM(s.cliente_name))=LOWER(TRIM(?)) ORDER BY a.fecha DESC`,
-        [cleanName, cleanName]
-      ).catch(() => []);
+      let abonosCliente = [];
+      if (salidas.length > 0) {
+        const sIds = salidas.map(s => s.id);
+        const placeholders = sIds.map(() => '?').join(',');
+        abonosCliente = await query(
+          `SELECT a.*, s.factura_number, s.cedula_rif FROM abonos_salidas a 
+           INNER JOIN salidas s ON a.salida_id = s.id
+           WHERE a.salida_id IN (${placeholders}) ORDER BY a.fecha DESC`,
+          sIds
+        ).catch(() => []);
+      }
 
       const totCompras = salidas.reduce((s, r) => s + parseFloat(r.total_factura||0), 0);
       const totSaldo = salidas.reduce((s, r) => s + parseFloat(r.saldo_adeudado||0), 0);
-      const clienteInfo = salidas[0] ? { name: salidas[0].cliente_name, cedula_rif: salidas[0].cedula_rif||'', telefono: salidas[0].telefono||'', direccion: salidas[0].direccion||'' } : { name: cleanName };
+      const clienteInfo = salidas[0] ? {
+        name: salidas[0].cliente_name,
+        cedula_rif: salidas[0].cedula_rif || cedulaParam || '',
+        telefono: salidas[0].telefono || '',
+        direccion: salidas[0].direccion || ''
+      } : { name: clienteParam, cedula_rif: cedulaParam };
 
-      return NextResponse.json({ success: true, cliente: clienteInfo,
-        totales: { total_compras_usd: totCompras, total_abonado_usd: totCompras - totSaldo, saldo_pendiente_usd: totSaldo,
-          total_compras_ves: totCompras*tasaBCV, saldo_pendiente_ves: totSaldo*tasaBCV, tasa_bcv: tasaBCV },
-        salidas, abonos: abonosCliente });
+      return NextResponse.json({
+        success: true,
+        cliente: clienteInfo,
+        totales: {
+          total_compras_usd: totCompras,
+          total_abonado_usd: Math.max(0, totCompras - totSaldo),
+          saldo_pendiente_usd: totSaldo,
+          total_compras_ves: totCompras * tasaBCV,
+          saldo_pendiente_ves: totSaldo * tasaBCV,
+          tasa_bcv: tasaBCV
+        },
+        salidas,
+        abonos: abonosCliente
+      });
     }
 
     if (id) {

@@ -22,6 +22,7 @@ export default function SalidasPage() {
   const [saving, setSaving] = useState(false);
   const [lastSalida, setLastSalida] = useState(null);
   const [estadoCuenta, setEstadoCuenta] = useState(null);
+  const [selectedClienteKey, setSelectedClienteKey] = useState('');
   const [selectedCliente, setSelectedCliente] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('todas');
   const [generatingPdf, setGeneratingPdf] = useState(false);
@@ -79,19 +80,74 @@ export default function SalidasPage() {
     }).finally(() => setLoading(false));
   };
 
-  const loadEstadoCuenta = async (clienteName) => {
-    if (!clienteName) return;
+  const handleSelectClienteFrecuente = (key) => {
+    setSelectedClienteKey(key);
+    if (!key) return;
+    const found = clientes.find(c => (c.cedula_rif ? `CI:${c.cedula_rif}` : `NAME:${c.cliente_name}`) === key);
+    if (found) {
+      setForm(f => ({
+        ...f,
+        clienteName: found.cliente_name || '',
+        cedulaRif: found.cedula_rif || '',
+        telefono: found.telefono || '',
+        direccion: found.direccion || ''
+      }));
+    }
+  };
+
+  const handleCedulaChange = (val) => {
+    setForm(f => ({ ...f, cedulaRif: val }));
+    const clean = val.trim().toLowerCase();
+    if (clean.length >= 3) {
+      const match = clientes.find(c => (c.cedula_rif || '').trim().toLowerCase() === clean);
+      if (match && !form.clienteName) {
+        setForm(f => ({
+          ...f,
+          cedulaRif: val,
+          clienteName: match.cliente_name || '',
+          telefono: match.telefono || '',
+          direccion: match.direccion || ''
+        }));
+        setSelectedClienteKey(match.cedula_rif ? `CI:${match.cedula_rif}` : `NAME:${match.cliente_name}`);
+      }
+    }
+  };
+
+  const loadEstadoCuenta = async (clientKey) => {
+    if (!clientKey) {
+      setEstadoCuenta(null);
+      return;
+    }
+    const found = clientes.find(c => (c.cedula_rif ? `CI:${c.cedula_rif}` : `NAME:${c.cliente_name}`) === clientKey);
+    const name = found ? found.cliente_name : clientKey;
+    const cedula = found ? (found.cedula_rif || '') : '';
     setLoadingEstado(true);
     try {
-      const res = await fetch(`/api/salidas?action=estado_cuenta&cliente=${encodeURIComponent(clienteName)}`);
+      const res = await fetch(`/api/salidas?action=estado_cuenta&cliente=${encodeURIComponent(name)}&cedula=${encodeURIComponent(cedula)}`);
       const d = await res.json();
       if (d.success) {
         setEstadoCuenta(d);
       } else {
-        alert(d.error || 'Error cargando estado de cuenta');
+        setConfirmDialog({
+          isOpen: true,
+          title: 'Error',
+          message: d.error || 'Error cargando estado de cuenta.',
+          confirmText: 'Entendido',
+          variant: 'danger',
+          onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+          onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+        });
       }
     } catch {
-      alert('Error de conexión al cargar estado de cuenta');
+      setConfirmDialog({
+        isOpen: true,
+        title: 'Error de Conexión',
+        message: 'No se pudo conectar para cargar el estado de cuenta.',
+        confirmText: 'Entendido',
+        variant: 'danger',
+        onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+        onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+      });
     } finally {
       setLoadingEstado(false);
     }
@@ -606,6 +662,36 @@ export default function SalidasPage() {
               <button type="button" className="modal-close" onClick={()=>setShowModal(false)}>&times;</button>
             </div>
 
+            {/* Selector de Cliente Frecuente / Existente */}
+            <div style={{marginBottom:'0.85rem', background:'#f0f9ff', padding:'0.75rem 0.9rem', borderRadius:10, border:'1.5px solid #bae6fd'}}>
+              <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.4rem'}}>
+                <label style={{fontSize:'0.82rem', fontWeight:800, color:'#0369a1', margin:0, display:'flex', alignItems:'center', gap:'0.4rem'}}>
+                  <i className="fa-solid fa-users"></i> Cliente Frecuente Guardado:
+                </label>
+                {(form.clienteName || form.cedulaRif) && (
+                  <button type="button" style={{background:'#e0f2fe', border:'1px solid #7dd3fc', color:'#0284c7', fontSize:'0.75rem', cursor:'pointer', fontWeight:700, padding:'2px 8px', borderRadius:6}} onClick={() => { setSelectedClienteKey(''); setForm(f => ({ ...f, clienteName:'', cedulaRif:'', telefono:'', direccion:'' })); }}>
+                    + Nuevo / Limpiar
+                  </button>
+                )}
+              </div>
+              <select 
+                className="form-control" 
+                style={{fontSize:'0.85rem', minHeight:38, background:'#fff', borderColor:'#93c5fd', color:'#0f172a', fontWeight:600}}
+                value={selectedClienteKey}
+                onChange={e => handleSelectClienteFrecuente(e.target.value)}
+              >
+                <option value="">-- Seleccionar cliente frecuente ({clientes.length}) o escribir datos abajo --</option>
+                {clientes.map((c, idx) => {
+                  const key = c.cedula_rif ? `CI:${c.cedula_rif}` : `NAME:${c.cliente_name}`;
+                  return (
+                    <option key={idx} value={key}>
+                      {c.cliente_name} {c.cedula_rif ? `— CI/RIF: ${c.cedula_rif}` : ''} {c.telefono ? `(${c.telefono})` : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
             {/* Formulario Cliente y Factura Adaptado a Móvil */}
             <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', gap:'0.75rem', marginBottom:'0.75rem'}}>
               <div className="form-group" style={{margin:0}}>
@@ -613,8 +699,8 @@ export default function SalidasPage() {
                 <input type="text" className="form-control" required style={{fontSize:'0.85rem'}} placeholder="Nombre del cliente" value={form.clienteName} onChange={e=>setForm(f=>({...f,clienteName:e.target.value}))} />
               </div>
               <div className="form-group" style={{margin:0}}>
-                <label className="form-label" style={{fontSize:'0.8rem'}}>C.I. / RIF</label>
-                <input type="text" className="form-control" style={{fontSize:'0.85rem'}} placeholder="C.I. / RIF" value={form.cedulaRif} onChange={e=>setForm(f=>({...f,cedulaRif:e.target.value}))} />
+                <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700, color:'#0284c7'}}>C.I. / RIF (Identificador Único) *</label>
+                <input type="text" className="form-control" style={{fontSize:'0.85rem', fontWeight:600, borderColor:'#93c5fd'}} placeholder="C.I. / RIF" value={form.cedulaRif} onChange={e=>handleCedulaChange(e.target.value)} />
               </div>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Teléfono</label>
@@ -909,8 +995,15 @@ export default function SalidasPage() {
               <div style={{flex:1, minWidth:220}}>
                 <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700, marginBottom:'0.25rem'}}>Seleccionar o Buscar Cliente:</label>
                 <select className="form-control" style={{fontSize:'0.9rem'}} value={selectedCliente} onChange={e=>{ setSelectedCliente(e.target.value); loadEstadoCuenta(e.target.value); }}>
-                  <option value="">-- Cargar Lista de Clientes --</option>
-                  {clientes.map((c,i) => <option key={i} value={c.cliente_name}>{c.cliente_name} (Deuda: ${Number(c.saldo_pendiente_usd||0).toFixed(2)})</option>)}
+                  <option value="">-- Cargar Lista de Clientes ({clientes.length}) --</option>
+                  {clientes.map((c,i) => {
+                    const key = c.cedula_rif ? `CI:${c.cedula_rif}` : `NAME:${c.cliente_name}`;
+                    return (
+                      <option key={i} value={key}>
+                        {c.cliente_name} {c.cedula_rif ? `(C.I: ${c.cedula_rif})` : '(Sin Cédula)'} — Saldo: ${Number(c.saldo_pendiente_usd||0).toFixed(2)}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
               <div style={{minWidth:220}}>
