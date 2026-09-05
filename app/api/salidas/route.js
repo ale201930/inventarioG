@@ -26,24 +26,47 @@ export async function GET(request) {
 
     if (action === 'clientes') {
       const rows = await query(
-        `SELECT 
-           MAX(cliente_name) AS cliente_name,
-           TRIM(cedula_rif) AS cedula_rif,
-           MAX(telefono) AS telefono,
-           MAX(direccion) AS direccion,
-           COUNT(id) AS total_notas,
-           SUM(total_factura) AS total_compras_usd,
-           SUM(saldo_adeudado) AS saldo_pendiente_usd
+        `SELECT id, cliente_name, cedula_rif, telefono, direccion, total_factura, saldo_adeudado, created_at
          FROM salidas
          WHERE cliente_name IS NOT NULL AND TRIM(cliente_name) != ''
-         GROUP BY 
-           CASE 
-             WHEN cedula_rif IS NOT NULL AND TRIM(cedula_rif) != '' THEN CONCAT('CI:', TRIM(LOWER(cedula_rif)))
-             ELSE CONCAT('NAME:', TRIM(LOWER(cliente_name)))
-           END
-         ORDER BY cliente_name ASC`
+         ORDER BY created_at DESC`
       );
-      return NextResponse.json({ success: true, data: rows });
+
+      const clientMap = new Map();
+      for (const r of rows) {
+        const cName = (r.cliente_name || '').trim();
+        const cCedula = (r.cedula_rif || '').trim();
+        if (!cName && !cCedula) continue;
+        
+        // Clave única basada en Cédula si existe, o en Nombre si no tiene cédula
+        const key = cCedula ? `CI:${cCedula.toLowerCase()}` : `NAME:${cName.toLowerCase()}`;
+        
+        if (!clientMap.has(key)) {
+          clientMap.set(key, {
+            cliente_name: cName,
+            cedula_rif: cCedula,
+            telefono: (r.telefono || '').trim(),
+            direccion: (r.direccion || '').trim(),
+            total_notas: 0,
+            total_compras_usd: 0,
+            saldo_pendiente_usd: 0
+          });
+        }
+        
+        const entry = clientMap.get(key);
+        entry.total_notas += 1;
+        entry.total_compras_usd += parseFloat(r.total_factura || 0);
+        entry.saldo_pendiente_usd += parseFloat(r.saldo_adeudado || 0);
+        
+        if (!entry.telefono && r.telefono) entry.telefono = r.telefono.trim();
+        if (!entry.direccion && r.direccion) entry.direccion = r.direccion.trim();
+      }
+
+      const clientList = Array.from(clientMap.values()).sort((a, b) => 
+        a.cliente_name.localeCompare(b.cliente_name, 'es', { sensitivity: 'base' })
+      );
+
+      return NextResponse.json({ success: true, data: clientList });
     }
 
     if (action === 'estado_cuenta') {

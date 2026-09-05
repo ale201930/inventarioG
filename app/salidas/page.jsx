@@ -417,6 +417,13 @@ export default function SalidasPage() {
       if (d.success && d.nextNumber) nextNum = d.nextNumber;
     } catch {}
 
+    // Refrescar lista de clientes siempre al abrir el modal para que incluya cualquier cliente nuevo recién guardado
+    fetch('/api/salidas?action=clientes')
+      .then(r => r.json())
+      .then(d => { if (d.success) setClientes(d.data); })
+      .catch(() => {});
+
+    setSelectedClienteKey('');
     setForm({
       clienteName: '', cedulaRif: '', telefono: '', fecha: today(), direccion: '',
       vendedorName: 'JUAN MORA', facturaNumber: nextNum, observaciones: '',
