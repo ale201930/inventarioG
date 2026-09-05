@@ -529,26 +529,27 @@ export default function SalidasPage() {
               <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setForm(f=>({...f, items:[...f.items, emptyItem()]}))}>+ Agregar Producto</button>
             </div>
 
-            <div style={{border:'1px solid #e2e8f0', borderRadius:10, background:'#fff', marginBottom:'1rem', maxHeight:320, overflowY:'auto'}}>
-              {form.items.map((item, i) => (
-                <div key={i} style={{padding:'0.6rem 0.65rem', borderBottom: i < form.items.length-1 ? '1px solid #f1f5f9' : 'none'}}>
+            <div style={{border:'1px solid #cbd5e1', borderRadius:10, background:'#f8fafc', padding:'0.4rem', marginBottom:'1rem', maxHeight:340, overflowY:'auto'}}>
+              {form.items.length === 0 ? (
+                <div style={{padding:'1rem', textAlign:'center', color:'#64748b', fontSize:'0.85rem'}}>No hay productos agregados. Haz clic en <strong>+ Agregar Producto</strong>.</div>
+              ) : form.items.map((item, i) => (
+                <div key={i} style={{background:'#ffffff', border:'1px solid #e2e8f0', borderRadius:8, padding:'0.6rem 0.65rem', marginBottom:'0.45rem', boxShadow:'0 1px 2px rgba(0,0,0,0.03)'}}>
                   {/* Fila 1: selector de producto (ancho completo) + botón eliminar */}
                   <div style={{display:'flex', gap:'0.4rem', alignItems:'center', marginBottom:'0.4rem'}}>
                     <select className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', minHeight:38, flex:1}} value={item.productoId} onChange={e=>selectProduct(i, e.target.value)}>
                       <option value="">-- Seleccionar producto --</option>
                       {productos.map(p => (
-                        <option key={p.id} value={p.id} disabled={Number(p.cantidad)<=0}>
-                          {p.nombre} (Stock: {p.cantidad} | P1:${Number(p.precio_venta1||0).toFixed(2)})
+                        <option key={p.id} value={p.id}>
+                          {p.nombre} (Stock: {p.cantidad} | P1: ${Number(p.precio_venta1||0).toFixed(2)})
                         </option>
                       ))}
                     </select>
-                    <button type="button" className="btn btn-danger btn-sm" style={{width:38, height:38, minHeight:38, minWidth:38, padding:0, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}} title="Eliminar renglón" onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}
-                    >
+                    <button type="button" className="btn btn-danger btn-sm" style={{width:38, height:38, minHeight:38, minWidth:38, padding:0, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}} title="Eliminar renglón" onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}>
                       <i className="fa-solid fa-trash" style={{fontSize:'0.8rem'}}></i>
                     </button>
                   </div>
                   {/* Fila 2: Precio, Cant, P.Unitario, Subtotal */}
-                  <div style={{display:'grid', gridTemplateColumns:'1fr 70px 90px auto', gap:'0.4rem', alignItems:'center'}}>
+                  <div style={{display:'grid', gridTemplateColumns:'1fr 65px 85px auto', gap:'0.35rem', alignItems:'center'}}>
                     <select className="form-control" style={{fontSize:'0.78rem', padding:'0.3rem 0.4rem', minHeight:36}} value={item.precioOpcion || '1'} onChange={e=>selectPrecio(i, e.target.value)}>
                       <option value="1">Precio 1</option>
                       <option value="2">Precio 2</option>
@@ -560,7 +561,7 @@ export default function SalidasPage() {
                       type="number"
                       step="0.01"
                       className="form-control"
-                      placeholder={item.precioOpcion === 'custom' ? 'Precio' : ''}
+                      placeholder={item.precioOpcion === 'custom' ? 'Precio $' : ''}
                       readOnly={item.precioOpcion !== 'custom'}
                       style={{
                         fontSize:'0.82rem',
@@ -576,7 +577,9 @@ export default function SalidasPage() {
                       onChange={e => { if (item.precioOpcion === 'custom') updateItem(i, { precioUnitario: e.target.value }); }}
                       title={item.precioOpcion !== 'custom' ? 'Precio de catálogo (selecciona "Personalizado" para modificar)' : 'Precio libre'}
                     />
-                    <span style={{fontWeight:800, color:'var(--primary)', fontSize:'0.9rem', textAlign:'right', whiteSpace:'nowrap'}}>${Number(item.subtotal||0).toFixed(2)}</span>
+                    <div style={{fontWeight:800, color:'var(--primary)', fontSize:'0.9rem', textAlign:'right', whiteSpace:'nowrap', minWidth:55}}>
+                      ${Number(item.subtotal||0).toFixed(2)}
+                    </div>
                   </div>
                 </div>
               ))}

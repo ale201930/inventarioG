@@ -1236,20 +1236,21 @@ input:focus, select:focus, textarea:focus {
    ======================================================================== */
 @media (max-width: 640px) {
   .modal-overlay {
-    padding: 12px 10px !important;
+    padding: 8px 6px !important;
     align-items: center !important;
     justify-content: center !important;
   }
   
   .modal-content {
     padding: 1rem 0.85rem !important;
-    max-height: 84dvh !important;
+    max-height: 92dvh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
     border-radius: 16px !important;
     width: 100% !important;
-    max-width: 480px !important;
+    max-width: 100% !important;
     margin: auto !important;
-    display: flex !important;
-    flex-direction: column !important;
+    display: block !important;
   }
   
   .modal-header {

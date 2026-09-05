@@ -738,20 +738,22 @@ export default function EntradasPage() {
             <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setForm(f=>({...f, items:[...f.items, emptyItem()]}))}>+ Agregar Renglón</button>
           </div>
 
-          <div style={{border:'1px solid #e2e8f0', borderRadius:10, background:'#fff', marginBottom:'1rem', maxHeight:340, overflowY:'auto'}}>
-            {form.items.map((item, i) => (
-              <div key={i} style={{padding:'0.6rem 0.65rem', borderBottom: i < form.items.length-1 ? '1px solid #f1f5f9' : 'none'}}>
+          <div style={{border:'1px solid #cbd5e1', borderRadius:10, background:'#f8fafc', padding:'0.4rem', marginBottom:'1rem', maxHeight:340, overflowY:'auto'}}>
+            {form.items.length === 0 ? (
+              <div style={{padding:'1.2rem', textAlign:'center', color:'#64748b', fontSize:'0.85rem'}}>No hay renglones. Haz clic en <strong>+ Agregar Renglón</strong> o escanea una factura.</div>
+            ) : form.items.map((item, i) => (
+              <div key={i} style={{background:'#ffffff', border:'1px solid #e2e8f0', borderRadius:8, padding:'0.6rem 0.65rem', marginBottom:'0.45rem', boxShadow:'0 1px 2px rgba(0,0,0,0.03)'}}>
                 {/* Fila 1: Descripción (ancho completo) */}
                 <div style={{marginBottom:'0.4rem'}}>
                   <input type="text" className="form-control" style={{fontSize:'0.85rem', padding:'0.35rem 0.5rem', minHeight:38, width:'100%', boxSizing:'border-box'}} placeholder="Descripción del producto" required value={item.nombre} onChange={e=>updateItem(i,'nombre',e.target.value)} />
                 </div>
                 {/* Fila 2: Código | Cantidad | Precio $ | Total $ | eliminar */}
-                <div style={{display:'grid', gridTemplateColumns:'90px 65px 90px 1fr 38px', gap:'0.4rem', alignItems:'center'}}>
-                  <input type="text" className="form-control" style={{fontSize:'0.78rem', padding:'0.3rem 0.4rem', minHeight:36}} placeholder="Código" value={item.codigo} onChange={e=>updateItem(i,'codigo',e.target.value)} />
-                  <input type="number" className="form-control" style={{fontSize:'0.82rem', padding:'0.3rem 0.4rem', minHeight:36, textAlign:'center'}} min="1" placeholder="Cant." value={item.cantidad} onChange={e=>updateItem(i,'cantidad',e.target.value)} />
-                  <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.3rem 0.4rem', minHeight:36, fontWeight:600}} placeholder="P.USD" value={item.costoUSD} onChange={e=>updateItem(i,'costoUSD',e.target.value)} title="Precio unitario USD $" />
-                  <input type="number" step="0.01" className="form-control" style={{fontSize:'0.85rem', padding:'0.3rem 0.4rem', minHeight:36, fontWeight:800, color:'var(--primary)', borderColor:'var(--primary-light)'}} placeholder="Total $" value={item.totalUSD} onChange={e=>updateItem(i,'totalUSD',e.target.value)} title="Total renglón USD $" />
-                  <button type="button" className="btn btn-danger btn-sm" style={{width:38, height:36, minHeight:36, minWidth:38, padding:0, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}} onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}>
+                <div style={{display:'grid', gridTemplateColumns:'75px 55px 75px 1fr 36px', gap:'0.35rem', alignItems:'center'}}>
+                  <input type="text" className="form-control" style={{fontSize:'0.78rem', padding:'0.3rem 0.35rem', minHeight:36}} placeholder="Código" value={item.codigo} onChange={e=>updateItem(i,'codigo',e.target.value)} />
+                  <input type="number" className="form-control" style={{fontSize:'0.82rem', padding:'0.3rem 0.35rem', minHeight:36, textAlign:'center'}} min="1" placeholder="Cant." value={item.cantidad} onChange={e=>updateItem(i,'cantidad',e.target.value)} />
+                  <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.3rem 0.35rem', minHeight:36, fontWeight:600}} placeholder="P.USD" value={item.costoUSD} onChange={e=>updateItem(i,'costoUSD',e.target.value)} title="Precio unitario USD $" />
+                  <input type="number" step="0.01" className="form-control" style={{fontSize:'0.85rem', padding:'0.3rem 0.35rem', minHeight:36, fontWeight:800, color:'var(--primary)', borderColor:'var(--primary-light)'}} placeholder="Total $" value={item.totalUSD} onChange={e=>updateItem(i,'totalUSD',e.target.value)} title="Total renglón USD $" />
+                  <button type="button" className="btn btn-danger btn-sm" style={{width:36, height:36, minHeight:36, minWidth:36, padding:0, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}} onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}>
                     <i className="fa-solid fa-trash" style={{fontSize:'0.8rem'}}></i>
                   </button>
                 </div>
