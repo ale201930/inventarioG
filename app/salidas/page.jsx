@@ -496,26 +496,26 @@ export default function SalidasPage() {
             <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', gap:'0.75rem', marginBottom:'0.75rem'}}>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Nombre del Cliente *</label>
-                <input type="text" className="form-control" required style={{fontSize:'0.85rem'}} placeholder="Ej: Alexander Almaguer" value={form.clienteName} onChange={e=>setForm(f=>({...f,clienteName:e.target.value}))} />
+                <input type="text" className="form-control" required style={{fontSize:'0.85rem'}} placeholder="Nombre del cliente" value={form.clienteName} onChange={e=>setForm(f=>({...f,clienteName:e.target.value}))} />
               </div>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>C.I. / RIF</label>
-                <input type="text" className="form-control" style={{fontSize:'0.85rem'}} placeholder="Ej: 30626438" value={form.cedulaRif} onChange={e=>setForm(f=>({...f,cedulaRif:e.target.value}))} />
+                <input type="text" className="form-control" style={{fontSize:'0.85rem'}} placeholder="C.I. / RIF" value={form.cedulaRif} onChange={e=>setForm(f=>({...f,cedulaRif:e.target.value}))} />
               </div>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Teléfono</label>
-                <input type="text" className="form-control" style={{fontSize:'0.85rem'}} placeholder="Ej: 0424-313.68.05" value={form.telefono} onChange={e=>setForm(f=>({...f,telefono:e.target.value}))} />
+                <input type="text" className="form-control" style={{fontSize:'0.85rem'}} placeholder="Teléfono" value={form.telefono} onChange={e=>setForm(f=>({...f,telefono:e.target.value}))} />
               </div>
             </div>
 
             <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', gap:'0.75rem', marginBottom:'1rem'}}>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Dirección del Cliente</label>
-                <input type="text" className="form-control" style={{fontSize:'0.85rem'}} placeholder="Ej: Calle Santa Rosa" value={form.direccion} onChange={e=>setForm(f=>({...f,direccion:e.target.value}))} />
+                <input type="text" className="form-control" style={{fontSize:'0.85rem'}} placeholder="Dirección del cliente" value={form.direccion} onChange={e=>setForm(f=>({...f,direccion:e.target.value}))} />
               </div>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Nº Nota de Entrega</label>
-                <input type="text" className="form-control" style={{fontSize:'0.85rem'}} placeholder="Ej: 3000" value={form.facturaNumber} onChange={e=>setForm(f=>({...f,facturaNumber:e.target.value}))} />
+                <input type="text" className="form-control" style={{fontSize:'0.85rem'}} placeholder="Nº Nota" value={form.facturaNumber} onChange={e=>setForm(f=>({...f,facturaNumber:e.target.value}))} />
               </div>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Fecha</label>
@@ -529,13 +529,13 @@ export default function SalidasPage() {
               <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setForm(f=>({...f, items:[...f.items, emptyItem()]}))}>+ Agregar Producto</button>
             </div>
 
-            <div style={{border:'1px solid #cbd5e1', borderRadius:10, background:'#f8fafc', padding:'0.4rem', marginBottom:'1rem', maxHeight:340, overflowY:'auto'}}>
+            <div style={{border:'1px solid #cbd5e1', borderRadius:10, background:'#f8fafc', padding:'0.5rem', marginBottom:'1rem', maxHeight:360, overflowY:'auto'}}>
               {form.items.length === 0 ? (
                 <div style={{padding:'1rem', textAlign:'center', color:'#64748b', fontSize:'0.85rem'}}>No hay productos agregados. Haz clic en <strong>+ Agregar Producto</strong>.</div>
               ) : form.items.map((item, i) => (
-                <div key={i} style={{background:'#ffffff', border:'1px solid #e2e8f0', borderRadius:8, padding:'0.6rem 0.65rem', marginBottom:'0.45rem', boxShadow:'0 1px 2px rgba(0,0,0,0.03)'}}>
+                <div key={i} style={{background:'#ffffff', border:'1px solid #e2e8f0', borderRadius:10, padding:'0.65rem 0.75rem', marginBottom:'0.6rem', boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
                   {/* Fila 1: selector de producto (ancho completo) + botón eliminar */}
-                  <div style={{display:'flex', gap:'0.4rem', alignItems:'center', marginBottom:'0.4rem'}}>
+                  <div style={{display:'flex', gap:'0.4rem', alignItems:'center', marginBottom:'0.5rem'}}>
                     <select className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', minHeight:38, flex:1}} value={item.productoId} onChange={e=>selectProduct(i, e.target.value)}>
                       <option value="">-- Seleccionar producto --</option>
                       {productos.map(p => (
@@ -545,40 +545,52 @@ export default function SalidasPage() {
                       ))}
                     </select>
                     <button type="button" className="btn btn-danger btn-sm" style={{width:38, height:38, minHeight:38, minWidth:38, padding:0, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}} title="Eliminar renglón" onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}>
-                      <i className="fa-solid fa-trash" style={{fontSize:'0.8rem'}}></i>
+                      <i className="fa-solid fa-trash" style={{fontSize:'0.85rem'}}></i>
                     </button>
                   </div>
-                  {/* Fila 2: Precio, Cant, P.Unitario, Subtotal */}
-                  <div style={{display:'grid', gridTemplateColumns:'1fr 65px 85px auto', gap:'0.35rem', alignItems:'center'}}>
-                    <select className="form-control" style={{fontSize:'0.78rem', padding:'0.3rem 0.4rem', minHeight:36}} value={item.precioOpcion || '1'} onChange={e=>selectPrecio(i, e.target.value)}>
-                      <option value="1">Precio 1</option>
-                      <option value="2">Precio 2</option>
-                      <option value="3">Precio 3</option>
-                      <option value="custom">Personalizado</option>
-                    </select>
-                    <input type="number" className="form-control" style={{fontSize:'0.82rem', padding:'0.3rem 0.4rem', minHeight:36, textAlign:'center'}} min="1" value={item.cantidad} onChange={e=>updateItem(i, {cantidad:e.target.value})} placeholder="Cant." />
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="form-control"
-                      placeholder={item.precioOpcion === 'custom' ? 'Precio $' : ''}
-                      readOnly={item.precioOpcion !== 'custom'}
-                      style={{
-                        fontSize:'0.82rem',
-                        padding:'0.3rem 0.4rem',
-                        minHeight:36,
-                        fontWeight:600,
-                        backgroundColor: item.precioOpcion === 'custom' ? '#fff' : '#f1f5f9',
-                        color: item.precioOpcion === 'custom' ? '#0284c7' : '#334155',
-                        borderColor: item.precioOpcion === 'custom' ? '#0284c7' : '#cbd5e1',
-                        cursor: item.precioOpcion === 'custom' ? 'text' : 'not-allowed'
-                      }}
-                      value={item.precioUnitario}
-                      onChange={e => { if (item.precioOpcion === 'custom') updateItem(i, { precioUnitario: e.target.value }); }}
-                      title={item.precioOpcion !== 'custom' ? 'Precio de catálogo (selecciona "Personalizado" para modificar)' : 'Precio libre'}
-                    />
-                    <div style={{fontWeight:800, color:'var(--primary)', fontSize:'0.9rem', textAlign:'right', whiteSpace:'nowrap', minWidth:55}}>
-                      ${Number(item.subtotal||0).toFixed(2)}
+                  {/* Fila 2: Tipo Precio | Cantidad | P. Unitario | Subtotal */}
+                  <div style={{display:'grid', gridTemplateColumns:'85px 60px 80px 1fr', gap:'0.4rem', alignItems:'center', background:'#f8fafc', padding:'0.4rem 0.6rem', borderRadius:8, border:'1px solid #f1f5f9'}}>
+                    <div>
+                      <span style={{fontSize:'0.7rem', fontWeight:600, color:'#64748b', display:'block', marginBottom:2}}>Precio:</span>
+                      <select className="form-control" style={{fontSize:'0.78rem', padding:'0.25rem 0.3rem', minHeight:34}} value={item.precioOpcion || '1'} onChange={e=>selectPrecio(i, e.target.value)}>
+                        <option value="1">P1</option>
+                        <option value="2">P2</option>
+                        <option value="3">P3</option>
+                        <option value="custom">Manual</option>
+                      </select>
+                    </div>
+                    <div>
+                      <span style={{fontSize:'0.7rem', fontWeight:600, color:'#64748b', display:'block', marginBottom:2}}>Cant:</span>
+                      <input type="number" className="form-control" style={{fontSize:'0.85rem', padding:'0.25rem 0.3rem', minHeight:34, textAlign:'center', fontWeight:600}} min="1" value={item.cantidad} onChange={e=>updateItem(i, {cantidad:e.target.value})} placeholder="1" />
+                    </div>
+                    <div>
+                      <span style={{fontSize:'0.7rem', fontWeight:600, color:'#64748b', display:'block', marginBottom:2}}>P. Unit $:</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="form-control"
+                        placeholder="0.00"
+                        readOnly={item.precioOpcion !== 'custom'}
+                        style={{
+                          fontSize:'0.85rem',
+                          padding:'0.25rem 0.4rem',
+                          minHeight:34,
+                          fontWeight:600,
+                          backgroundColor: item.precioOpcion === 'custom' ? '#fff' : '#f1f5f9',
+                          color: item.precioOpcion === 'custom' ? '#0284c7' : '#334155',
+                          borderColor: item.precioOpcion === 'custom' ? '#0284c7' : '#cbd5e1',
+                          cursor: item.precioOpcion === 'custom' ? 'text' : 'not-allowed'
+                        }}
+                        value={item.precioUnitario}
+                        onChange={e => { if (item.precioOpcion === 'custom') updateItem(i, { precioUnitario: e.target.value }); }}
+                        title={item.precioOpcion !== 'custom' ? 'Precio de catálogo (selecciona "Manual" para modificar)' : 'Precio libre'}
+                      />
+                    </div>
+                    <div style={{textAlign:'right'}}>
+                      <span style={{fontSize:'0.7rem', fontWeight:700, color:'#0284c7', display:'block', marginBottom:2}}>Subtotal:</span>
+                      <div style={{fontWeight:800, color:'var(--primary)', fontSize:'0.95rem', whiteSpace:'nowrap'}}>
+                        ${Number(item.subtotal||0).toFixed(2)}
+                      </div>
                     </div>
                   </div>
                 </div>

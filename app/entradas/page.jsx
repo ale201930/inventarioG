@@ -689,15 +689,15 @@ export default function EntradasPage() {
             <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:'0.75rem', marginBottom:'0.5rem'}}>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Nombre o Razón Social *</label>
-                <input type="text" className="form-control" placeholder="Distribuidora Central, C.A." required style={{fontSize:'0.88rem'}} value={form.proveedorName} onChange={e=>setForm(f=>({...f,proveedorName:e.target.value}))} />
+                <input type="text" className="form-control" placeholder="Nombre o Razón Social" required style={{fontSize:'0.88rem'}} value={form.proveedorName} onChange={e=>setForm(f=>({...f,proveedorName:e.target.value}))} />
               </div>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>RIF *</label>
-                <input type="text" className="form-control" placeholder="J-12345678-9" style={{fontSize:'0.88rem'}} value={form.proveedorRif} onChange={e=>setForm(f=>({...f,proveedorRif:e.target.value}))} />
+                <input type="text" className="form-control" placeholder="J-00000000-0" style={{fontSize:'0.88rem'}} value={form.proveedorRif} onChange={e=>setForm(f=>({...f,proveedorRif:e.target.value}))} />
               </div>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Teléfono</label>
-                <input type="text" className="form-control" placeholder="0412-1234567" style={{fontSize:'0.88rem'}} value={form.proveedorTelf} onChange={e=>setForm(f=>({...f,proveedorTelf:e.target.value}))} />
+                <input type="text" className="form-control" placeholder="Teléfono" style={{fontSize:'0.88rem'}} value={form.proveedorTelf} onChange={e=>setForm(f=>({...f,proveedorTelf:e.target.value}))} />
               </div>
             </div>
           </div>
@@ -713,11 +713,11 @@ export default function EntradasPage() {
               </div>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Nº Documento *</label>
-                <input type="text" className="form-control" placeholder="032047" required style={{fontSize:'0.88rem'}} value={form.facturaNum} onChange={e=>setForm(f=>({...f,facturaNum:e.target.value}))} />
+                <input type="text" className="form-control" placeholder="Nº Documento" required style={{fontSize:'0.88rem'}} value={form.facturaNum} onChange={e=>setForm(f=>({...f,facturaNum:e.target.value}))} />
               </div>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700, color:'#0284c7'}}>🇻🇪 Tasa BCV (Bs./$)</label>
-                <input type="number" step="0.0001" className="form-control" placeholder="798.33" required style={{fontSize:'0.92rem', fontWeight:700, color:'#0284c7'}} value={form.tasaBCV} onChange={e=>setForm(f=>({...f,tasaBCV:e.target.value}))} />
+                <input type="number" step="0.0001" className="form-control" placeholder="0.00" required style={{fontSize:'0.92rem', fontWeight:700, color:'#0284c7'}} value={form.tasaBCV} onChange={e=>setForm(f=>({...f,tasaBCV:e.target.value}))} />
               </div>
             </div>
             <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:'0.75rem'}}>
@@ -738,24 +738,33 @@ export default function EntradasPage() {
             <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setForm(f=>({...f, items:[...f.items, emptyItem()]}))}>+ Agregar Renglón</button>
           </div>
 
-          <div style={{border:'1px solid #cbd5e1', borderRadius:10, background:'#f8fafc', padding:'0.4rem', marginBottom:'1rem', maxHeight:340, overflowY:'auto'}}>
+          <div style={{border:'1px solid #cbd5e1', borderRadius:10, background:'#f8fafc', padding:'0.5rem', marginBottom:'1rem', maxHeight:360, overflowY:'auto'}}>
             {form.items.length === 0 ? (
               <div style={{padding:'1.2rem', textAlign:'center', color:'#64748b', fontSize:'0.85rem'}}>No hay renglones. Haz clic en <strong>+ Agregar Renglón</strong> o escanea una factura.</div>
             ) : form.items.map((item, i) => (
-              <div key={i} style={{background:'#ffffff', border:'1px solid #e2e8f0', borderRadius:8, padding:'0.6rem 0.65rem', marginBottom:'0.45rem', boxShadow:'0 1px 2px rgba(0,0,0,0.03)'}}>
-                {/* Fila 1: Descripción (ancho completo) */}
-                <div style={{marginBottom:'0.4rem'}}>
-                  <input type="text" className="form-control" style={{fontSize:'0.85rem', padding:'0.35rem 0.5rem', minHeight:38, width:'100%', boxSizing:'border-box'}} placeholder="Descripción del producto" required value={item.nombre} onChange={e=>updateItem(i,'nombre',e.target.value)} />
-                </div>
-                {/* Fila 2: Código | Cantidad | Precio $ | Total $ | eliminar */}
-                <div style={{display:'grid', gridTemplateColumns:'75px 55px 75px 1fr 36px', gap:'0.35rem', alignItems:'center'}}>
-                  <input type="text" className="form-control" style={{fontSize:'0.78rem', padding:'0.3rem 0.35rem', minHeight:36}} placeholder="Código" value={item.codigo} onChange={e=>updateItem(i,'codigo',e.target.value)} />
-                  <input type="number" className="form-control" style={{fontSize:'0.82rem', padding:'0.3rem 0.35rem', minHeight:36, textAlign:'center'}} min="1" placeholder="Cant." value={item.cantidad} onChange={e=>updateItem(i,'cantidad',e.target.value)} />
-                  <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.3rem 0.35rem', minHeight:36, fontWeight:600}} placeholder="P.USD" value={item.costoUSD} onChange={e=>updateItem(i,'costoUSD',e.target.value)} title="Precio unitario USD $" />
-                  <input type="number" step="0.01" className="form-control" style={{fontSize:'0.85rem', padding:'0.3rem 0.35rem', minHeight:36, fontWeight:800, color:'var(--primary)', borderColor:'var(--primary-light)'}} placeholder="Total $" value={item.totalUSD} onChange={e=>updateItem(i,'totalUSD',e.target.value)} title="Total renglón USD $" />
-                  <button type="button" className="btn btn-danger btn-sm" style={{width:36, height:36, minHeight:36, minWidth:36, padding:0, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}} onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}>
-                    <i className="fa-solid fa-trash" style={{fontSize:'0.8rem'}}></i>
+              <div key={i} style={{background:'#ffffff', border:'1px solid #e2e8f0', borderRadius:10, padding:'0.65rem 0.75rem', marginBottom:'0.6rem', boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                {/* Fila 1: Código + Descripción + Eliminar */}
+                <div style={{display:'flex', gap:'0.4rem', alignItems:'center', marginBottom:'0.5rem'}}>
+                  <input type="text" className="form-control" style={{width:80, fontSize:'0.8rem', padding:'0.35rem 0.45rem', minHeight:38, flexShrink:0}} placeholder="Código" value={item.codigo} onChange={e=>updateItem(i,'codigo',e.target.value)} />
+                  <input type="text" className="form-control" style={{flex:1, fontSize:'0.85rem', padding:'0.35rem 0.5rem', minHeight:38}} placeholder="Descripción del producto" required value={item.nombre} onChange={e=>updateItem(i,'nombre',e.target.value)} />
+                  <button type="button" className="btn btn-danger btn-sm" style={{width:38, height:38, minHeight:38, minWidth:38, padding:0, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}} onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))} title="Eliminar renglón">
+                    <i className="fa-solid fa-trash" style={{fontSize:'0.85rem'}}></i>
                   </button>
+                </div>
+                {/* Fila 2: Cantidad | Costo Unitario $ | Total Renglón $ */}
+                <div style={{display:'grid', gridTemplateColumns:'85px 1fr 1.3fr', gap:'0.5rem', alignItems:'center', background:'#f8fafc', padding:'0.4rem 0.6rem', borderRadius:8, border:'1px solid #f1f5f9'}}>
+                  <div>
+                    <span style={{fontSize:'0.7rem', fontWeight:600, color:'#64748b', display:'block', marginBottom:2}}>Cant:</span>
+                    <input type="number" className="form-control" style={{fontSize:'0.88rem', padding:'0.25rem 0.4rem', minHeight:34, textAlign:'center', fontWeight:600}} min="1" placeholder="Cant." value={item.cantidad} onChange={e=>updateItem(i,'cantidad',e.target.value)} />
+                  </div>
+                  <div>
+                    <span style={{fontSize:'0.7rem', fontWeight:600, color:'#64748b', display:'block', marginBottom:2}}>Costo Unit $:</span>
+                    <input type="number" step="0.01" className="form-control" style={{fontSize:'0.88rem', padding:'0.25rem 0.4rem', minHeight:34, fontWeight:600}} placeholder="0.00" value={item.costoUSD} onChange={e=>updateItem(i,'costoUSD',e.target.value)} title="Precio unitario USD $" />
+                  </div>
+                  <div>
+                    <span style={{fontSize:'0.7rem', fontWeight:700, color:'#0284c7', display:'block', marginBottom:2}}>Total $:</span>
+                    <input type="number" step="0.01" className="form-control" style={{fontSize:'0.95rem', padding:'0.25rem 0.5rem', minHeight:34, fontWeight:800, color:'#0284c7', borderColor:'#38bdf8', background:'#f0f9ff'}} placeholder="0.00" value={item.totalUSD} onChange={e=>updateItem(i,'totalUSD',e.target.value)} title="Total renglón USD $" />
+                  </div>
                 </div>
               </div>
             ))}
