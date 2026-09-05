@@ -2,6 +2,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import AppShell from '@/components/AppShell';
+import ConfirmModal from '@/components/ConfirmModal';
 
 function today() { return new Date().toISOString().split('T')[0]; }
 const emptyItem = () => ({ productoId:'', productoNombre:'', precioOpcion:'1', cantidad:1, precioUnitario:0, subtotal:0 });
@@ -25,6 +26,18 @@ export default function SalidasPage() {
   const [filtroEstado, setFiltroEstado] = useState('todas');
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [loadingEstado, setLoadingEstado] = useState(false);
+
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: null,
+    confirmText: 'Sí, Continuar',
+    cancelText: 'Cancelar',
+    variant: 'danger',
+    icon: null,
+    onConfirm: null,
+    loading: false
+  });
 
   const [form, setForm] = useState({
     clienteName:'', cedulaRif:'', telefono:'', fecha:today(), direccion:'',
@@ -191,7 +204,43 @@ export default function SalidasPage() {
   const totalFactura = form.items.reduce((s,it)=>s+parseFloat(it.subtotal||0),0);
   const totalUnidades = form.items.reduce((s,it)=>s+parseInt(it.cantidad||0),0);
 
-  const handleSave = async (printTicket) => {
+  const handleSave = async (printTicket, skipDuplicateCheck = false) => {
+    if (!skipDuplicateCheck && form.facturaNumber) {
+      const numTrim = form.facturaNumber.toString().trim().toLowerCase();
+      const docExiste = salidas.find(s => (s.factura_number || '').toString().trim().toLowerCase() === numTrim);
+      if (docExiste) {
+        setConfirmDialog({
+          isOpen: true,
+          title: '⚠️ Nota de Entrega Ya Registrada',
+          message: (
+            <div>
+              <p style={{marginBottom:'0.5rem', color:'#334155'}}>
+                Ya existe una venta registrada con la Nota de Entrega Nº <strong>"{form.facturaNumber}"</strong>:
+              </p>
+              <div style={{background:'#f8fafc', padding:'0.65rem 0.85rem', borderRadius:10, border:'1.5px solid #fed7aa', fontSize:'0.84rem', textAlign:'left', marginBottom:'0.75rem', color:'#1e293b'}}>
+                <div><strong>👤 Cliente:</strong> {docExiste.cliente_name}</div>
+                <div><strong>📅 Fecha:</strong> {docExiste.fecha ? String(docExiste.fecha).split('T')[0] : '—'}</div>
+                <div><strong>💵 Total:</strong> ${Number(docExiste.total_factura||0).toFixed(2)}</div>
+              </div>
+              <p style={{margin:0, color:'#b45309', fontWeight:700, fontSize:'0.9rem'}}>
+                ¿Deseas registrar esta venta de todos modos con el mismo número?
+              </p>
+            </div>
+          ),
+          confirmText: 'Sí, Registrar de Todos Modos',
+          cancelText: 'Corregir Número',
+          variant: 'warning',
+          icon: 'fa-triangle-exclamation',
+          onConfirm: () => {
+            setConfirmDialog(cd => ({ ...cd, isOpen: false }));
+            handleSave(printTicket, true);
+          },
+          onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+        });
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const payload = {
@@ -216,15 +265,66 @@ export default function SalidasPage() {
         setShowModal(false);
         if (printTicket) setShowTicketModal(true);
         setForm({ clienteName:'', cedulaRif:'', telefono:'', fecha:today(), direccion:'', vendedorName:'JUAN MORA', facturaNumber:'', observaciones:'', items:[emptyItem()] });
-      } else alert('Error: ' + d.error);
+      } else {
+        setConfirmDialog({
+          isOpen: true,
+          title: 'Error al Registrar Venta',
+          message: d.error || 'No se pudo guardar la venta.',
+          confirmText: 'Entendido',
+          cancelText: 'Cerrar',
+          variant: 'danger',
+          onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+          onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+        });
+      }
     } finally { setSaving(false); }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar esta factura? El stock será repuesto.')) return;
-    const res = await fetch(`/api/salidas?id=${id}`, {method:'DELETE'});
-    const d = await res.json();
-    if (d.success) load(); else alert(d.error);
+  const handleDelete = (id) => {
+    const sal = salidas.find(s => s.id === id);
+    setConfirmDialog({
+      isOpen: true,
+      title: '¿Eliminar esta Venta?',
+      message: (
+        <div>
+          <p style={{marginBottom:'0.5rem', color:'#334155'}}>
+            ¿Deseas eliminar la venta <strong>{sal ? `Nº ${sal.factura_number} (${sal.cliente_name})` : ''}</strong>?
+          </p>
+          <p style={{margin:0, color:'#dc2626', fontSize:'0.82rem', fontWeight:600}}>
+            ⚠️ El stock despachado en esta venta será repuesto al inventario.
+          </p>
+        </div>
+      ),
+      confirmText: 'Sí, Eliminar',
+      cancelText: 'Cancelar',
+      variant: 'danger',
+      icon: 'fa-trash-can',
+      onConfirm: async () => {
+        setConfirmDialog(d => ({ ...d, loading: true }));
+        try {
+          const res = await fetch(`/api/salidas?id=${id}`, {method:'DELETE'});
+          const d = await res.json();
+          if (d.success) {
+            setConfirmDialog(cd => ({ ...cd, isOpen: false }));
+            load();
+          } else {
+            setConfirmDialog({
+              isOpen: true,
+              title: 'Error al Eliminar',
+              message: d.error || 'No se pudo eliminar la venta.',
+              confirmText: 'Entendido',
+              cancelText: 'Cerrar',
+              variant: 'danger',
+              onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+              onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+            });
+          }
+        } catch {
+          setConfirmDialog(cd => ({ ...cd, isOpen: false }));
+        }
+      },
+      onCancel: () => setConfirmDialog(d => ({ ...d, isOpen: false }))
+    });
   };
 
   const handleAbonoSave = async (e) => {
@@ -236,7 +336,21 @@ export default function SalidasPage() {
         referencia:abonoForm.referencia, fecha:abonoForm.fecha})
     });
     const d = await res.json();
-    if (d.success) { setShowAbonoModal(false); load(); } else alert(d.error);
+    if (d.success) {
+      setShowAbonoModal(false);
+      load();
+    } else {
+      setConfirmDialog({
+        isOpen: true,
+        title: 'Error en Abono',
+        message: d.error || 'No se pudo procesar el abono.',
+        confirmText: 'Entendido',
+        cancelText: 'Cerrar',
+        variant: 'danger',
+        onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+        onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+      });
+    }
   };
 
   const openNewModal = async () => {
@@ -987,15 +1101,21 @@ export default function SalidasPage() {
             })()}
 
             {!estadoCuenta && (
-              <div style={{textAlign:'center', color:'var(--text-muted)', padding:'3rem 2rem', background:'#fff', border:'1px dashed #cbd5e1', borderRadius:8}}>
-                <i className="fa-solid fa-user-tag" style={{fontSize:'3rem', marginBottom:'0.75rem', color:'#94a3b8', display:'block'}}></i>
-                <p style={{fontSize:'1rem', fontWeight:600, color:'#475569', margin:0}}>Selecciona un cliente arriba para generar su Estado de Cuenta oficial.</p>
-                <p style={{fontSize:'0.82rem', color:'#94a3b8', marginTop:'4px'}}>Podrás ver sus compras, abonos, deuda pendiente y exportarlo a PDF o imprimirlo.</p>
-              </div>
-            )}
+                <div style={{textAlign:'center', color:'var(--text-muted)', padding:'3rem 2rem', background:'#fff', border:'1px dashed #cbd5e1', borderRadius:8}}>
+                  <i className="fa-solid fa-user-tag" style={{fontSize:'3rem', marginBottom:'0.75rem', color:'#94a3b8', display:'block'}}></i>
+                  <p style={{fontSize:'1rem', fontWeight:600, color:'#475569', margin:0}}>Selecciona un cliente arriba para generar su Estado de Cuenta oficial.</p>
+                  <p style={{fontSize:'0.82rem', color:'#94a3b8', marginTop:'4px'}}>Podrás ver sus compras, abonos, deuda pendiente y exportarlo a PDF o imprimirlo.</p>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
-    </>
-  );
+        )}
+
+        {/* Modal Elegante de Confirmación y Alertas */}
+        <ConfirmModal
+          {...confirmDialog}
+          onCancel={() => setConfirmDialog(cd => ({ ...cd, isOpen: false }))}
+        />
+      </>
+    );
 }

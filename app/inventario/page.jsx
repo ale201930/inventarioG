@@ -1,6 +1,7 @@
 // app/inventario/page.jsx — Gestión de Inventario 100% fluido sin parpadeos
 'use client';
 import { useEffect, useState } from 'react';
+import ConfirmModal from '@/components/ConfirmModal';
 
 export default function InventarioPage() {
   const [productos, setProductos] = useState([]);
@@ -10,6 +11,18 @@ export default function InventarioPage() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ nombre:'', cantidad:0, costoUnitario:0, precioVenta1:0, precioVenta2:0, precioVenta3:0 });
   
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: null,
+    confirmText: 'Sí, Continuar',
+    cancelText: 'Cancelar',
+    variant: 'danger',
+    icon: null,
+    onConfirm: null,
+    loading: false
+  });
+
   // Estado para edición rápida de precios en la misma tabla
   const [inlinePrices, setInlinePrices] = useState({});
   const [savingId, setSavingId] = useState(null);
@@ -108,14 +121,67 @@ export default function InventarioPage() {
     const body = { ...form, id: editing?.id };
     const res = await fetch('/api/inventario', { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
     const d = await res.json();
-    if (d.success) { setShowModal(false); load(); } else alert(d.error);
+    if (d.success) {
+      setShowModal(false);
+      load();
+    } else {
+      setConfirmDialog({
+        isOpen: true,
+        title: 'Error al Guardar',
+        message: d.error || 'No se pudo guardar el producto.',
+        confirmText: 'Entendido',
+        cancelText: 'Cerrar',
+        variant: 'danger',
+        onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+        onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+      });
+    }
   };
 
-  const handleDelete = async (p) => {
-    if (!confirm(`¿Eliminar "${p.nombre}"?`)) return;
-    const res = await fetch(`/api/inventario?id=${p.id}`, { method:'DELETE' });
-    const d = await res.json();
-    if (d.success) load(); else alert(d.error);
+  const handleDelete = (p) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: '¿Eliminar Producto?',
+      message: (
+        <div>
+          <p style={{marginBottom:'0.5rem', color:'#334155'}}>
+            ¿Deseas eliminar permanentemente el producto <strong>"{p.nombre}"</strong>?
+          </p>
+          <p style={{margin:0, color:'#dc2626', fontSize:'0.82rem', fontWeight:600}}>
+            ⚠️ Se eliminará del inventario y de la lista de productos disponibles para despachos.
+          </p>
+        </div>
+      ),
+      confirmText: 'Sí, Eliminar',
+      cancelText: 'Cancelar',
+      variant: 'danger',
+      icon: 'fa-trash-can',
+      onConfirm: async () => {
+        setConfirmDialog(d => ({ ...d, loading: true }));
+        try {
+          const res = await fetch(`/api/inventario?id=${p.id}`, { method:'DELETE' });
+          const d = await res.json();
+          if (d.success) {
+            setConfirmDialog(cd => ({ ...cd, isOpen: false }));
+            load();
+          } else {
+            setConfirmDialog({
+              isOpen: true,
+              title: 'Error al Eliminar',
+              message: d.error || 'No se pudo eliminar el producto.',
+              confirmText: 'Entendido',
+              cancelText: 'Cerrar',
+              variant: 'danger',
+              onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+              onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+            });
+          }
+        } catch {
+          setConfirmDialog(cd => ({ ...cd, isOpen: false }));
+        }
+      },
+      onCancel: () => setConfirmDialog(d => ({ ...d, isOpen: false }))
+    });
   };
 
   return (
@@ -304,6 +370,12 @@ export default function InventarioPage() {
           </div>
         </div>
       )}
+
+      {/* Modal Elegante de Confirmación y Alertas */}
+      <ConfirmModal
+        {...confirmDialog}
+        onCancel={() => setConfirmDialog(cd => ({ ...cd, isOpen: false }))}
+      />
     </>
   );
 }

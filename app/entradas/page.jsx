@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Script from 'next/script';
+import ConfirmModal from '@/components/ConfirmModal';
 
 function today() { return new Date().toISOString().split('T')[0]; }
 function todayPlus7() { const d = new Date(); d.setDate(d.getDate()+7); return d.toISOString().split('T')[0]; }
@@ -22,6 +23,18 @@ export default function EntradasPage() {
   const [ocrRunning, setOcrRunning] = useState(false);
   const [facturaImg, setFacturaImg] = useState(null);
   const [imgRotation, setImgRotation] = useState(0);
+
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: null,
+    confirmText: 'Sí, Continuar',
+    cancelText: 'Cancelar',
+    variant: 'danger',
+    icon: null,
+    onConfirm: null,
+    loading: false
+  });
 
   const [form, setForm] = useState({
     proveedorName:'', proveedorRif:'', proveedorTelf:'', proveedorDir:'',
@@ -131,7 +144,43 @@ export default function EntradasPage() {
     setShowModal(true);
   };
 
-  const handleSave = async (confirmed) => {
+  const handleSave = async (confirmed, skipDuplicateCheck = false) => {
+    if (!skipDuplicateCheck && form.facturaNum) {
+      const docTrim = form.facturaNum.toString().trim().toLowerCase();
+      const docExiste = entradas.find(e => (e.factura_number || '').toString().trim().toLowerCase() === docTrim);
+      if (docExiste) {
+        setConfirmDialog({
+          isOpen: true,
+          title: '⚠️ Documento Ya Registrado',
+          message: (
+            <div>
+              <p style={{marginBottom:'0.5rem', color:'#334155'}}>
+                Ya existe un documento registrado con el Nº <strong>"{form.facturaNum}"</strong>:
+              </p>
+              <div style={{background:'#f8fafc', padding:'0.65rem 0.85rem', borderRadius:10, border:'1.5px solid #fed7aa', fontSize:'0.84rem', textAlign:'left', marginBottom:'0.75rem', color:'#1e293b'}}>
+                <div><strong>🏢 Proveedor:</strong> {docExiste.proveedor_name}</div>
+                <div><strong>📅 Fecha:</strong> {docExiste.fecha ? String(docExiste.fecha).split('T')[0] : '—'}</div>
+                <div><strong>💵 Total:</strong> ${Number(docExiste.total_factura||0).toFixed(2)}</div>
+              </div>
+              <p style={{margin:0, color:'#b45309', fontWeight:700, fontSize:'0.9rem'}}>
+                ¿Deseas registrar esta compra de todos modos?
+              </p>
+            </div>
+          ),
+          confirmText: 'Sí, Registrar de Todos Modos',
+          cancelText: 'Corregir Número',
+          variant: 'warning',
+          icon: 'fa-triangle-exclamation',
+          onConfirm: () => {
+            setConfirmDialog(d => ({ ...d, isOpen: false }));
+            handleSave(confirmed, true);
+          },
+          onCancel: () => setConfirmDialog(d => ({ ...d, isOpen: false }))
+        });
+        return;
+      }
+    }
+
     if (!confirmed) { setShowPreviewModal(true); return; }
     setSaving(true);
     try {
@@ -155,15 +204,66 @@ export default function EntradasPage() {
       if (d.success) {
         resetModalForm();
         load();
-      } else alert('Error: ' + d.error);
+      } else {
+        setConfirmDialog({
+          isOpen: true,
+          title: 'Error al Guardar',
+          message: d.error || 'No se pudo registrar la compra.',
+          confirmText: 'Entendido',
+          cancelText: 'Cerrar',
+          variant: 'danger',
+          onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+          onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+        });
+      }
     } finally { setSaving(false); }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar esta compra? El stock será revertido.')) return;
-    const res = await fetch(`/api/entradas?id=${id}`, { method:'DELETE' });
-    const d = await res.json();
-    if (d.success) load(); else alert(d.error);
+  const handleDelete = (id) => {
+    const ent = entradas.find(e => e.id === id);
+    setConfirmDialog({
+      isOpen: true,
+      title: '¿Eliminar esta Compra?',
+      message: (
+        <div>
+          <p style={{marginBottom:'0.5rem', color:'#334155'}}>
+            ¿Deseas eliminar la compra <strong>{ent ? `Nº ${ent.factura_number} (${ent.proveedor_name})` : ''}</strong>?
+          </p>
+          <p style={{margin:0, color:'#dc2626', fontSize:'0.82rem', fontWeight:600}}>
+            ⚠️ El stock ingresado con esta compra será revertido del inventario.
+          </p>
+        </div>
+      ),
+      confirmText: 'Sí, Eliminar',
+      cancelText: 'Cancelar',
+      variant: 'danger',
+      icon: 'fa-trash-can',
+      onConfirm: async () => {
+        setConfirmDialog(d => ({ ...d, loading: true }));
+        try {
+          const res = await fetch(`/api/entradas?id=${id}`, { method:'DELETE' });
+          const d = await res.json();
+          if (d.success) {
+            setConfirmDialog(cd => ({ ...cd, isOpen: false }));
+            load();
+          } else {
+            setConfirmDialog({
+              isOpen: true,
+              title: 'Error al Eliminar',
+              message: d.error || 'No se pudo eliminar la compra.',
+              confirmText: 'Entendido',
+              cancelText: 'Cerrar',
+              variant: 'danger',
+              onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+              onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+            });
+          }
+        } catch {
+          setConfirmDialog(cd => ({ ...cd, isOpen: false }));
+        }
+      },
+      onCancel: () => setConfirmDialog(d => ({ ...d, isOpen: false }))
+    });
   };
 
   const handleAbonoSave = async (e) => {
@@ -174,7 +274,21 @@ export default function EntradasPage() {
         montoVES:parseFloat(abonoForm.montoVES||0), referencia:abonoForm.referencia, fecha:abonoForm.fecha })
     });
     const d = await res.json();
-    if (d.success) { setShowAbonoModal(false); load(); } else alert(d.error);
+    if (d.success) {
+      setShowAbonoModal(false);
+      load();
+    } else {
+      setConfirmDialog({
+        isOpen: true,
+        title: 'Error en Abono',
+        message: d.error || 'No se pudo procesar el abono.',
+        confirmText: 'Entendido',
+        cancelText: 'Cerrar',
+        variant: 'danger',
+        onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+        onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+      });
+    }
   };
 
   // Preprocesar imagen en canvas para OCR nítido con alto contraste
@@ -922,6 +1036,12 @@ export default function EntradasPage() {
           </div>
         </div>
       )}
+
+      {/* Modal Elegante de Confirmación y Alertas */}
+      <ConfirmModal
+        {...confirmDialog}
+        onCancel={() => setConfirmDialog(cd => ({ ...cd, isOpen: false }))}
+      />
     </>
   );
 }
