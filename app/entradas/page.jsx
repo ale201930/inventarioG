@@ -732,32 +732,31 @@ export default function EntradasPage() {
             </div>
           </div>
 
-          {/* Items con scroll horizontal garantizado para móviles */}
+          {/* Renglones de la Factura — layout adaptado a móvil */}
           <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.5rem'}}>
             <h3 style={{fontSize:'0.95rem', fontWeight:700}}><i className="fa-solid fa-boxes-stacked"></i> Renglones de la Factura / Nota de Entrega</h3>
             <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setForm(f=>({...f, items:[...f.items, emptyItem()]}))}>+ Agregar Renglón</button>
           </div>
 
-          <div style={{overflowX:'auto', WebkitOverflowScrolling:'touch', border:'1px solid #e2e8f0', borderRadius:10, padding:'0.6rem', background:'#fff', marginBottom:'1rem'}}>
-            <div style={{minWidth:620}}>
-              <div style={{display:'grid', gridTemplateColumns:'85px 1fr 75px 105px 115px 38px', gap:'0.5rem', marginBottom:'0.35rem', padding:'0 0.25rem', alignItems:'center'}}>
-                {['CÓDIGO','DESCRIPCIÓN','CANTIDAD','PRECIO USD $','TOTAL USD $',''].map((h,i) => (
-                  <span key={i} style={{fontSize:'0.75rem', fontWeight:700, color:'var(--text-secondary)'}}>{h}</span>
-                ))}
+          <div style={{border:'1px solid #e2e8f0', borderRadius:10, background:'#fff', marginBottom:'1rem', maxHeight:340, overflowY:'auto'}}>
+            {form.items.map((item, i) => (
+              <div key={i} style={{padding:'0.6rem 0.65rem', borderBottom: i < form.items.length-1 ? '1px solid #f1f5f9' : 'none'}}>
+                {/* Fila 1: Descripción (ancho completo) */}
+                <div style={{marginBottom:'0.4rem'}}>
+                  <input type="text" className="form-control" style={{fontSize:'0.85rem', padding:'0.35rem 0.5rem', minHeight:38, width:'100%', boxSizing:'border-box'}} placeholder="Descripción del producto" required value={item.nombre} onChange={e=>updateItem(i,'nombre',e.target.value)} />
+                </div>
+                {/* Fila 2: Código | Cantidad | Precio $ | Total $ | eliminar */}
+                <div style={{display:'grid', gridTemplateColumns:'90px 65px 90px 1fr 38px', gap:'0.4rem', alignItems:'center'}}>
+                  <input type="text" className="form-control" style={{fontSize:'0.78rem', padding:'0.3rem 0.4rem', minHeight:36}} placeholder="Código" value={item.codigo} onChange={e=>updateItem(i,'codigo',e.target.value)} />
+                  <input type="number" className="form-control" style={{fontSize:'0.82rem', padding:'0.3rem 0.4rem', minHeight:36, textAlign:'center'}} min="1" placeholder="Cant." value={item.cantidad} onChange={e=>updateItem(i,'cantidad',e.target.value)} />
+                  <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.3rem 0.4rem', minHeight:36, fontWeight:600}} placeholder="P.USD" value={item.costoUSD} onChange={e=>updateItem(i,'costoUSD',e.target.value)} title="Precio unitario USD $" />
+                  <input type="number" step="0.01" className="form-control" style={{fontSize:'0.85rem', padding:'0.3rem 0.4rem', minHeight:36, fontWeight:800, color:'var(--primary)', borderColor:'var(--primary-light)'}} placeholder="Total $" value={item.totalUSD} onChange={e=>updateItem(i,'totalUSD',e.target.value)} title="Total renglón USD $" />
+                  <button type="button" className="btn btn-danger btn-sm" style={{width:38, height:36, minHeight:36, minWidth:38, padding:0, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}} onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}>
+                    <i className="fa-solid fa-trash" style={{fontSize:'0.8rem'}}></i>
+                  </button>
+                </div>
               </div>
-              <div style={{maxHeight:300, overflowY:'auto'}}>
-                {form.items.map((item, i) => (
-                  <div key={i} style={{display:'grid', gridTemplateColumns:'85px 1fr 75px 105px 115px 38px', gap:'0.5rem', marginBottom:'0.4rem', alignItems:'center'}}>
-                    <input type="text" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', minHeight:38}} placeholder="Código" value={item.codigo} onChange={e=>updateItem(i,'codigo',e.target.value)} />
-                    <input type="text" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', minHeight:38}} placeholder="Descripción del producto" required value={item.nombre} onChange={e=>updateItem(i,'nombre',e.target.value)} />
-                    <input type="number" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', minHeight:38}} min="1" value={item.cantidad} onChange={e=>updateItem(i,'cantidad',e.target.value)} />
-                    <input type="number" step="0.01" className="form-control" style={{fontSize:'0.82rem', padding:'0.35rem 0.5rem', minHeight:38, fontWeight:600}} placeholder="0.00" value={item.costoUSD} onChange={e=>updateItem(i,'costoUSD',e.target.value)} title="Precio unitario en USD $" />
-                    <input type="number" step="0.01" className="form-control" style={{fontSize:'0.85rem', padding:'0.35rem 0.5rem', minHeight:38, fontWeight:800, color:'var(--primary)', borderColor:'var(--primary-light)'}} placeholder="0.00" value={item.totalUSD} onChange={e=>updateItem(i,'totalUSD',e.target.value)} title="Total del renglón en USD $ (Editable)" />
-                    <button type="button" className="btn btn-danger btn-sm" style={{padding:'0.25rem 0.5rem', minHeight:38, width:38}} onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}>×</button>
-                  </div>
-                ))}
-              </div>
-            </div>
+            ))}
           </div>
 
           {/* Totales adaptados a móvil */}
