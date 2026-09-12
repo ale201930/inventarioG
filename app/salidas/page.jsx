@@ -570,20 +570,51 @@ export default function SalidasPage() {
     if (mode === 'rawbt' || (mode === 'auto' && /Android/i.test(navigator.userAgent))) {
       try {
         const base64Content = btoa(unescape(encodeURIComponent(htmlContent)));
-        const intentUrl = `intent:data:text/html;base64,${base64Content}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
         
-        // Trigger via link click (bypass Chrome popup restrictions)
-        const link = document.createElement('a');
-        link.href = intentUrl;
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => {
-          try { document.body.removeChild(link); } catch(e){}
-        }, 1000);
+        // 1. Try WebSocket to RawBT background service first
+        try {
+          const ws = new WebSocket('ws://127.0.0.1:40213');
+          let sent = false;
+          ws.onopen = () => {
+            sent = true;
+            ws.send(JSON.stringify({
+              type: 'html',
+              data: htmlContent
+            }));
+            setTimeout(() => { try { ws.close(); } catch(e){} }, 800);
+          };
+          setTimeout(() => {
+            if (!sent) {
+              // 2. Direct URI scheme
+              window.location.href = `rawbt:data:text/html;base64,${base64Content}`;
+            }
+          }, 300);
+        } catch {
+          window.location.href = `rawbt:data:text/html;base64,${base64Content}`;
+        }
         return;
       } catch (err) {
-        console.error('RawBT intent error:', err);
+        console.error('RawBT print error:', err);
         window.location.href = `rawbt:data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`;
+        return;
+      }
+    }
+
+    if (mode === 'share') {
+      const ticketText = `BESTEDA 2, C.A. - RIF: J-40529263-6\n` +
+        `NOTA DE ENTREGA Nº ${lastSalida.factura_number}\n` +
+        `FECHA: ${cleanFecha}\n` +
+        `CLIENTE: ${lastSalida.cliente_name || ''}\n` +
+        `--------------------------------\n` +
+        items.map(it => `${it.cantidad || 1}x ${it.productoNombre || it.producto_nombre || ''} - $${Number(it.precioUnitario||0).toFixed(2)} = $${(Number(it.cantidad||1)*Number(it.precioUnitario||0)).toFixed(2)}`).join('\n') +
+        `\n--------------------------------\n` +
+        `UND: ${totalUnits} | TOTAL: $${Number(lastSalida.total_factura || 0).toFixed(2)}\n`;
+
+      if (navigator.share) {
+        navigator.share({
+          title: `Nota de Entrega Nº ${lastSalida.factura_number}`,
+          text: ticketText
+        }).catch(() => {});
         return;
       }
     }
@@ -942,22 +973,30 @@ export default function SalidasPage() {
               );
             })()}
 
-            <div style={{display:'flex', gap:'0.6rem', marginTop:'0.75rem', flexShrink:0, flexWrap:'wrap'}}>
+            <div style={{display:'flex', gap:'0.5rem', marginTop:'0.75rem', flexShrink:0, flexWrap:'wrap'}}>
               <button
                 type="button"
                 className="btn btn-primary"
-                style={{flex:1, minWidth:200, fontSize:'0.92rem', padding:'0.75rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem', background:'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', borderRadius:10, border:'none', color:'#fff', boxShadow:'0 2px 6px rgba(22, 163, 74, 0.25)'}}
+                style={{flex:'1 1 180px', fontSize:'0.9rem', padding:'0.75rem 0.5rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.45rem', background:'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', borderRadius:10, border:'none', color:'#fff', boxShadow:'0 2px 6px rgba(22, 163, 74, 0.25)'}}
                 onClick={()=>printTicket('rawbt')}
               >
-                <i className="fa-solid fa-bolt" style={{fontSize:'1.05rem'}}></i> Imprimir Térmica (RawBT)
+                <i className="fa-solid fa-bolt" style={{fontSize:'1rem'}}></i> Imprimir Térmica (RawBT)
               </button>
               <button
                 type="button"
                 className="btn btn-secondary"
-                style={{flex:1, minWidth:160, fontSize:'0.88rem', padding:'0.75rem', fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.45rem', background:'#f8fafc', color:'#334155', border:'1px solid #cbd5e1', borderRadius:10}}
+                style={{flex:'1 1 140px', fontSize:'0.86rem', padding:'0.75rem 0.5rem', fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem', background:'#0284c7', color:'#fff', border:'none', borderRadius:10}}
+                onClick={()=>printTicket('share')}
+              >
+                <i className="fa-solid fa-share-nodes"></i> Compartir / Enviar
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{flex:'1 1 130px', fontSize:'0.86rem', padding:'0.75rem 0.5rem', fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem', background:'#f8fafc', color:'#334155', border:'1px solid #cbd5e1', borderRadius:10}}
                 onClick={()=>printTicket('browser')}
               >
-                <i className="fa-solid fa-print"></i> Vista / Navegador
+                <i className="fa-solid fa-print"></i> Vista Previa
               </button>
             </div>
           </div>
