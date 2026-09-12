@@ -567,27 +567,24 @@ export default function SalidasPage() {
 </body>
 </html>`;
 
-    if (mode === 'rawbt') {
+    if (mode === 'rawbt' || (mode === 'auto' && /Android/i.test(navigator.userAgent))) {
       try {
         const base64Content = btoa(unescape(encodeURIComponent(htmlContent)));
-        window.location.href = `rawbt:data:text/html;base64,${base64Content}`;
-      } catch {
+        const intentUrl = `intent:data:text/html;base64,${base64Content}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
+        
+        // Trigger via link click (bypass Chrome popup restrictions)
+        const link = document.createElement('a');
+        link.href = intentUrl;
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          try { document.body.removeChild(link); } catch(e){}
+        }, 1000);
+        return;
+      } catch (err) {
+        console.error('RawBT intent error:', err);
         window.location.href = `rawbt:data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`;
-      }
-      return;
-    }
-
-    if (mode === 'auto') {
-      const isAndroid = /Android/i.test(navigator.userAgent);
-      if (isAndroid) {
-        try {
-          const base64Content = btoa(unescape(encodeURIComponent(htmlContent)));
-          window.location.href = `rawbt:data:text/html;base64,${base64Content}`;
-          return;
-        } catch {
-          window.location.href = `rawbt:data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`;
-          return;
-        }
+        return;
       }
     }
 
