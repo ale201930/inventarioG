@@ -432,45 +432,147 @@ export default function SalidasPage() {
     setShowModal(true);
   };
 
-  const printTicket = (mode) => {
+  const printTicket = () => {
     if (!lastSalida) return;
-    const id = lastSalida.id;
-    const ticketUrl = `${window.location.origin}/api/ticket?id=${id}`;
+    const items = lastSalida.items || [];
+    const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
+    const cleanFecha = String(lastSalida.fecha || '').split('T')[0];
 
-    if (mode === 'rawbt') {
-      // RawBT recibe la URL directamente, la descarga y la imprime
-      window.location.href = `rawbt:${ticketUrl}`;
-      return;
+    const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Nota de Entrega Nº ${lastSalida.factura_number}</title>
+  <style>
+    @page {
+      size: 76mm auto;
+      margin: 0;
     }
-
-    if (mode === 'share') {
-      const items = lastSalida.items || [];
-      const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
-      const cleanFecha = String(lastSalida.fecha || '').split('T')[0];
-      const ticketText =
-        `*BESTEDA 2, C.A.* - RIF: J-40529263-6\n` +
-        `*NOTA DE ENTREGA N ${lastSalida.factura_number}*\n` +
-        `FECHA: ${cleanFecha}\n` +
-        `CLIENTE: ${lastSalida.cliente_name || ''}\n` +
-        `C.I./RIF: ${lastSalida.cedula_rif || '-'}\n` +
-        `--------------------------------\n` +
-        items.map(it => `${it.cantidad || 1}x ${it.productoNombre || it.producto_nombre || ''} = $${(Number(it.cantidad||1)*Number(it.precioUnitario||it.precio_unitario||0)).toFixed(2)}`).join('\n') +
-        `\n--------------------------------\n` +
-        `*UND: ${totalUnits} | TOTAL: $${Number(lastSalida.total_factura || 0).toFixed(2)}*\n\n` +
-        `PAGO MOVIL BDV:\n` +
-        `0102 | 0424-3136805 | C.I. 10.668.263\n` +
-        `0102 | 0424-3004802 | C.I. 28.012.615`;
-
-      if (navigator.share) {
-        navigator.share({ title: `Nota de Entrega N ${lastSalida.factura_number}`, text: ticketText }).catch(() => {});
-      } else if (navigator.clipboard) {
-        navigator.clipboard.writeText(ticketText).then(() => alert('Ticket copiado al portapapeles.')).catch(() => {});
+    @media print {
+      body {
+        width: 72mm;
+        margin: 0 auto;
+        padding: 2mm 1mm;
+        -webkit-print-color-adjust: exact;
       }
-      return;
     }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      width: 72mm;
+      margin: 0 auto;
+      padding: 4mm 2mm;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 11px;
+      color: #000000;
+      background: #ffffff;
+      line-height: 1.35;
+    }
+    .header-title { font-size: 15px; font-weight: 800; text-align: center; margin: 0 0 2px 0; }
+    .header-sub { font-size: 10px; text-align: center; color: #111; margin: 1px 0; }
+    .divider-solid { border: none; border-top: 1.5px solid #000; margin: 8px 0; }
+    .divider-dashed { border: none; border-top: 1px dashed #444; margin: 8px 0; }
+    .doc-title { font-size: 14px; font-weight: 800; text-align: center; letter-spacing: 0.5px; }
+    .doc-num { font-size: 14px; font-weight: 800; text-align: center; margin-top: 2px; }
+    .info-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .info-table td { padding: 2px 0; vertical-align: top; }
+    .info-label { font-weight: 700; color: #000; }
+    .info-val { text-align: right; word-break: break-word; }
+    .items-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 6px 0; table-layout: fixed; }
+    .items-table th { font-size: 10.5px; font-weight: 800; padding: 4px 0; text-align: left; border-bottom: 1.5px solid #000; }
+    .items-table td { padding: 4px 0; vertical-align: top; word-break: break-word; }
+    .text-right { text-align: right; }
+    .totals-row { display: flex; justify-content: space-between; align-items: center; font-size: 13.5px; font-weight: 800; margin: 10px 0; }
+    .payment-box { border: 1px solid #475569; border-radius: 8px; padding: 8px 10px; margin: 10px 0 4px 0; background: #fafafa; font-size: 9.5px; line-height: 1.45; }
+    .payment-title { font-weight: 800; font-size: 10.5px; text-align: center; margin-bottom: 4px; }
+    .payment-data { text-align: left; padding-left: 2px; display: flex; flex-direction: column; gap: 2px; }
+  </style>
+</head>
+<body>
+  <div class="header-title">BESTEDA 2, C.A.</div>
+  <div class="header-sub" style="font-weight:700;">RIF: J-40529263-6</div>
+  <div class="header-sub">Calle Principal Casa Nº A-13, Urb. Alto de Fenix II</div>
+  <div class="header-sub">San Juan de los Morros - Estado Guárico</div>
+  <div class="header-sub">Tlfs: 0424-313.68.05 / 0424-300.48.02</div>
+  <hr class="divider-solid" />
+  <div class="doc-title">NOTA DE ENTREGA</div>
+  <div class="doc-num">Nº ${lastSalida.factura_number}</div>
+  <hr class="divider-dashed" />
+  <table class="info-table">
+    <tr><td class="info-label">FECHA:</td><td class="info-val">${cleanFecha}</td></tr>
+    <tr><td class="info-label">CLIENTE:</td><td class="info-val">${lastSalida.cliente_name || ''}</td></tr>
+    <tr><td class="info-label">C.I./RIF:</td><td class="info-val">${lastSalida.cedula_rif || '—'}</td></tr>
+    <tr><td class="info-label">TELF:</td><td class="info-val">${lastSalida.telefono || '—'}</td></tr>
+    <tr><td class="info-label">DIR:</td><td class="info-val">${lastSalida.direccion || '—'}</td></tr>
+  </table>
+  <hr class="divider-dashed" />
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th style="width: 12%;">CAN</th>
+        <th style="width: 46%;">DESCRIPCIÓN</th>
+        <th style="width: 21%; text-align: right;">P/U</th>
+        <th style="width: 21%; text-align: right;">TOTAL</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${items.map(it => {
+        const pu = Number(it.precioUnitario || it.precio_unitario || 0);
+        const cant = Number(it.cantidad || 0);
+        const tot = pu * cant;
+        return `
+          <tr>
+            <td>${cant}</td>
+            <td>${it.productoNombre || it.producto_nombre || ''}</td>
+            <td class="text-right">$${pu.toFixed(2)}</td>
+            <td class="text-right">$${tot.toFixed(2)}</td>
+          </tr>
+        `;
+      }).join('')}
+    </tbody>
+  </table>
+  <hr class="divider-solid" />
+  <div class="totals-row">
+    <span>UND: ${totalUnits}</span>
+    <span>TOTAL: $${Number(lastSalida.total_factura || 0).toFixed(2)}</span>
+  </div>
+  <div class="payment-box">
+    <div class="payment-title">— PAGO MÓVIL BDV —</div>
+    <div class="payment-data">
+      <div>• <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3136805</strong> &nbsp;|&nbsp; C.I. 10.668.263</div>
+      <div>• <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3004802</strong> &nbsp;|&nbsp; C.I. 28.012.615</div>
+    </div>
+    <div style="border-top: 1px dashed #cbd5e1; margin: 6px 0;"></div>
+    <div class="payment-title">— DEPÓSITO BANCARIO BDV —</div>
+    <div class="payment-data">
+      <div>• <strong>0102 0467 4501 0162 8166</strong> <span style="font-size: 8.5px; color: #475569;">(JUAN MORA)</span></div>
+      <div>• <strong>0102 0467 4500 0096 7787</strong> <span style="font-size: 8.5px; color: #475569;">(JORGE FLORES)</span></div>
+    </div>
+  </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        try {
+          window.print();
+        } catch(e) {}
+      }, 200);
+    };
+    window.onafterprint = function() {
+      try {
+        window.close();
+      } catch(e) {}
+    };
+  </script>
+</body>
+</html>`;
 
-    // Vista previa / Imprimir en navegador: abre la URL del ticket en nueva pestaña
-    window.open(ticketUrl, '_blank');
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.open();
+      win.document.write(htmlContent);
+      win.document.close();
+    }
   };
 
   return (
@@ -819,30 +921,14 @@ export default function SalidasPage() {
               );
             })()}
 
-            <div style={{display:'flex', gap:'0.5rem', marginTop:'0.75rem', flexShrink:0, flexWrap:'wrap'}}>
+            <div style={{display:'flex', gap:'0.75rem', marginTop:'0.75rem', flexShrink:0}}>
               <button
                 type="button"
                 className="btn btn-primary"
-                style={{flex:'1 1 180px', fontSize:'0.9rem', padding:'0.75rem 0.5rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.45rem', background:'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', borderRadius:10, border:'none', color:'#fff', boxShadow:'0 2px 6px rgba(22, 163, 74, 0.25)'}}
-                onClick={()=>printTicket('rawbt')}
+                style={{width:'100%', fontSize:'0.95rem', padding:'0.75rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem', background:'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', borderRadius:10}}
+                onClick={printTicket}
               >
-                <i className="fa-solid fa-bolt" style={{fontSize:'1rem'}}></i> Imprimir Térmica (RawBT)
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{flex:'1 1 140px', fontSize:'0.86rem', padding:'0.75rem 0.5rem', fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem', background:'#0284c7', color:'#fff', border:'none', borderRadius:10}}
-                onClick={()=>printTicket('share')}
-              >
-                <i className="fa-solid fa-share-nodes"></i> Compartir / Enviar
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{flex:'1 1 130px', fontSize:'0.86rem', padding:'0.75rem 0.5rem', fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem', background:'#f8fafc', color:'#334155', border:'1px solid #cbd5e1', borderRadius:10}}
-                onClick={()=>printTicket('browser')}
-              >
-                <i className="fa-solid fa-print"></i> Vista Previa
+                <i className="fa-solid fa-print" style={{fontSize:'1.1rem'}}></i> Enviar a Impresora Térmica (7.6 cm)
               </button>
             </div>
           </div>
