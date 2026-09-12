@@ -604,32 +604,13 @@ export default function SalidasPage() {
       return;
     }
 
-    // Modo navegador / PDF por iframe (evita bloqueador de ventanas emergentes en móviles)
+    // Modo nativo / PDF con aislamiento de estilos 80mm
     try {
-      let frame = document.getElementById('ticketPrintIframe');
-      if (!frame) {
-        frame = document.createElement('iframe');
-        frame.id = 'ticketPrintIframe';
-        frame.style.position = 'fixed';
-        frame.style.right = '0';
-        frame.style.bottom = '0';
-        frame.style.width = '0';
-        frame.style.height = '0';
-        frame.style.border = '0';
-        document.body.appendChild(frame);
-      }
-      const doc = frame.contentWindow.document;
-      doc.open();
-      doc.write(htmlContent);
-      doc.close();
+      document.body.classList.add('ticket-printing');
+      window.print();
       setTimeout(() => {
-        try {
-          frame.contentWindow.focus();
-          frame.contentWindow.print();
-        } catch {
-          window.print();
-        }
-      }, 300);
+        try { document.body.classList.remove('ticket-printing'); } catch(e){}
+      }, 1200);
     } catch {
       window.print();
     }
