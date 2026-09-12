@@ -567,6 +567,30 @@ export default function SalidasPage() {
 </body>
 </html>`;
 
+    if (mode === 'rawbt') {
+      try {
+        const base64Content = btoa(unescape(encodeURIComponent(htmlContent)));
+        window.location.href = `rawbt:data:text/html;base64,${base64Content}`;
+      } catch {
+        window.location.href = `rawbt:data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`;
+      }
+      return;
+    }
+
+    if (mode === 'auto') {
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      if (isAndroid) {
+        try {
+          const base64Content = btoa(unescape(encodeURIComponent(htmlContent)));
+          window.location.href = `rawbt:data:text/html;base64,${base64Content}`;
+          return;
+        } catch {
+          window.location.href = `rawbt:data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`;
+          return;
+        }
+      }
+    }
+
     const win = window.open('', '_blank');
     if (win) {
       win.document.open();
@@ -921,14 +945,22 @@ export default function SalidasPage() {
               );
             })()}
 
-            <div style={{display:'flex', gap:'0.75rem', marginTop:'0.75rem', flexShrink:0}}>
+            <div style={{display:'flex', gap:'0.6rem', marginTop:'0.75rem', flexShrink:0, flexWrap:'wrap'}}>
               <button
                 type="button"
                 className="btn btn-primary"
-                style={{width:'100%', fontSize:'0.95rem', padding:'0.75rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem', background:'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', borderRadius:10}}
-                onClick={printTicket}
+                style={{flex:1, minWidth:200, fontSize:'0.92rem', padding:'0.75rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem', background:'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', borderRadius:10, border:'none', color:'#fff', boxShadow:'0 2px 6px rgba(22, 163, 74, 0.25)'}}
+                onClick={()=>printTicket('rawbt')}
               >
-                <i className="fa-solid fa-print" style={{fontSize:'1.1rem'}}></i> Enviar a Impresora Térmica (7.6 cm)
+                <i className="fa-solid fa-bolt" style={{fontSize:'1.05rem'}}></i> Imprimir Térmica (RawBT)
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{flex:1, minWidth:160, fontSize:'0.88rem', padding:'0.75rem', fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.45rem', background:'#f8fafc', color:'#334155', border:'1px solid #cbd5e1', borderRadius:10}}
+                onClick={()=>printTicket('browser')}
+              >
+                <i className="fa-solid fa-print"></i> Vista / Navegador
               </button>
             </div>
           </div>
