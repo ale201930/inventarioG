@@ -567,63 +567,71 @@ export default function SalidasPage() {
 </body>
 </html>`;
 
-    if (mode === 'rawbt' || (mode === 'auto' && /Android/i.test(navigator.userAgent))) {
+    if (mode === 'rawbt') {
       try {
         const base64Content = btoa(unescape(encodeURIComponent(htmlContent)));
-        
-        // 1. Try WebSocket to RawBT background service first
-        try {
-          const ws = new WebSocket('ws://127.0.0.1:40213');
-          let sent = false;
-          ws.onopen = () => {
-            sent = true;
-            ws.send(JSON.stringify({
-              type: 'html',
-              data: htmlContent
-            }));
-            setTimeout(() => { try { ws.close(); } catch(e){} }, 800);
-          };
-          setTimeout(() => {
-            if (!sent) {
-              // 2. Direct URI scheme
-              window.location.href = `rawbt:data:text/html;base64,${base64Content}`;
-            }
-          }, 300);
-        } catch {
-          window.location.href = `rawbt:data:text/html;base64,${base64Content}`;
-        }
-        return;
+        window.location.href = `rawbt:data:text/html;base64,${base64Content}`;
       } catch (err) {
-        console.error('RawBT print error:', err);
         window.location.href = `rawbt:data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`;
-        return;
       }
+      return;
     }
 
     if (mode === 'share') {
-      const ticketText = `BESTEDA 2, C.A. - RIF: J-40529263-6\n` +
-        `NOTA DE ENTREGA Nº ${lastSalida.factura_number}\n` +
+      const ticketText = `*BESTEDA 2, C.A.* - RIF: J-40529263-6\n` +
+        `*NOTA DE ENTREGA Nº ${lastSalida.factura_number}*\n` +
         `FECHA: ${cleanFecha}\n` +
         `CLIENTE: ${lastSalida.cliente_name || ''}\n` +
+        `C.I./RIF: ${lastSalida.cedula_rif || '—'}\n` +
         `--------------------------------\n` +
-        items.map(it => `${it.cantidad || 1}x ${it.productoNombre || it.producto_nombre || ''} - $${Number(it.precioUnitario||0).toFixed(2)} = $${(Number(it.cantidad||1)*Number(it.precioUnitario||0)).toFixed(2)}`).join('\n') +
+        items.map(it => `${it.cantidad || 1}x ${it.productoNombre || it.producto_nombre || ''} ($${Number(it.precioUnitario||0).toFixed(2)}) = $${(Number(it.cantidad||1)*Number(it.precioUnitario||0)).toFixed(2)}`).join('\n') +
         `\n--------------------------------\n` +
-        `UND: ${totalUnits} | TOTAL: $${Number(lastSalida.total_factura || 0).toFixed(2)}\n`;
+        `*UND: ${totalUnits} | TOTAL: $${Number(lastSalida.total_factura || 0).toFixed(2)}*\n\n` +
+        `— PAGO MÓVIL BDV —\n` +
+        `0102 | 0424-3136805 | C.I. 10.668.263\n` +
+        `0102 | 0424-3004802 | C.I. 28.012.615`;
 
       if (navigator.share) {
         navigator.share({
           title: `Nota de Entrega Nº ${lastSalida.factura_number}`,
           text: ticketText
         }).catch(() => {});
-        return;
+      } else {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(ticketText).then(() => alert('✅ Ticket copiado al portapapeles.')).catch(()=>{});
+        }
       }
+      return;
     }
 
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.open();
-      win.document.write(htmlContent);
-      win.document.close();
+    // Modo navegador / PDF por iframe (evita bloqueador de ventanas emergentes en móviles)
+    try {
+      let frame = document.getElementById('ticketPrintIframe');
+      if (!frame) {
+        frame = document.createElement('iframe');
+        frame.id = 'ticketPrintIframe';
+        frame.style.position = 'fixed';
+        frame.style.right = '0';
+        frame.style.bottom = '0';
+        frame.style.width = '0';
+        frame.style.height = '0';
+        frame.style.border = '0';
+        document.body.appendChild(frame);
+      }
+      const doc = frame.contentWindow.document;
+      doc.open();
+      doc.write(htmlContent);
+      doc.close();
+      setTimeout(() => {
+        try {
+          frame.contentWindow.focus();
+          frame.contentWindow.print();
+        } catch {
+          window.print();
+        }
+      }, 300);
+    } catch {
+      window.print();
     }
   };
 
