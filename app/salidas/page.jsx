@@ -567,6 +567,22 @@ export default function SalidasPage() {
 </body>
 </html>`;
 
+    // En teléfonos Android, enviar directamente a RawBT via Intent para evitar bloqueo de socket TCP 9100 / spooler
+    const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
+    if (isAndroid) {
+      try {
+        const base64Html = btoa(
+          encodeURIComponent(htmlContent).replace(/%([0-9A-F]{2})/g, (match, p1) =>
+            String.fromCharCode('0x' + p1)
+          )
+        );
+        window.location.href = `rawbt:data:text/html;base64,${base64Html}`;
+        return;
+      } catch (e) {
+        console.error('Error al enviar a RawBT:', e);
+      }
+    }
+
     const win = window.open('', '_blank');
     if (win) {
       win.document.open();
