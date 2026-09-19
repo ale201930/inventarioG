@@ -438,31 +438,13 @@ export default function SalidasPage() {
     const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
     const cleanFecha = String(lastSalida.fecha || '').split('T')[0];
 
-    const htmlContent = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Nota de Entrega Nº ${lastSalida.factura_number}</title>
-  <style>
-    @page {
-      size: 76mm auto;
-      margin: 0;
-    }
-    @media print {
-      body {
-        width: 72mm;
-        margin: 0 auto;
-        padding: 2mm 1mm;
-        -webkit-print-color-adjust: exact;
-      }
-    }
-    * {
-      box-sizing: border-box;
-    }
+    const ticketStyles = `
+    * { box-sizing: border-box; }
     body {
-      width: 72mm;
+      width: 100%;
+      max-width: 76mm;
       margin: 0 auto;
-      padding: 4mm 2mm;
+      padding: 4px 2px;
       font-family: Arial, Helvetica, sans-serif;
       font-size: 11px;
       color: #000000;
@@ -487,9 +469,11 @@ export default function SalidasPage() {
     .payment-box { border: 1px solid #475569; border-radius: 8px; padding: 8px 10px; margin: 10px 0 4px 0; background: #fafafa; font-size: 9.5px; line-height: 1.45; }
     .payment-title { font-weight: 800; font-size: 10.5px; text-align: center; margin-bottom: 4px; }
     .payment-data { text-align: left; padding-left: 2px; display: flex; flex-direction: column; gap: 2px; }
-  </style>
-</head>
-<body>
+    @media print {
+      body { width: 72mm; margin: 0 auto; padding: 2mm 1mm; -webkit-print-color-adjust: exact; }
+    }`;
+
+    const ticketBody = `
   <div class="header-title">BESTEDA 2, C.A.</div>
   <div class="header-sub" style="font-weight:700;">RIF: J-40529263-6</div>
   <div class="header-sub">Calle Principal Casa Nº A-13, Urb. Alto de Fenix II</div>
@@ -549,30 +533,15 @@ export default function SalidasPage() {
       <div>• <strong>0102 0467 4501 0162 8166</strong> <span style="font-size: 8.5px; color: #475569;">(JUAN MORA)</span></div>
       <div>• <strong>0102 0467 4500 0096 7787</strong> <span style="font-size: 8.5px; color: #475569;">(JORGE FLORES)</span></div>
     </div>
-  </div>
-  <script>
-    window.onload = function() {
-      setTimeout(function() {
-        try {
-          window.print();
-        } catch(e) {}
-      }, 200);
-    };
-    window.onafterprint = function() {
-      try {
-        window.close();
-      } catch(e) {}
-    };
-  </script>
-</body>
-</html>`;
+  </div>`;
 
-    // En teléfonos Android, enviar directamente a RawBT via Intent para evitar bloqueo de socket TCP 9100 / spooler
+    // 1. En teléfonos Android, enviar HTML limpio directamente a RawBT
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
     if (isAndroid) {
       try {
+        const rawbtHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Nota de Entrega Nº ${lastSalida.factura_number}</title><style>${ticketStyles}</style></head><body>${ticketBody}</body></html>`;
         const base64Html = btoa(
-          encodeURIComponent(htmlContent).replace(/%([0-9A-F]{2})/g, (match, p1) =>
+          encodeURIComponent(rawbtHtml).replace(/%([0-9A-F]{2})/g, (match, p1) =>
             String.fromCharCode('0x' + p1)
           )
         );
@@ -583,10 +552,18 @@ export default function SalidasPage() {
       }
     }
 
+    // 2. En PC / Escritorio, abrir ventana con auto-impresión
+    const desktopHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Nota de Entrega Nº ${lastSalida.factura_number}</title><style>${ticketStyles}</style></head><body>${ticketBody}
+    <script>
+      window.onload = function() { setTimeout(function() { try { window.print(); } catch(e){} }, 200); };
+      window.onafterprint = function() { try { window.close(); } catch(e){} };
+    </script>
+    </body></html>`;
+
     const win = window.open('', '_blank');
     if (win) {
       win.document.open();
-      win.document.write(htmlContent);
+      win.document.write(desktopHtml);
       win.document.close();
     }
   };
