@@ -535,17 +535,54 @@ export default function SalidasPage() {
     </div>
   </div>`;
 
-    // 1. En teléfonos Android, enviar HTML limpio directamente a RawBT
+    // 1. En teléfonos Android, enviar a RawBT en su formato de texto térmico nativo (ESC/POS)
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
     if (isAndroid) {
       try {
-        const rawbtHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Nota de Entrega Nº ${lastSalida.factura_number}</title><style>${ticketStyles}</style></head><body>${ticketBody}</body></html>`;
-        const base64Html = btoa(
-          encodeURIComponent(rawbtHtml).replace(/%([0-9A-F]{2})/g, (match, p1) =>
+        let rawbtText = `[C]<b><font size='big'>BESTEDA 2, C.A.</font></b>\n`;
+        rawbtText += `[C]<b>RIF: J-40529263-6</b>\n`;
+        rawbtText += `[C]Calle Principal Casa Nº A-13, Urb. Alto de Fenix II\n`;
+        rawbtText += `[C]San Juan de los Morros - Estado Guárico\n`;
+        rawbtText += `[C]Tlfs: 0424-313.68.05 / 0424-300.48.02\n`;
+        rawbtText += `[C]------------------------------------------------\n`;
+        rawbtText += `[C]<b><font size='big'>NOTA DE ENTREGA</font></b>\n`;
+        rawbtText += `[C]<b>Nº ${lastSalida.factura_number}</b>\n`;
+        rawbtText += `[C]------------------------------------------------\n`;
+        rawbtText += `[L]<b>FECHA:</b> ${cleanFecha}\n`;
+        rawbtText += `[L]<b>CLIENTE:</b> ${lastSalida.cliente_name || ''}\n`;
+        rawbtText += `[L]<b>C.I./RIF:</b> ${lastSalida.cedula_rif || '—'}\n`;
+        rawbtText += `[L]<b>TELF:</b> ${lastSalida.telefono || '—'}\n`;
+        rawbtText += `[L]<b>DIR:</b> ${lastSalida.direccion || '—'}\n`;
+        rawbtText += `[C]------------------------------------------------\n`;
+        rawbtText += `[L]<b>CAN  DESCRIPCIÓN                    TOTAL</b>\n`;
+        rawbtText += `[C]------------------------------------------------\n`;
+
+        items.forEach(it => {
+          const pu = Number(it.precioUnitario || it.precio_unitario || 0);
+          const cant = Number(it.cantidad || 0);
+          const tot = pu * cant;
+          const name = (it.productoNombre || it.producto_nombre || '').trim();
+          rawbtText += `[L]${cant} x ${name}\n`;
+          rawbtText += `[R]@ $${pu.toFixed(2)}  =  <b>$${tot.toFixed(2)}</b>\n`;
+        });
+
+        rawbtText += `[C]------------------------------------------------\n`;
+        rawbtText += `[L]<b>UND: ${totalUnits}</b>[R]<b><font size='big'>TOTAL: $${Number(lastSalida.total_factura || 0).toFixed(2)}</font></b>\n`;
+        rawbtText += `[C]================================================\n`;
+        rawbtText += `[C]<b>— PAGO MÓVIL BDV —</b>\n`;
+        rawbtText += `[C]0102 | 0424-3136805 | C.I. 10.668.263\n`;
+        rawbtText += `[C]0102 | 0424-3004802 | C.I. 28.012.615\n`;
+        rawbtText += `[C]------------------------------------------------\n`;
+        rawbtText += `[C]<b>— DEPÓSITO BANCARIO BDV —</b>\n`;
+        rawbtText += `[C]0102 0467 4501 0162 8166 (JUAN MORA)\n`;
+        rawbtText += `[C]0102 0467 4500 0096 7787 (JORGE FLORES)\n\n\n`;
+
+        const base64Text = btoa(
+          encodeURIComponent(rawbtText).replace(/%([0-9A-F]{2})/g, (match, p1) =>
             String.fromCharCode('0x' + p1)
           )
         );
-        window.location.href = `rawbt:data:text/html;base64,${base64Html}`;
+        window.location.href = `rawbt:base64,${base64Text}`;
         return;
       } catch (e) {
         console.error('Error al enviar a RawBT:', e);
