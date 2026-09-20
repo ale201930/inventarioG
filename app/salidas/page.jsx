@@ -49,7 +49,7 @@ export default function SalidasPage() {
     vendedorName:'', facturaNumber:'', observaciones:'',
     items:[emptyItem()]
   });
-  const [abonoForm, setAbonoForm] = useState({ salidaId:'', clienteName:'', montoUSD:0, montoVES:0, referencia:'', fecha:today() });
+  const [abonoForm, setAbonoForm] = useState({ salidaId:'', clienteName:'', facturaNumber:'', totalFactura:0, saldoAdeudado:0, montoUSD:'', montoVES:'', referencia:'', fecha:today() });
 
   // Bloquear scroll de fondo cuando cualquier modal esté abierto
   useEffect(() => {
@@ -390,12 +390,77 @@ export default function SalidasPage() {
     });
   };
 
+  const handleQuickPagarTodo = (s) => {
+    const saldoUSD = parseFloat(s.saldo_adeudado || 0);
+    if (saldoUSD <= 0) return;
+    const saldoVES = (saldoUSD * bcvTasa).toFixed(2);
+    const saldoVESFormatted = (saldoUSD * bcvTasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    setConfirmDialog({
+      isOpen: true,
+      title: `Saldar Factura Nº ${s.factura_number}`,
+      message: `¿Deseas registrar el pago total de $${saldoUSD.toFixed(2)} USD (Bs. ${saldoVESFormatted}) para dejar la Nota Nº ${s.factura_number} de ${s.cliente_name} completamente pagada ($0.00 de saldo)?`,
+      confirmText: 'Sí, Saldar Factura Completa',
+      cancelText: 'Cancelar',
+      variant: 'success',
+      onConfirm: async () => {
+        try {
+          const res = await fetch('/api/abonos-salidas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              salidaId: s.id,
+              clienteName: s.cliente_name,
+              montoUSD: saldoUSD,
+              montoVES: parseFloat(saldoVES),
+              referencia: 'Pago Total Factura',
+              fecha: today()
+            })
+          });
+          const d = await res.json();
+          setConfirmDialog(cd => ({ ...cd, isOpen: false }));
+          if (d.success) {
+            load();
+          } else {
+            setConfirmDialog({
+              isOpen: true,
+              title: 'Error al Saldar',
+              message: d.error || 'No se pudo procesar el pago total.',
+              confirmText: 'Entendido',
+              cancelText: 'Cerrar',
+              variant: 'danger',
+              onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+              onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+            });
+          }
+        } catch {
+          setConfirmDialog(cd => ({ ...cd, isOpen: false }));
+        }
+      },
+      onCancel: () => setConfirmDialog(d => ({ ...d, isOpen: false }))
+    });
+  };
+
   const handleAbonoSave = async (e) => {
     e.preventDefault();
+    const montoUSD = parseFloat(abonoForm.montoUSD || 0);
+    if (montoUSD <= 0) {
+      setConfirmDialog({
+        isOpen: true,
+        title: 'Monto Inválido',
+        message: 'Por favor ingresa un monto válido mayor a 0 para el abono.',
+        confirmText: 'Entendido',
+        cancelText: 'Cerrar',
+        variant: 'danger',
+        onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+        onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+      });
+      return;
+    }
     const res = await fetch('/api/abonos-salidas', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({salidaId:abonoForm.salidaId, clienteName:abonoForm.clienteName,
-        montoUSD:parseFloat(abonoForm.montoUSD||0), montoVES:parseFloat(abonoForm.montoVES||0),
+        montoUSD:montoUSD, montoVES:parseFloat(abonoForm.montoVES||0),
         referencia:abonoForm.referencia, fecha:abonoForm.fecha})
     });
     const d = await res.json();
@@ -1162,10 +1227,30 @@ export default function SalidasPage() {
                       <i className="fa-solid fa-file-invoice-dollar"></i>
                     </button>
                     {Number(s.saldo_adeudado)>0 && (
-                      <button className="btn btn-secondary btn-sm" title="Registrar abono"
-                        onClick={()=>{ setAbonoForm({...abonoForm, salidaId:s.id, clienteName:s.cliente_name}); setShowAbonoModal(true); }}>
-                        <i className="fa-solid fa-dollar-sign"></i>
-                      </button>
+                      <>
+                        <button className="btn btn-sm" style={{background:'#ecfdf5', color:'#059669', borderColor:'#a7f3d0'}} title="Saldar Factura Completa (1 Clic)"
+                          onClick={()=>handleQuickPagarTodo(s)}>
+                          <i className="fa-solid fa-circle-check"></i>
+                        </button>
+                        <button className="btn btn-secondary btn-sm" title="Registrar abono parcial / personalizado"
+                          onClick={()=>{
+                            const saldo = parseFloat(s.saldo_adeudado || 0);
+                            setAbonoForm({
+                              salidaId: s.id,
+                              clienteName: s.cliente_name,
+                              facturaNumber: s.factura_number,
+                              totalFactura: parseFloat(s.total_factura || 0),
+                              saldoAdeudado: saldo,
+                              montoUSD: '',
+                              montoVES: '',
+                              referencia: '',
+                              fecha: today()
+                            });
+                            setShowAbonoModal(true);
+                          }}>
+                          <i className="fa-solid fa-dollar-sign"></i>
+                        </button>
+                      </>
                     )}
                     <button className="btn btn-danger btn-sm" onClick={()=>handleDelete(s.id)} title="Eliminar">
                       <i className="fa-solid fa-trash"></i>
@@ -1504,14 +1589,54 @@ export default function SalidasPage() {
       {/* Modal Abono de Cliente */}
       {showAbonoModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{maxWidth:500}}>
+          <div className="modal-content" style={{maxWidth:520}}>
             <div className="modal-header">
               <div>
-                <h2><i className="fa-solid fa-hand-holding-dollar"></i> Registrar Abono de Cliente</h2>
+                <h2><i className="fa-solid fa-hand-holding-dollar" style={{color:'#0284c7'}}></i> Registrar Abono de Cliente</h2>
                 <p style={{fontSize:'0.82rem', color:'var(--text-secondary)', fontWeight:600, margin:0}}>{abonoForm.clienteName}</p>
               </div>
               <button type="button" className="modal-close" onClick={()=>setShowAbonoModal(false)}>&times;</button>
             </div>
+
+            {/* Tarjeta Informativa de Deuda y Botón de Pago Total */}
+            <div style={{background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:10, padding:'0.85rem 1rem', marginBottom:'1.1rem'}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid #e2e8f0', paddingBottom:'0.5rem', marginBottom:'0.65rem'}}>
+                <div>
+                  <span style={{fontSize:'0.72rem', color:'#64748b', fontWeight:700, textTransform:'uppercase'}}>Documento</span>
+                  <div style={{fontWeight:800, fontSize:'0.95rem', color:'#0f172a'}}>Nota de Entrega Nº {abonoForm.facturaNumber || '—'}</div>
+                </div>
+                <div style={{textAlign:'right'}}>
+                  <span style={{fontSize:'0.72rem', color:'#64748b', fontWeight:700, textTransform:'uppercase'}}>Total Factura</span>
+                  <div style={{fontWeight:700, fontSize:'0.95rem', color:'#334155'}}>${Number(abonoForm.totalFactura || 0).toFixed(2)} USD</div>
+                </div>
+              </div>
+
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', background:'#fef2f2', border:'1px solid #fecaca', borderRadius:8, padding:'0.7rem 0.9rem', gap:'0.75rem', flexWrap:'wrap'}}>
+                <div>
+                  <span style={{fontSize:'0.7rem', color:'#dc2626', fontWeight:800, textTransform:'uppercase', display:'block'}}>Saldo Pendiente por Cobrar</span>
+                  <div style={{fontSize:'1.25rem', fontWeight:800, color:'#b91c1c', lineHeight:1.1}}>
+                    ${Number(abonoForm.saldoAdeudado || 0).toFixed(2)} <span style={{fontSize:'0.85rem'}}>USD</span>
+                  </div>
+                  <div style={{fontSize:'0.75rem', fontWeight:600, color:'#dc2626', marginTop:'2px'}}>
+                    ≈ Bs. {(Number(abonoForm.saldoAdeudado || 0) * bcvTasa).toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  style={{background:'#16a34a', color:'#fff', border:'none', fontWeight:700, padding:'0.55rem 0.85rem', borderRadius:6, fontSize:'0.82rem', display:'flex', alignItems:'center', gap:'0.4rem', boxShadow:'0 2px 5px rgba(22,163,74,0.25)', cursor:'pointer'}}
+                  title="Autocompletar el monto total adeudado"
+                  onClick={() => {
+                    const saldo = parseFloat(abonoForm.saldoAdeudado || 0);
+                    const ves = (saldo * bcvTasa).toFixed(2);
+                    setAbonoForm(f => ({ ...f, montoUSD: saldo.toFixed(2), montoVES: ves, referencia: f.referencia || 'Pago Total Factura' }));
+                  }}
+                >
+                  <i className="fa-solid fa-bolt"></i> Pagar Saldo Total
+                </button>
+              </div>
+            </div>
+
             <form onSubmit={handleAbonoSave}>
               <div style={{background:'#f0f9ff', border:'1px solid #bae6fd', padding:'0.5rem 0.75rem', borderRadius:6, marginBottom:'1rem', fontSize:'0.8rem', color:'#0369a1', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                 <span><i className="fa-solid fa-coins"></i> Tasa BCV de Conversión:</span>
@@ -1519,15 +1644,15 @@ export default function SalidasPage() {
               </div>
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.85rem', marginBottom:'0.5rem'}}>
                 <div className="form-group" style={{margin:0}}>
-                  <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700}}>Monto en USD ($)</label>
+                  <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700}}>Monto a Abonar en USD ($)</label>
                   <input type="number" step="0.01" className="form-control" placeholder="0.00" required style={{fontSize:'1rem', fontWeight:700, color:'#166534'}}
                     value={abonoForm.montoUSD} onChange={e=>setAbonoForm(f=>({...f,montoUSD:e.target.value,montoVES:(parseFloat(e.target.value||0)*bcvTasa).toFixed(2)}))} />
                   <small style={{fontSize:'0.72rem', color:'#0284c7', fontWeight:600, display:'block', marginTop:3}}>= Bs. {(parseFloat(abonoForm.montoUSD||0)*bcvTasa).toLocaleString('es-VE',{minimumFractionDigits:2})}</small>
                 </div>
                 <div className="form-group" style={{margin:0}}>
-                  <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700}}>Monto en BS (VES)</label>
+                  <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700}}>Monto a Abonar en BS (VES)</label>
                   <input type="number" step="0.01" className="form-control" placeholder="0.00" style={{fontSize:'1rem', fontWeight:700, color:'#0284c7'}}
-                    value={abonoForm.montoVES} onChange={e=>setAbonoForm(f=>({...f,montoVES:e.target.value}))} />
+                    value={abonoForm.montoVES} onChange={e=>setAbonoForm(f=>({...f,montoVES:e.target.value, montoUSD: (parseFloat(e.target.value||0)/bcvTasa).toFixed(2)}))} />
                   <small style={{fontSize:'0.72rem', color:'#166534', fontWeight:600, display:'block', marginTop:3}}>= ${(parseFloat(abonoForm.montoVES||0)/bcvTasa).toFixed(2)} USD</small>
                 </div>
               </div>
@@ -1538,11 +1663,11 @@ export default function SalidasPage() {
                 </div>
                 <div className="form-group" style={{margin:0}}>
                   <label className="form-label" style={{fontSize:'0.8rem'}}>Nº Referencia / Método</label>
-                  <input type="text" className="form-control" placeholder="Ej: Pago Móvil 583920" style={{fontSize:'0.85rem'}} value={abonoForm.referencia} onChange={e=>setAbonoForm(f=>({...f,referencia:e.target.value}))} />
+                  <input type="text" className="form-control" placeholder="Ej: Pago Móvil / Efectivo" style={{fontSize:'0.85rem'}} value={abonoForm.referencia} onChange={e=>setAbonoForm(f=>({...f,referencia:e.target.value}))} />
                 </div>
               </div>
               <div style={{marginTop:'1.25rem'}}>
-                <button type="submit" className="btn btn-primary" style={{width:'100%', padding:'0.7rem', fontSize:'0.95rem'}}>
+                <button type="submit" className="btn btn-primary" style={{width:'100%', padding:'0.7rem', fontSize:'0.95rem', fontWeight:700}}>
                   <i className="fa-solid fa-check"></i> Procesar Abono de Cliente
                 </button>
               </div>
