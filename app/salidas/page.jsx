@@ -523,15 +523,151 @@ export default function SalidasPage() {
     return { styles, body };
   };
 
-  // Imprime múltiples notas seleccionadas en una sola ventana
-  const printMultiple = () => {
+  // Genera el innerHTML del printDiv para una salida (igual al de printTicket pero parametrizado)
+  const buildAndroidInnerHTML = (salida) => {
+    const items = salida.items || [];
+    const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
+    const cleanFecha = String(salida.fecha || '').split('T')[0];
+    return `
+      <div style="text-align:center; font-weight:800; font-size:32px; margin-bottom:3px; letter-spacing:0.5px;">BESTEDA 2, C.A.</div>
+      <div style="text-align:center; font-weight:700; font-size:20px; margin:2px 0;">RIF: J-40529263-6</div>
+      <div style="text-align:center; font-size:17.5px; margin:1px 0;">Calle Principal Casa N\u00ba A-13, Urb. Alto de Fenix II</div>
+      <div style="text-align:center; font-size:17.5px; margin:1px 0;">San Juan de los Morros - Estado Gu\u00e1rico</div>
+      <div style="text-align:center; font-size:17.5px; margin:1px 0;">Tlfs: 0424-313.68.05 / 0424-300.48.02</div>
+      <hr style="border:none; border-top:3px solid #000; margin:12px 0;" />
+      <div style="text-align:center; font-weight:800; font-size:27px; letter-spacing:0.8px;">NOTA DE ENTREGA</div>
+      <div style="text-align:center; font-weight:800; font-size:27px; margin-top:2px;">N\u00ba ${salida.factura_number}</div>
+      <hr style="border:none; border-top:2.5px dashed #000; margin:12px 0;" />
+      <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>FECHA:</b><span>${cleanFecha}</span></div>
+      <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>CLIENTE:</b><span style="font-weight:700;">${salida.cliente_name || ''}</span></div>
+      <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>C.I./RIF:</b><span>${salida.cedula_rif || '\u2014'}</span></div>
+      <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>TELF:</b><span>${salida.telefono || '\u2014'}</span></div>
+      <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>DIR:</b><span>${salida.direccion || '\u2014'}</span></div>
+      <hr style="border:none; border-top:2.5px dashed #000; margin:12px 0;" />
+      <table style="width:100%; border-collapse:collapse; font-size:20.5px; margin:12px 0; table-layout:fixed;">
+        <thead>
+          <tr style="border-bottom:3px solid #000;">
+            <th style="text-align:left; width:12%; padding:6px 0; font-size:19.5px; font-weight:800;">CAN</th>
+            <th style="text-align:left; width:46%; padding:6px 0; font-size:19.5px; font-weight:800;">DESCRIPCI\u00d3N</th>
+            <th style="text-align:right; width:21%; padding:6px 0; font-size:19.5px; font-weight:800;">P/U</th>
+            <th style="text-align:right; width:21%; padding:6px 0; font-size:19.5px; font-weight:800;">TOTAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(it => {
+            const pu = Number(it.precioUnitario || it.precio_unitario || 0);
+            const cant = Number(it.cantidad || 0);
+            const tot = pu * cant;
+            return `<tr style="border-bottom:1.5px dashed #000;">
+              <td style="padding:8px 0; vertical-align:top; font-size:20.5px; font-weight:700;">${cant}</td>
+              <td style="padding:8px 0; vertical-align:top; font-size:20.5px; font-weight:700; word-break:break-word;">${it.productoNombre || it.producto_nombre || ''}</td>
+              <td style="text-align:right; padding:8px 0; vertical-align:top; font-size:20.5px;">$${pu.toFixed(2)}</td>
+              <td style="text-align:right; padding:8px 0; vertical-align:top; font-size:20.5px; font-weight:800;">$${tot.toFixed(2)}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      <hr style="border:none; border-top:3px solid #000; margin:12px 0;" />
+      <div style="display:flex; justify-content:space-between; font-weight:800; font-size:26px; margin:14px 0;">
+        <span>UND: ${totalUnits}</span>
+        <span>TOTAL: $${Number(salida.total_factura || 0).toFixed(2)}</span>
+      </div>
+      <div style="border:2.5px solid #000; border-radius:8px; padding:12px 10px; margin:14px 0 8px 0; background:#fff; font-size:17.5px; line-height:1.45; color:#000;">
+        <div style="font-weight:800; font-size:19px; text-align:center; margin-bottom:8px;">\u2014 PAGO M\u00d3VIL BDV \u2014</div>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <div>\u2022 <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3136805</strong> &nbsp;|&nbsp; C.I. 10.668.263</div>
+          <div>\u2022 <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3004802</strong> &nbsp;|&nbsp; C.I. 28.012.615</div>
+        </div>
+        <div style="border-top:2px dashed #000; margin:10px 0;"></div>
+        <div style="font-weight:800; font-size:19px; text-align:center; margin-bottom:8px;">\u2014 DEP\u00d3SITO BANCARIO BDV \u2014</div>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <div>\u2022 <strong>0102 0467 4501 0162 8166</strong> <span style="font-size:15px;">(JUAN MORA)</span></div>
+          <div>\u2022 <strong>0102 0467 4500 0096 7787</strong> <span style="font-size:15px;">(JORGE FLORES)</span></div>
+        </div>
+      </div>
+    `;
+  };
+
+  // Imprime múltiples notas usando exactamente el mismo flujo RawBT que printTicket
+  const printMultiple = async () => {
     const toprint = filteredSalidas.filter(s => selectedIds.has(s.id));
     if (toprint.length === 0) return;
-    const { styles } = buildNotaHTML(toprint[0]);
-    const allBodies = toprint.map(s => buildNotaHTML(s).body).join('\n');
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Notas de Entrega</title><style>${styles}@media print { @page { size: 76mm auto; margin: 0; } }</style></head><body>${allBodies}<script>window.onload=function(){setTimeout(function(){try{window.print();}catch(e){}},200);};window.onafterprint=function(){try{window.close();}catch(e){};};<\/script></body></html>`;
-    const win = window.open('', '_blank');
-    if (win) { win.document.open(); win.document.write(html); win.document.close(); }
+
+    try {
+      // Cargar html2canvas si no está disponible
+      let h2c = window.html2canvas;
+      if (!h2c) {
+        await new Promise((resolve) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+          script.onload = () => { h2c = window.html2canvas; resolve(); };
+          script.onerror = () => resolve();
+          document.head.appendChild(script);
+        });
+      }
+
+      if (!h2c) return;
+
+      const canvases = [];
+
+      // Renderizar cada nota a su propio canvas (igual que printTicket)
+      for (const salida of toprint) {
+        const printDiv = document.createElement('div');
+        printDiv.style.position = 'fixed';
+        printDiv.style.left = '-9999px';
+        printDiv.style.top = '0';
+        printDiv.style.width = '576px';
+        printDiv.style.minWidth = '576px';
+        printDiv.style.maxWidth = '576px';
+        printDiv.style.background = '#ffffff';
+        printDiv.style.color = '#000000';
+        printDiv.style.padding = '6px 0px';
+        printDiv.style.fontFamily = 'Arial, Helvetica, sans-serif';
+        printDiv.style.boxSizing = 'border-box';
+        printDiv.style.lineHeight = '1.35';
+        printDiv.innerHTML = buildAndroidInnerHTML(salida);
+
+        document.body.appendChild(printDiv);
+        const canvas = await h2c(printDiv, {
+          scale: 1, width: 576, windowWidth: 576,
+          backgroundColor: '#ffffff', useCORS: true, logging: false
+        });
+        document.body.removeChild(printDiv);
+
+        // Binarización igual a printTicket
+        const ctx = canvas.getContext('2d');
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imgData.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+          const val = lum < 210 ? 0 : 255;
+          d[i] = val; d[i + 1] = val; d[i + 2] = val; d[i + 3] = 255;
+        }
+        ctx.putImageData(imgData, 0, 0);
+        canvases.push(canvas);
+      }
+
+      // Concatenar todos los canvases verticalmente en uno solo
+      const totalHeight = canvases.reduce((sum, c) => sum + c.height, 0);
+      const combined = document.createElement('canvas');
+      combined.width = 576;
+      combined.height = totalHeight;
+      const ctxCombined = combined.getContext('2d');
+      ctxCombined.fillStyle = '#ffffff';
+      ctxCombined.fillRect(0, 0, 576, totalHeight);
+      let y = 0;
+      for (const c of canvases) {
+        ctxCombined.drawImage(c, 0, y);
+        y += c.height;
+      }
+
+      // Enviar a RawBT igual que printTicket
+      const base64Png = combined.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+      window.location.href = `rawbt:data:image/png;base64,${base64Png}`;
+
+    } catch (e) {
+      console.error('Error en impresión múltiple:', e);
+    }
   };
 
   const printTicket = async () => {
