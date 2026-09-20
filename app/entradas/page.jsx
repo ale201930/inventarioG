@@ -469,17 +469,24 @@ export default function EntradasPage() {
       if (provLine) proveedorName = provLine;
     }
 
-    // 2. Nº Documento / Nota de Entrega (Exclusivamente de cabecera)
-    const docMatch = headerText.match(/Nota\s*(?:de\s*)?Entrega\s*(?:N[°ºo\.]*)?\s*([0-9]{4,10})/i) ||
-                     headerText.match(/Factura\s*(?:N[°ºo\.]*)?\s*([0-9]{4,10})/i) ||
-                     headerText.match(/\b(000\d{4,6}|033\d{3,5})\b/);
-    if (docMatch) {
-      facturaNum = docMatch[1];
+    // 2. Nº Documento / Nota de Entrega (Búsqueda global y en cabecera)
+    let facturaNum = '';
+    const docPatterns = [
+      /(?:Nota\s*(?:de\s*)?Entrega|Factura|Doc(?:umento)?)[^\d\n]{0,15}(\d{4,10})/i,
+      /N[°ºo\.]*\s*([0-9]{4,10})/i,
+      /\b(000\d{4,6}|033\d{3,6}|\d{7,8})\b/
+    ];
+    for (const pat of docPatterns) {
+      const m = (headerText + '\n' + textClean).match(pat);
+      if (m && m[1]) {
+        facturaNum = m[1];
+        break;
+      }
     }
 
     // 2.1 Fechas
-    const dateMatch = headerText.match(/Fecha:\s*(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})/i) ||
-                      headerText.match(/\b(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})\b/);
+    const dateMatch = (headerText + '\n' + textClean).match(/Fecha:\s*(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})/i) ||
+                      (headerText + '\n' + textClean).match(/\b(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})\b/);
     if (dateMatch) {
       let day = dateMatch[1].padStart(2, '0');
       let month = dateMatch[2].padStart(2, '0');
@@ -488,7 +495,7 @@ export default function EntradasPage() {
       fecha = `${year}-${month}-${day}`;
     }
 
-    const vencMatch = headerText.match(/Vence:\s*(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})/i);
+    const vencMatch = (headerText + '\n' + textClean).match(/Vence:\s*(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})/i);
     if (vencMatch) {
       let day = vencMatch[1].padStart(2, '0');
       let month = vencMatch[2].padStart(2, '0');
@@ -551,16 +558,22 @@ export default function EntradasPage() {
         }
 
         if (name || code.length >= 2) {
-          let cant = Math.round(nums[0]);
+          let cant = nums[0];
           let cost = nums[1];
-          let lineTotal = nums.length >= 3 ? nums[2] : cant * cost;
+          let lineTotal = nums.length >= 3 ? nums[2] : 0;
 
-          // Auto-consistencia matemática
-          if (nums.length >= 3) {
-            const calcTot = cant * cost;
-            if (Math.abs(calcTot - lineTotal) > 1 && Math.abs(lineTotal / cant - cost) < 0.1) {
-              cost = lineTotal / cant;
-            }
+          // Recuperar cantidades donde la coma decimal ',00' no se leyó (ej: 10,00 leído como 1000, 70,00 como 7000)
+          if (cant >= 100 && cant % 100 === 0 && (lineTotal === 0 || Math.abs((cant / 100) * cost - lineTotal) < 5 || (cant / 100) * cost < 10000)) {
+            cant = cant / 100;
+          } else if (cant >= 500 && cant % 50 === 0 && lineTotal > 0 && Math.abs((cant / 100) * cost - lineTotal) < 5) {
+            cant = cant / 100;
+          }
+
+          cant = Math.round(cant);
+
+          // Si el total de línea vino distorsionado o no vino, calcular exactamente cant * cost
+          if (lineTotal <= 0 || (lineTotal < cost && cant > 1) || Math.abs(cant * cost - lineTotal) > 10) {
+            lineTotal = cant * cost;
           }
 
           if (cant > 0 && cost > 0) {
@@ -591,7 +604,7 @@ export default function EntradasPage() {
       proveedorRif,
       proveedorTelf,
       proveedorDir,
-      facturaNum,
+      facturaNum: facturaNum || f.facturaNum,
       fecha,
       fechaVenc,
       tasaBCV: parseFloat(tasaBCV).toFixed(2),
