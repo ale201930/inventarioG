@@ -27,6 +27,7 @@ export default function SalidasPage() {
   const [filtroEstado, setFiltroEstado] = useState('todas');
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [loadingEstado, setLoadingEstado] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
 
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -432,6 +433,107 @@ export default function SalidasPage() {
     setShowModal(true);
   };
 
+  // Genera el HTML del cuerpo de una nota (reutilizado por printTicket y printMultiple)
+  const buildNotaHTML = (salida) => {
+    const items = salida.items || [];
+    const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
+    const cleanFecha = String(salida.fecha || '').split('T')[0];
+    const styles = `
+      * { box-sizing: border-box; }
+      @page { size: 76mm auto; margin: 0; }
+      body { width: 72mm; margin: 0 auto; padding: 2mm 1mm; font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; background: #fff; line-height: 1.35; }
+      .nota-wrap { width: 72mm; margin: 0 auto; padding: 2mm 1mm; page-break-after: always; }
+      .nota-wrap:last-child { page-break-after: avoid; }
+      .header-title { font-size: 15px; font-weight: 800; text-align: center; margin: 0 0 2px 0; }
+      .header-sub { font-size: 10px; text-align: center; color: #111; margin: 1px 0; }
+      .divider-solid { border: none; border-top: 1.5px solid #000; margin: 8px 0; }
+      .divider-dashed { border: none; border-top: 1px dashed #444; margin: 8px 0; }
+      .doc-title { font-size: 14px; font-weight: 800; text-align: center; letter-spacing: 0.5px; }
+      .doc-num { font-size: 14px; font-weight: 800; text-align: center; margin-top: 2px; }
+      .info-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+      .info-table td { padding: 2px 0; vertical-align: top; }
+      .info-label { font-weight: 700; color: #000; }
+      .info-val { text-align: right; word-break: break-word; }
+      .items-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 6px 0; table-layout: fixed; }
+      .items-table th { font-size: 10.5px; font-weight: 800; padding: 4px 0; text-align: left; border-bottom: 1.5px solid #000; }
+      .items-table td { padding: 4px 0; vertical-align: top; word-break: break-word; }
+      .text-right { text-align: right; }
+      .totals-row { display: flex; justify-content: space-between; align-items: center; font-size: 13.5px; font-weight: 800; margin: 10px 0; }
+      .payment-box { border: 1.5px solid #000; border-radius: 8px; padding: 8px 10px; margin: 10px 0 4px 0; background: #fff; font-size: 9.5px; line-height: 1.45; color: #000; }
+      .payment-title { font-weight: 800; font-size: 10.5px; text-align: center; margin-bottom: 4px; }
+      .payment-data { text-align: left; padding-left: 2px; display: flex; flex-direction: column; gap: 2px; }
+    `;
+    const body = `
+      <div class="nota-wrap">
+        <div class="header-title">BESTEDA 2, C.A.</div>
+        <div class="header-sub" style="font-weight:700;">RIF: J-40529263-6</div>
+        <div class="header-sub">Calle Principal Casa Nº A-13, Urb. Alto de Fenix II</div>
+        <div class="header-sub">San Juan de los Morros - Estado Guárico</div>
+        <div class="header-sub">Tlfs: 0424-313.68.05 / 0424-300.48.02</div>
+        <hr class="divider-solid" />
+        <div class="doc-title">NOTA DE ENTREGA</div>
+        <div class="doc-num">Nº ${salida.factura_number}</div>
+        <hr class="divider-dashed" />
+        <table class="info-table">
+          <tr><td class="info-label">FECHA:</td><td class="info-val">${cleanFecha}</td></tr>
+          <tr><td class="info-label">CLIENTE:</td><td class="info-val">${salida.cliente_name || ''}</td></tr>
+          <tr><td class="info-label">C.I./RIF:</td><td class="info-val">${salida.cedula_rif || '—'}</td></tr>
+          <tr><td class="info-label">TELF:</td><td class="info-val">${salida.telefono || '—'}</td></tr>
+          <tr><td class="info-label">DIR:</td><td class="info-val">${salida.direccion || '—'}</td></tr>
+        </table>
+        <hr class="divider-dashed" />
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th style="width:12%">CAN</th>
+              <th style="width:46%">DESCRIPCIÓN</th>
+              <th style="width:21%; text-align:right">P/U</th>
+              <th style="width:21%; text-align:right">TOTAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(it => {
+              const pu = Number(it.precioUnitario || it.precio_unitario || 0);
+              const cant = Number(it.cantidad || 0);
+              const tot = pu * cant;
+              return `<tr><td>${cant}</td><td>${it.productoNombre || it.producto_nombre || ''}</td><td class="text-right">$${pu.toFixed(2)}</td><td class="text-right">$${tot.toFixed(2)}</td></tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        <hr class="divider-solid" />
+        <div class="totals-row">
+          <span>UND: ${totalUnits}</span>
+          <span>TOTAL: $${Number(salida.total_factura || 0).toFixed(2)}</span>
+        </div>
+        <div class="payment-box">
+          <div class="payment-title">— PAGO MÓVIL BDV —</div>
+          <div class="payment-data">
+            <div>• <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3136805</strong> &nbsp;|&nbsp; C.I. 10.668.263</div>
+            <div>• <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3004802</strong> &nbsp;|&nbsp; C.I. 28.012.615</div>
+          </div>
+          <div style="border-top:1px dashed #000; margin:6px 0;"></div>
+          <div class="payment-title">— DEPÓSITO BANCARIO BDV —</div>
+          <div class="payment-data">
+            <div>• <strong>0102 0467 4501 0162 8166</strong> <span style="font-size:8.5px">(JUAN MORA)</span></div>
+            <div>• <strong>0102 0467 4500 0096 7787</strong> <span style="font-size:8.5px">(JORGE FLORES)</span></div>
+          </div>
+        </div>
+      </div>
+    `;
+    return { styles, body };
+  };
+
+  // Imprime múltiples notas seleccionadas en una sola ventana
+  const printMultiple = () => {
+    const toprint = filteredSalidas.filter(s => selectedIds.has(s.id));
+    if (toprint.length === 0) return;
+    const { styles } = buildNotaHTML(toprint[0]);
+    const allBodies = toprint.map(s => buildNotaHTML(s).body).join('\n');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Notas de Entrega</title><style>${styles}@media print { @page { size: 76mm auto; margin: 0; } }</style></head><body>${allBodies}<script>window.onload=function(){setTimeout(function(){try{window.print();}catch(e){}},200);};window.onafterprint=function(){try{window.close();}catch(e){};};<\/script></body></html>`;
+    const win = window.open('', '_blank');
+    if (win) { win.document.open(); win.document.write(html); win.document.close(); }
+  };
+
   const printTicket = async () => {
     if (!lastSalida) return;
     const items = lastSalida.items || [];
@@ -701,6 +803,16 @@ export default function SalidasPage() {
         <div style={{padding:'1rem 1.25rem', background:'#fff', borderBottom:'1px solid var(--border-color)', display:'flex', flexWrap:'wrap', gap:'0.75rem', alignItems:'center', justifyContent:'space-between'}}>
           <h3 style={{fontSize:'1rem', fontWeight:600}}><i className="fa-solid fa-receipt"></i> Historial de Ventas y Facturación</h3>
           <div style={{display:'flex', gap:'0.6rem', flexWrap:'wrap', alignItems:'center'}}>
+            {selectedIds.size > 0 && (
+              <button
+                className="btn btn-primary btn-sm"
+                style={{background:'#0284c7', color:'#fff', fontWeight:700, display:'flex', alignItems:'center', gap:'0.4rem'}}
+                onClick={printMultiple}
+                title={`Imprimir ${selectedIds.size} nota(s) seleccionada(s)`}
+              >
+                <i className="fa-solid fa-print"></i> Imprimir seleccionadas ({selectedIds.size})
+              </button>
+            )}
             <input type="date" className="form-control" style={{minHeight:36, width:'auto', fontSize:'0.85rem'}} value={filterFecha} onChange={e=>setFilterFecha(e.target.value)} />
             <button className="btn btn-secondary btn-sm" onClick={()=>setFilterFecha('')}><i className="fa-solid fa-xmark"></i></button>
             <input type="text" className="form-control" placeholder="🔍 Buscar cliente, Nº factura..." style={{maxWidth:220, minHeight:36, fontSize:'0.85rem'}} value={searchText} onChange={e=>setSearchText(e.target.value)} />
@@ -709,17 +821,42 @@ export default function SalidasPage() {
         <table>
           <thead>
             <tr>
+              <th style={{width:36, textAlign:'center'}}>
+                <input
+                  type="checkbox"
+                  title="Seleccionar todas"
+                  checked={filteredSalidas.length > 0 && filteredSalidas.every(s => selectedIds.has(s.id))}
+                  onChange={e => {
+                    if (e.target.checked) setSelectedIds(new Set(filteredSalidas.map(s => s.id)));
+                    else setSelectedIds(new Set());
+                  }}
+                />
+              </th>
               <th>Tipo</th><th>Nº Documento</th><th>Fecha</th><th>Cliente</th>
               <th>Total ($)</th><th>Total (Bs.)</th><th>Saldo Pendiente</th><th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {filteredSalidas.length === 0 ? (
-              <tr><td colSpan={8} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
+              <tr><td colSpan={9} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
                 {searchText || filterFecha ? 'Sin resultados para los filtros' : 'Sin ventas registradas'}
               </td></tr>
             ) : filteredSalidas.map(s => (
-              <tr key={s.id}>
+              <tr key={s.id} style={selectedIds.has(s.id) ? {background:'#f0f9ff'} : {}}>
+                <td style={{textAlign:'center', verticalAlign:'middle'}}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(s.id)}
+                    onChange={e => {
+                      setSelectedIds(prev => {
+                        const next = new Set(prev);
+                        if (e.target.checked) next.add(s.id);
+                        else next.delete(s.id);
+                        return next;
+                      });
+                    }}
+                  />
+                </td>
                 <td><span className="badge badge-primary" style={{fontSize:'0.7rem'}}>NOTA DE ENTREGA</span></td>
                 <td style={{fontWeight:600}}>Nº {s.factura_number}</td>
                 <td>{s.fecha ? String(s.fecha).split('T')[0] : '—'}</td>
