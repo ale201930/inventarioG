@@ -647,18 +647,29 @@ export default function SalidasPage() {
         canvases.push(canvas);
       }
 
-      // Pre-generar todas las URLs primero (operación síncrona, no rompe el contexto)
+      // Pre-generar todas las URLs rawbt:
       const rawbtUrls = canvases.map(c =>
         `rawbt:data:image/png;base64,${c.toDataURL('image/png').replace(/^data:image\/png;base64,/, '')}`
       );
 
-      // Enviar cada una a RawBT como trabajo independiente
-      // Usamos window.location.href con un pequeño gap entre cada una
-      // (RawBT en Android intercapta el scheme sin navegar fuera de la app)
+      // Enviar cada una con un iframe oculto.
+      // Usar iframe evita que window.location.href interrumpa la ejecucion JS de la pagina.
+      // Android intercepta el custom scheme rawbt: en el iframe y abre RawBT sin navegar la pagina principal.
+      const sendViaIframe = (url) => new Promise(resolve => {
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = url;
+        document.body.appendChild(iframe);
+        setTimeout(() => {
+          try { document.body.removeChild(iframe); } catch(_) {}
+          resolve();
+        }, 600);
+      });
+
       for (let i = 0; i < rawbtUrls.length; i++) {
-        window.location.href = rawbtUrls[i];
+        await sendViaIframe(rawbtUrls[i]);
         if (i < rawbtUrls.length - 1) {
-          // Pausa mínima entre trabajos para que RawBT los encole correctamente
+          // Pausa extra para que RawBT termine de encolar el trabajo antes del siguiente
           await new Promise(resolve => setTimeout(resolve, 800));
         }
       }
