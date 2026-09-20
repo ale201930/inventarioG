@@ -28,6 +28,7 @@ export default function SalidasPage() {
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [loadingEstado, setLoadingEstado] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [isPrintingMultiple, setIsPrintingMultiple] = useState(false);
 
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -588,10 +589,91 @@ export default function SalidasPage() {
     `;
   };
 
-  // Imprime múltiples notas usando exactamente el mismo flujo RawBT que printTicket
+  // Convierte un array de canvas binarizados a un stream de comandos ESC/POS binario
+  // Incluye avance de papel y corte de papel automático entre cada factura
+  const buildEscPosStream = (canvases) => {
+    const chunks = [];
+    
+    // ESC @: Inicializar impresora
+    chunks.push(new Uint8Array([0x1B, 0x40]));
+    
+    for (let cIdx = 0; cIdx < canvases.length; cIdx++) {
+      const canvas = canvases[cIdx];
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const d = imgData.data;
+      
+      const width = canvas.width; // 576px
+      const height = canvas.height;
+      const xBytes = Math.ceil(width / 8); // 72 bytes por línea horizontal
+      const yHeight = height;
+      
+      // Comando ESC/POS Raster Bit Image: GS v 0 0 xL xH yL yH
+      const header = [
+        0x1D, 0x76, 0x30, 0x00,
+        xBytes & 0xFF, (xBytes >> 8) & 0xFF,
+        yHeight & 0xFF, (yHeight >> 8) & 0xFF
+      ];
+      
+      const imgBuf = new Uint8Array(header.length + xBytes * yHeight);
+      imgBuf.set(header, 0);
+      let offset = header.length;
+      
+      for (let y = 0; y < yHeight; y++) {
+        for (let x = 0; x < xBytes; x++) {
+          let bVal = 0;
+          for (let b = 0; b < 8; b++) {
+            const px = x * 8 + b;
+            if (px < width) {
+              const idx = (y * width + px) * 4;
+              // Pixel negro (0) en imagen binarizada
+              if (d[idx] < 128) {
+                bVal |= (1 << (7 - b));
+              }
+            }
+          }
+          imgBuf[offset++] = bVal;
+        }
+      }
+      chunks.push(imgBuf);
+      
+      // Avance de papel + Corte de papel para cada factura:
+      // ESC d 5: Avanzar 5 líneas para que el final de la factura pase la cuchilla
+      // GS V 65 0: Cortar papel (Full cut con alimentación de cabezal)
+      // GS V 0: Cortar papel estándar
+      // ESC @: Reiniciar estado para la siguiente factura
+      chunks.push(new Uint8Array([
+        0x1B, 0x64, 0x05,
+        0x1D, 0x56, 0x41, 0x00,
+        0x1D, 0x56, 0x00,
+        0x1B, 0x40
+      ]));
+    }
+    
+    // Unir todos los buffers en un solo Uint8Array
+    const totalLen = chunks.reduce((acc, c) => acc + c.length, 0);
+    const combined = new Uint8Array(totalLen);
+    let curOffset = 0;
+    for (const c of chunks) {
+      combined.set(c, curOffset);
+      curOffset += c.length;
+    }
+    
+    // Codificación Base64 segura por bloques
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < totalLen; i += chunkSize) {
+      const sub = combined.subarray(i, Math.min(i + chunkSize, totalLen));
+      binary += String.fromCharCode.apply(null, sub);
+    }
+    return btoa(binary);
+  };
+
+  // Imprime múltiples notas enviando un único stream ESC/POS completo a RawBT con corte entre facturas
   const printMultiple = async () => {
     const toprint = filteredSalidas.filter(s => selectedIds.has(s.id));
     if (toprint.length === 0) return;
+    setIsPrintingMultiple(true);
 
     try {
       // Cargar html2canvas si no está disponible
@@ -606,11 +688,14 @@ export default function SalidasPage() {
         });
       }
 
-      if (!h2c) return;
+      if (!h2c) {
+        setIsPrintingMultiple(false);
+        return;
+      }
 
       const canvases = [];
 
-      // Renderizar cada nota a su propio canvas (igual que printTicket)
+      // Renderizar cada nota a su propio canvas a 576px
       for (const salida of toprint) {
         const printDiv = document.createElement('div');
         printDiv.style.position = 'fixed';
@@ -634,7 +719,7 @@ export default function SalidasPage() {
         });
         document.body.removeChild(printDiv);
 
-        // Binarización igual a printTicket
+        // Binarización de alto contraste
         const ctx = canvas.getContext('2d');
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const d = imgData.data;
@@ -647,37 +732,19 @@ export default function SalidasPage() {
         canvases.push(canvas);
       }
 
-      // Pre-generar todas las URLs rawbt:
-      const rawbtUrls = canvases.map(c =>
-        `rawbt:data:image/png;base64,${c.toDataURL('image/png').replace(/^data:image\/png;base64,/, '')}`
-      );
-
-      // Enviar cada una con un iframe oculto.
-      // Usar iframe evita que window.location.href interrumpa la ejecucion JS de la pagina.
-      // Android intercepta el custom scheme rawbt: en el iframe y abre RawBT sin navegar la pagina principal.
-      const sendViaIframe = (url) => new Promise(resolve => {
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        iframe.src = url;
-        document.body.appendChild(iframe);
-        setTimeout(() => {
-          try { document.body.removeChild(iframe); } catch(_) {}
-          resolve();
-        }, 600);
-      });
-
-      for (let i = 0; i < rawbtUrls.length; i++) {
-        await sendViaIframe(rawbtUrls[i]);
-        if (i < rawbtUrls.length - 1) {
-          // Pausa extra para que RawBT termine de encolar el trabajo antes del siguiente
-          await new Promise(resolve => setTimeout(resolve, 800));
-        }
-      }
+      // Construir stream ESC/POS completo con cortes individuales entre facturas
+      const base64EscPos = buildEscPosStream(canvases);
+      
+      // Enviar a RawBT en un solo Intent directo (Android lo ejecuta completo sin bloquearse)
+      window.location.href = `rawbt:base64,${base64EscPos}`;
 
     } catch (e) {
       console.error('Error en impresión múltiple:', e);
+    } finally {
+      setIsPrintingMultiple(false);
     }
   };
+
 
   const printTicket = async () => {
     if (!lastSalida) return;
@@ -953,9 +1020,18 @@ export default function SalidasPage() {
                 className="btn btn-primary btn-sm"
                 style={{background:'#0284c7', color:'#fff', fontWeight:700, display:'flex', alignItems:'center', gap:'0.4rem'}}
                 onClick={printMultiple}
+                disabled={isPrintingMultiple}
                 title={`Imprimir ${selectedIds.size} nota(s) seleccionada(s)`}
               >
-                <i className="fa-solid fa-print"></i> Imprimir seleccionadas ({selectedIds.size})
+                {isPrintingMultiple ? (
+                  <>
+                    <i className="fa-solid fa-spinner fa-spin"></i> Preparando ({selectedIds.size})...
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-print"></i> Imprimir seleccionadas ({selectedIds.size})
+                  </>
+                )}
               </button>
             )}
             <input type="date" className="form-control" style={{minHeight:36, width:'auto', fontSize:'0.85rem'}} value={filterFecha} onChange={e=>setFilterFecha(e.target.value)} />
