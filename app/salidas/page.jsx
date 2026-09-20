@@ -647,18 +647,19 @@ export default function SalidasPage() {
         canvases.push(canvas);
       }
 
-      // Enviar cada nota como trabajo independiente a RawBT → la impresora pica entre cada una
-      for (let i = 0; i < canvases.length; i++) {
-        const base64Png = canvases[i].toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
-        const link = document.createElement('a');
-        link.href = `rawbt:data:image/png;base64,${base64Png}`;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        // Esperar antes de la siguiente para que RawBT procese cada trabajo por separado
-        if (i < canvases.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1400));
+      // Pre-generar todas las URLs primero (operación síncrona, no rompe el contexto)
+      const rawbtUrls = canvases.map(c =>
+        `rawbt:data:image/png;base64,${c.toDataURL('image/png').replace(/^data:image\/png;base64,/, '')}`
+      );
+
+      // Enviar cada una a RawBT como trabajo independiente
+      // Usamos window.location.href con un pequeño gap entre cada una
+      // (RawBT en Android intercapta el scheme sin navegar fuera de la app)
+      for (let i = 0; i < rawbtUrls.length; i++) {
+        window.location.href = rawbtUrls[i];
+        if (i < rawbtUrls.length - 1) {
+          // Pausa mínima entre trabajos para que RawBT los encole correctamente
+          await new Promise(resolve => setTimeout(resolve, 800));
         }
       }
 
