@@ -469,8 +469,8 @@ export default function SalidasPage() {
       .items-table td { padding: 4px 0; vertical-align: top; word-break: break-word; }
       .text-right { text-align: right; }
       .totals-row { display: flex; justify-content: space-between; align-items: center; font-size: 13.5px; font-weight: 800; margin: 10px 0; }
-      .payment-box { border: 1.5px solid #000; border-radius: 8px; padding: 8px 10px; margin: 10px 0 4px 0; background: #fff; font-size: 9.5px; line-height: 1.45; color: #000; }
-      .payment-title { font-weight: 800; font-size: 10.5px; text-align: center; margin-bottom: 4px; }
+      .payment-box { border: 1.5px solid #000; border-radius: 8px; padding: 8px 10px; margin: 10px 0 4px 0; background: #fff; font-size: 10.5px; line-height: 1.45; color: #000; }
+      .payment-title { font-weight: 800; font-size: 11px; text-align: center; margin-bottom: 4px; }
       .payment-data { text-align: left; padding-left: 2px; display: flex; flex-direction: column; gap: 2px; }
     `;
     const body = `
@@ -529,7 +529,7 @@ export default function SalidasPage() {
             <div>• <strong>0102 0467 4500 0096 7787</strong> <span style="font-size:8.5px">(JORGE FLORES)</span></div>
           </div>
           <div style="border-top:1px dashed #000; margin:6px 0;"></div>
-          <div style="font-size:9.5px; font-weight:400; text-align:center; color:#000; line-height:1.4; padding-top:2px;">
+          <div style="font-size:11.5px; font-weight:400; text-align:center; color:#000; line-height:1.35; padding-top:2px;">
             NOTA: Los pagos en Bs. emitidos en fines de semana o feriados se calculan a la tasa oficial BCV fijada para el siguiente día hábil (Art. 25 Ley del IVA).
           </div>
         </div>
@@ -601,7 +601,7 @@ export default function SalidasPage() {
           <div>\u2022 <strong>0102 0467 4500 0096 7787</strong> <span style="font-size:15px;">(JORGE FLORES)</span></div>
         </div>
         <div style="border-top:2px dashed #000; margin:10px 0;"></div>
-        <div style="font-size:15px; font-weight:400; text-align:center; color:#000; line-height:1.4; padding-top:2px;">
+        <div style="font-size:18px; font-weight:400; text-align:center; color:#000; line-height:1.35; padding-top:2px;">
           NOTA: Los pagos en Bs. emitidos en fines de semana o feriados se calculan a la tasa oficial BCV fijada para el siguiente d\u00eda h\u00e1bil (Art. 25 Ley del IVA).
         </div>
       </div>
@@ -870,7 +870,7 @@ export default function SalidasPage() {
                 <div>• <strong>0102 0467 4500 0096 7787</strong> <span style="font-size:15px;">(JORGE FLORES)</span></div>
               </div>
               <div style="border-top:2px dashed #000; margin:10px 0;"></div>
-              <div style="font-size:15px; font-weight:400; text-align:center; color:#000; line-height:1.4; padding-top:2px;">
+              <div style="font-size:18px; font-weight:400; text-align:center; color:#000; line-height:1.35; padding-top:2px;">
                 NOTA: Los pagos en Bs. emitidos en fines de semana o feriados se calculan a la tasa oficial BCV fijada para el siguiente d\u00eda h\u00e1bil (Art. 25 Ley del IVA).
               </div>
             </div>
@@ -1000,7 +1000,7 @@ export default function SalidasPage() {
       <div>• <strong>0102 0467 4500 0096 7787</strong> <span style="font-size: 8.5px; color: #000;">(JORGE FLORES)</span></div>
     </div>
     <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
-    <div style="font-size: 9.5px; font-weight: 400; text-align: center; color: #000; line-height: 1.4; padding-top: 2px;">
+    <div style="font-size: 11.5px; font-weight: 400; text-align: center; color: #000; line-height: 1.35; padding-top: 2px;">
       NOTA: Los pagos en Bs. emitidos en fines de semana o feriados se calculan a la tasa oficial BCV fijada para el siguiente día hábil (Art. 25 Ley del IVA).
     </div>
   </div>`;
@@ -1479,7 +1479,7 @@ export default function SalidasPage() {
                       <div>• <strong>0102 0467 4500 0096 7787</strong> <span style={{fontSize:'8.5px', color:'#000'}}>(JORGE FLORES)</span></div>
                     </div>
                     <div style={{borderTop:'1px dashed #000', margin:'6px 0'}}></div>
-                    <div style={{fontSize:'9.5px', fontWeight:400, textAlign:'center', color:'#000', lineHeight:1.4, paddingTop:'2px'}}>
+                    <div style={{fontSize:'11.5px', fontWeight:400, textAlign:'center', color:'#000', lineHeight:1.35, paddingTop:'2px'}}>
                       NOTA: Los pagos en Bs. emitidos en fines de semana o feriados se calculan a la tasa oficial BCV fijada para el siguiente día hábil (Art. 25 Ley del IVA).
                     </div>
                   </div>
