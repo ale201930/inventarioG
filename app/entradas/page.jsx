@@ -562,19 +562,20 @@ export default function EntradasPage() {
           let cost = nums[1];
           let lineTotal = nums.length >= 3 ? nums[2] : 0;
 
-          // Recuperar cantidades donde la coma decimal ',00' no se leyó (ej: 10,00 leído como 1000, 70,00 como 7000)
-          if (cant >= 100 && cant % 100 === 0 && (lineTotal === 0 || Math.abs((cant / 100) * cost - lineTotal) < 5 || (cant / 100) * cost < 10000)) {
+          // Recuperar cantidades donde la coma decimal ',00' no se leyó (ej: 10,00 leído como 1000, 70,00 como 7000, 280,00 como 28000)
+          if (cant >= 100 && cant % 100 === 0) {
             cant = cant / 100;
-          } else if (cant >= 500 && cant % 50 === 0 && lineTotal > 0 && Math.abs((cant / 100) * cost - lineTotal) < 5) {
+          } else if (cant >= 100 && lineTotal > 0 && Math.abs((cant / 100) * cost - lineTotal) < 5) {
             cant = cant / 100;
+          } else if (lineTotal > 0 && cost > 0 && Math.abs(lineTotal / cost - cant) > 2) {
+            const expectedCant = Math.round(lineTotal / cost);
+            if (expectedCant > 0 && Math.abs(expectedCant * cost - lineTotal) < 0.5) {
+              cant = expectedCant;
+            }
           }
 
           cant = Math.round(cant);
-
-          // Si el total de línea vino distorsionado o no vino, calcular exactamente cant * cost
-          if (lineTotal <= 0 || (lineTotal < cost && cant > 1) || Math.abs(cant * cost - lineTotal) > 10) {
-            lineTotal = cant * cost;
-          }
+          const computedLineTotal = cant * cost;
 
           if (cant > 0 && cost > 0) {
             itemsExtraidos.push({
@@ -582,8 +583,8 @@ export default function EntradasPage() {
               nombre: name || line,
               cantidad: cant,
               costoUSD: Number(cost).toFixed(2),
-              totalUSD: Number(lineTotal > 0 ? lineTotal : cant * cost).toFixed(2),
-              totalVES: (Number(lineTotal > 0 ? lineTotal : cant * cost) * parseFloat(tasaBCV)).toFixed(2)
+              totalUSD: Number(computedLineTotal).toFixed(2),
+              totalVES: (Number(computedLineTotal) * parseFloat(tasaBCV)).toFixed(2)
             });
             if (code) processedCodes.add(code.toLowerCase());
           }
