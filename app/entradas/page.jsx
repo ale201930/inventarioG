@@ -451,7 +451,7 @@ export default function EntradasPage() {
     let proveedorRif = form.proveedorRif || '';
     let proveedorTelf = form.proveedorTelf || '';
     let proveedorDir = form.proveedorDir || '';
-    let facturaNum = form.facturaNum || '';
+    let facturaNum = '';
     let fecha = form.fecha || today();
     let fechaVenc = form.fechaVenc || todayPlus7();
     let tasaBCV = form.tasaBCV || currentTasa;
@@ -469,15 +469,21 @@ export default function EntradasPage() {
       if (provLine) proveedorName = provLine;
     }
 
-    // 2. Nº Documento / Nota de Entrega (Búsqueda global y en cabecera)
-    let facturaNum = '';
+    // 2. Nº Documento / Nota de Entrega (múltiples patrones en orden de prioridad)
     const docPatterns = [
-      /(?:Nota\s*(?:de\s*)?Entrega|Factura|Doc(?:umento)?)[^\d\n]{0,15}(\d{4,10})/i,
-      /N[°ºo\.]*\s*([0-9]{4,10})/i,
-      /\b(000\d{4,6}|033\d{3,6}|\d{7,8})\b/
+      // "Nota Entrega N° 00033015" o "Nota de Entrega Nº 00033015"
+      /Nota\s*(?:de\s*)?Entrega\s*N[°º\.o]*\s*[-–]?\s*(\d{4,10})/i,
+      // "Factura N° 001234" o "Factura Nro. 001234"
+      /Factura\s*N[°º\.ro]*\s*(\d{4,10})/i,
+      // Cualquier "N° 00033015"
+      /N[°º\.]*\s*[-–]?\s*(\d{5,10})/i,
+      // "Doc 001234"
+      /Doc(?:umento)?[^\d\n]{0,10}(\d{4,10})/i,
+      // Número largo solitario tipo "00033015"
+      /\b(0{2,4}\d{4,7})\b/
     ];
     for (const pat of docPatterns) {
-      const m = (headerText + '\n' + textClean).match(pat);
+      const m = textClean.match(pat);
       if (m && m[1]) {
         facturaNum = m[1];
         break;
@@ -531,63 +537,123 @@ export default function EntradasPage() {
 
     // Recorrer ÚNICAMENTE las líneas de la sección de la tabla de productos
     tableLines.forEach(line => {
-      const nums = extractInvoiceLineNumbers(line);
+      const lLower = line.toLowerCase();
+      const parts = line.split(/\s+/);
 
-      if (nums.length >= 2) {
-        const lLower = line.toLowerCase();
-        const parts = line.split(/\s+/);
-        const rawCode = parts[0] ? parts[0].toLowerCase().replace(/[^a-z0-9]/gi, '') : '';
-        
-        // 1. Coincidencia exacta por código
-        let matched = activeCatalog.find(p => p.id.toLowerCase() === rawCode);
-        
-        // 2. Coincidencia por palabra clave completa
-        if (!matched) {
-          matched = activeCatalog.find(p => p.keywords.some(kw => new RegExp(`\\b${kw}\\b`, 'i').test(lLower)));
+      // Primer token: código de catálogo
+      const rawCode = parts[0] ? parts[0].toLowerCase().replace(/[^a-z0-9-]/gi, '') : '';
+
+      // Coincidencia 1: por código exacto
+      let matched = activeCatalog.find(p => p.id.toLowerCase() === rawCode);
+      // Coincidencia 2: por palabra clave en toda la línea
+      if (!matched) {
+        matched = activeCatalog.find(p => p.keywords.some(kw => new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(lLower)));
+      }
+
+      const code = matched ? matched.id : rawCode;
+      let name = matched ? matched.nombre : '';
+
+      // Si no hay nombre del catálogo, extraer descripción textual de la línea
+      // (remover el código inicial y todos los números al final)
+      if (!name) {
+        let desc = line.replace(/^\S+\s*/, '');  // quitar primer token (código)
+        desc = desc.replace(/[\d.,]+\s*(cajetillas|cig|und|pk)?\s*/gi, '').trim();
+        if (desc.length > 3) name = desc;
+      }
+
+      // Extraer los números numéricos de la línea excluyendo el código
+      const lineWithoutCode = line.replace(/^\S+\s*/, '');
+      const nums = extractInvoiceLineNumbers(lineWithoutCode);
+
+      if (nums.length >= 2 && (name || code.length >= 2)) {
+        // Columnas en SosaCruz: Cantidad | Precio USD | Total USD
+        let cant, cost, lineTotal;
+
+        if (nums.length === 2) {
+          cant = nums[0]; cost = nums[1]; lineTotal = 0;
+        } else {
+          cant = nums[0];
+          cost = nums[nums.length - 2]; // penúltimo = precio
+          lineTotal = nums[nums.length - 1]; // último = total
         }
 
-        let code = matched ? matched.id : rawCode;
-        let name = matched ? matched.nombre : '';
-
-        // Si aún no tiene nombre, extraer descripción limpia de la línea
-        if (!name) {
-          let desc = line;
-          if (rawCode) desc = desc.replace(parts[0], '');
-          desc = desc.replace(/[\d.,]+\s*$/g, '').replace(/[\d.,]+/g, '').replace(/cajetillas|und|cig/gi, '').trim();
-          if (desc.length > 3) name = desc;
-        }
-
-        if (name || code.length >= 2) {
-          let cant = nums[0];
-          let cost = nums[1];
-          let lineTotal = nums.length >= 3 ? nums[2] : 0;
-
-          // Recuperar cantidades donde la coma decimal ',00' no se leyó (ej: 10,00 leído como 1000, 70,00 como 7000, 280,00 como 28000)
-          if (cant >= 100 && cant % 100 === 0) {
-            cant = cant / 100;
-          } else if (cant >= 100 && lineTotal > 0 && Math.abs((cant / 100) * cost - lineTotal) < 5) {
-            cant = cant / 100;
-          } else if (lineTotal > 0 && cost > 0 && Math.abs(lineTotal / cost - cant) > 2) {
-            const expectedCant = Math.round(lineTotal / cost);
-            if (expectedCant > 0 && Math.abs(expectedCant * cost - lineTotal) < 0.5) {
-              cant = expectedCant;
+        // ── DETECCIÓN DE ESCALA x100 ────────────────────────────────────────
+        // Cuando Tesseract omite TODOS los decimales:
+        //   "70,00" → 7000, "25,12" → 2512, "1.758,40" → 175840
+        // En ese caso cant*cost ≈ lineTotal (todos en centavos x100)
+        // Detectar: si cant*cost ≈ lineTotal Y cant > 100 → escala x100
+        if (lineTotal > 0 && cant > 0 && cost > 0) {
+          const rawProduct = cant * cost;
+          // Si el producto directo es ~100x el total esperado → todos están x100
+          if (Math.abs(rawProduct - lineTotal) / lineTotal < 0.02) {
+            // Cuadra directamente sin corrección → pero cant podría aún estar x100
+            // Verificar: si cant >= 100 y cant/100 * cost = lineTotal... no aplica aquí
+            // Caso A: todo correcto, sin corrección
+          } else {
+            // No cuadra directo. Probar si todo está en escala x100:
+            // cant/100 * cost/100 * 100 = lineTotal/100?  → cant/100 * cost/100 = lineTotal/10000
+            const cantN = cant / 100;
+            const costN = cost / 100;
+            const totalN = lineTotal / 100;
+            if (Math.abs(cantN * costN - totalN) / totalN < 0.02 && cantN >= 1 && costN > 0) {
+              // Todo está x100 → normalizar
+              cant = cantN;
+              cost = costN;
+              lineTotal = totalN;
+            } else {
+              // Solo precio está x100 (cantidad ya es correcta):
+              // cant * cost/100 ≈ lineTotal ?
+              const costN2 = cost / 100;
+              if (Math.abs(cant * costN2 - lineTotal) / lineTotal < 0.02) {
+                cost = costN2;
+              }
+              // Solo cantidad está x100:
+              // cant/100 * cost ≈ lineTotal ?
+              else {
+                const cantN2 = cant / 100;
+                if (Math.abs(cantN2 * cost - lineTotal) / lineTotal < 0.02) {
+                  cant = cantN2;
+                }
+              }
             }
           }
+        }
 
-          cant = Math.round(cant);
-          const computedLineTotal = cant * cost;
-
-          if (cant > 0 && cost > 0) {
-            itemsExtraidos.push({
-              codigo: code || `item-${itemsExtraidos.length + 1}`,
-              nombre: name || line,
-              cantidad: cant,
-              costoUSD: Number(cost).toFixed(2),
-              totalUSD: Number(computedLineTotal).toFixed(2),
-              totalVES: (Number(computedLineTotal) * parseFloat(tasaBCV)).toFixed(2)
-            });
-            if (code) processedCodes.add(code.toLowerCase());
+        // ── CORRECCIÓN FINAL DE CANTIDAD (total ÷ precio) ──────────────────
+        if (lineTotal > 0 && cost > 0) {
+          const exactCant = lineTotal / cost;
+          const rounded = Math.round(exactCant);
+          if (Math.abs(rounded - exactCant) < 0.01 && rounded > 0) {
+            cant = rounded;
+          } else if (cant >= 100 && cant % 100 === 0) {
+            const cantDiv100 = cant / 100;
+            if (Math.abs(cantDiv100 * cost - lineTotal) / lineTotal < 0.02) {
+              cant = Math.round(cantDiv100);
+            }
           }
+        } else if (cant >= 100 && cant % 100 === 0) {
+          cant = cant / 100;
+        }
+
+        // ── PRECIO RAZONABLE (<1000 USD/unidad) ────────────────────────────
+        if (cost > 1000) {
+          const costDiv100 = cost / 100;
+          if (costDiv100 < 1000) cost = parseFloat(costDiv100.toFixed(2));
+        }
+
+        cant = Math.round(cant);
+        const computedLineTotal = parseFloat((cant * cost).toFixed(2));
+
+        if (cant > 0 && cost > 0) {
+          itemsExtraidos.push({
+            codigo: code || `item-${itemsExtraidos.length + 1}`,
+            nombre: name || line,
+            cantidad: cant,
+            costoUSD: Number(cost).toFixed(2),
+            totalUSD: computedLineTotal.toFixed(2),
+            totalVES: (computedLineTotal * parseFloat(tasaBCV)).toFixed(2)
+          });
+          if (code) processedCodes.add(code.toLowerCase());
         }
       }
     });
