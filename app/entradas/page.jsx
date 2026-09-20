@@ -296,7 +296,7 @@ export default function EntradasPage() {
     }
   };
 
-  // Preprocesar imagen en canvas para OCR nítido con alto contraste
+  // Preprocesar imagen en canvas para OCR nítido con escala óptima
   const preprocessImage = (imageElement, angle) => {
     return new Promise((resolve) => {
       try {
@@ -304,10 +304,19 @@ export default function EntradasPage() {
           resolve(null);
           return;
         }
+        let w = imageElement.naturalWidth;
+        let h = imageElement.naturalHeight;
+
+        // Limitar resolución para que Tesseract procese con máxima precisión y rapidez (max 2200px)
+        const maxDim = 2200;
+        if (w > maxDim || h > maxDim) {
+          const scale = maxDim / Math.max(w, h);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        const w = imageElement.naturalWidth;
-        const h = imageElement.naturalHeight;
 
         if (angle === 90 || angle === 270) {
           canvas.width = h;
@@ -317,20 +326,11 @@ export default function EntradasPage() {
           canvas.height = h;
         }
 
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.translate(canvas.width / 2, canvas.height / 2);
         ctx.rotate((angle * Math.PI) / 180);
-        ctx.drawImage(imageElement, -w / 2, -h / 2);
-
-        try {
-          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const d = imgData.data;
-          for (let i = 0; i < d.length; i += 4) {
-            const avg = (d[i] + d[i+1] + d[i+2]) / 3;
-            const v = avg < 145 ? 0 : 255;
-            d[i] = v; d[i+1] = v; d[i+2] = v;
-          }
-          ctx.putImageData(imgData, 0, 0);
-        } catch (e) {}
+        ctx.drawImage(imageElement, -w / 2, -h / 2, w, h);
 
         resolve(canvas);
       } catch (err) {
@@ -346,9 +346,9 @@ export default function EntradasPage() {
     const keywords = [
       'distribuidora', 'transporte', 'entrega', 'factura', 'rif', 'nota',
       'sub-total', 'total', 'cantidad', 'precio', 'descripcion', 'cajetillas',
-      'cig', 'bcv', 'cambio', 'tasa', 'bolivares', 'dolar', 'cliente', 'belmont', 'consul'
+      'cig', 'bcv', 'cambio', 'tasa', 'bolivares', 'dolar', 'cliente', 'belmont', 'consul', 'viceroy', 'pall mall'
     ];
-    keywords.forEach(kw => { if (t.includes(kw)) score += 4; });
+    keywords.forEach(kw => { if (t.includes(kw)) score += 5; });
     const numMatches = t.match(/\d+[.,]\d{2}/g);
     if (numMatches) score += numMatches.length * 2;
     return score;
@@ -358,29 +358,38 @@ export default function EntradasPage() {
     // Limpiar menciones de empaques o presentaciones que no sean cantidades ni precios
     const cleanLine = line
       .replace(/\b\d+\s*cig(?:arrillos)?\b/gi, '')
-      .replace(/\b\d+\s*cajetillas?\b/gi, '')
-      .replace(/\b\d+\s*und(?:ades)?\b/gi, '');
+      .replace(/\b\d+\s*caj(?:etillas?)?\b/gi, '')
+      .replace(/\b\d+\s*und(?:ades)?\b/gi, '')
+      .replace(/\b\d+\s*pk\b/gi, '')
+      .replace(/[%$]/g, '');
 
-    // Buscar números con formato venezolano (ej: 1.758,40 o 25,12 o 70,00) o estándar (25.12)
-    const matches = cleanLine.match(/\b\d{1,3}(?:\.\d{3})*,\d{2}\b|\b\d+[.,]\d{2}\b|\b\d+\b/g) || [];
+    const rawMatches = cleanLine.match(/\b\d{1,3}(?:\.\d{3})*,\d{1,2}\b|\b\d{1,3}(?:,\d{3})*\.\d{1,2}\b|\b\d+[.,]\d{1,2}\b|\b\d+\b/g) || [];
     
-    return matches.map(m => {
-      let s = m;
+    const nums = [];
+    rawMatches.forEach(m => {
+      let s = m.trim();
       if (/\d+\.\d{3},\d+/.test(s)) {
         s = s.replace(/\./g, '').replace(',', '.');
+      } else if (/\d+,\d{3}\.\d+/.test(s)) {
+        s = s.replace(/,/g, '');
       } else if (/\d+,\d+/.test(s)) {
         s = s.replace(',', '.');
       }
-      return parseFloat(s) || 0;
-    }).filter(n => n > 0);
+      const val = parseFloat(s);
+      if (!isNaN(val) && val > 0) {
+        nums.push(val);
+      }
+    });
+
+    return nums;
   };
 
   const defaultKnownCatalog = [
-    { id: 'bes20', nombre: 'Belmont 20 Cig x 10 Cajetillas (E)', keywords: ['belmont 20', 'bes20', 'bes 20'] },
-    { id: 'bes10', nombre: 'Belmont 10 Cig x 12 Cajetillas (E)', keywords: ['belmont 10', 'bes10', 'bes 10'] },
-    { id: 'pal20', nombre: 'Pall Mall 20 Cig x 10 Cajetillas (E)', keywords: ['pall mall', 'pal20', 'pal 20'] },
-    { id: 'c20', nombre: 'Consul Cig x 10 Cajetillas (E)', keywords: ['consul', 'c20', 'c 20'] },
-    { id: 'vic20', nombre: 'Viceroy 20 Cig x 10 Cajetillas (E)', keywords: ['viceroy', 'vic20', 'vic 20'] },
+    { id: 'bes20', nombre: 'Belmont 20 Cig x 10 Cajetillas (E)', keywords: ['belmont 20', 'bes20', 'bes 20', 'beszo'] },
+    { id: 'bes10', nombre: 'Belmont 10 Cig x 12 Cajetillas (E)', keywords: ['belmont 10', 'bes10', 'bes 10', 'besio'] },
+    { id: 'pal20', nombre: 'Pall Mall 20 Cig x 10 Cajetillas (E)', keywords: ['pall mall', 'pal20', 'pal 20', 'palzo'] },
+    { id: 'c20', nombre: 'Consul Cig x 10 Cajetillas (E)', keywords: ['consul', 'c20', 'c 20', 'czo'] },
+    { id: 'vic20', nombre: 'Viceroy 20 Cig x 10 Cajetillas (E)', keywords: ['viceroy', 'vic20', 'vic 20', 'viczo'] },
     { id: 'univ20', nombre: 'Universal 20 Cig x 10 Cajetillas (E)', keywords: ['universal', 'univ20', 'univ 20', 'uni20'] },
     { id: 'lnv', nombre: 'Lucky Nova 20 Cig x 10 Cajetillas (E)', keywords: ['lucky nova', 'lnv', 'inv', '1nv'] },
     { id: 'icc', nombre: 'Lucky Cosmic 20 Cig x 10 Cajetillas (E)', keywords: ['lucky cosmic', 'icc', '1cc'] },
@@ -514,6 +523,14 @@ export default function EntradasPage() {
           let cost = nums[1];
           let lineTotal = nums.length >= 3 ? nums[2] : cant * cost;
 
+          // Auto-consistencia matemática
+          if (nums.length >= 3) {
+            const calcTot = cant * cost;
+            if (Math.abs(calcTot - lineTotal) > 1 && Math.abs(lineTotal / cant - cost) < 0.1) {
+              cost = lineTotal / cant;
+            }
+          }
+
           if (cant > 0 && cost > 0) {
             itemsExtraidos.push({
               codigo: code || `item-${itemsExtraidos.length + 1}`,
@@ -577,16 +594,16 @@ export default function EntradasPage() {
           });
         }
 
-        // Evaluar orientaciones
+        // Evaluar orientaciones: 0° primero, luego 270°, 90°, 180°
         const anglesToTest = [0, 270, 90, 180];
         let bestText = '';
         let bestAngle = 0;
         let highestScore = -1;
 
         for (const angle of anglesToTest) {
-          setOcrText(`Evaluando orientación y contraste (${angle}°)...`);
+          setOcrText(`Digitalizando factura (${angle}°)...`);
           const canvas = await preprocessImage(tempImg, angle);
-          const imageSource = canvas ? canvas.toDataURL('image/png') : file;
+          const imageSource = canvas ? canvas.toDataURL('image/jpeg', 0.95) : file;
 
           const result = await window.Tesseract.recognize(imageSource, 'spa+eng', {
             logger: m => {
@@ -604,7 +621,7 @@ export default function EntradasPage() {
             bestText = txt;
             bestAngle = angle;
           }
-          if (score >= 35) break;
+          if (score >= 40) break;
         }
 
         setImgRotation(bestAngle);
