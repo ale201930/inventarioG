@@ -529,8 +529,8 @@ export default function SalidasPage() {
             <div>• <strong>0102 0467 4500 0096 7787</strong> <span style="font-size:8.5px">(JORGE FLORES)</span></div>
           </div>
           <div style="border-top:1px dashed #000; margin:6px 0;"></div>
-          <div style="font-size:10px; font-weight:normal; text-align:center; color:#000; line-height:1.45; padding-top:3px;">
-            <strong>NOTA:</strong> Los pagos en Bs. emitidos en fines de semana o feriados se calculan a la tasa oficial BCV fijada para el siguiente día hábil (Art. 25 Ley del IVA).
+          <div style="font-size:9.5px; font-weight:400; text-align:center; color:#000; line-height:1.4; padding-top:2px;">
+            NOTA: Los pagos en Bs. emitidos en fines de semana o feriados se calculan a la tasa oficial BCV fijada para el siguiente día hábil (Art. 25 Ley del IVA).
           </div>
         </div>
       </div>
@@ -601,8 +601,8 @@ export default function SalidasPage() {
           <div>\u2022 <strong>0102 0467 4500 0096 7787</strong> <span style="font-size:15px;">(JORGE FLORES)</span></div>
         </div>
         <div style="border-top:2px dashed #000; margin:10px 0;"></div>
-        <div style="font-size:16px; font-weight:normal; text-align:center; color:#000; line-height:1.45; padding-top:4px;">
-          <strong>NOTA:</strong> Los pagos en Bs. emitidos en fines de semana o feriados se calculan a la tasa oficial BCV fijada para el siguiente d\u00eda h\u00e1bil (Art. 25 Ley del IVA).
+        <div style="font-size:15px; font-weight:400; text-align:center; color:#000; line-height:1.4; padding-top:2px;">
+          NOTA: Los pagos en Bs. emitidos en fines de semana o feriados se calculan a la tasa oficial BCV fijada para el siguiente d\u00eda h\u00e1bil (Art. 25 Ley del IVA).
         </div>
       </div>
     `;
@@ -870,8 +870,8 @@ export default function SalidasPage() {
                 <div>• <strong>0102 0467 4500 0096 7787</strong> <span style="font-size:15px;">(JORGE FLORES)</span></div>
               </div>
               <div style="border-top:2px dashed #000; margin:10px 0;"></div>
-              <div style="font-size:16px; font-weight:normal; text-align:center; color:#000; line-height:1.45; padding-top:4px;">
-                <strong>NOTA:</strong> Los pagos en Bs. emitidos en fines de semana o feriados se calculan a la tasa oficial BCV fijada para el siguiente d\u00eda h\u00e1bil (Art. 25 Ley del IVA).
+              <div style="font-size:15px; font-weight:400; text-align:center; color:#000; line-height:1.4; padding-top:2px;">
+                NOTA: Los pagos en Bs. emitidos en fines de semana o feriados se calculan a la tasa oficial BCV fijada para el siguiente d\u00eda h\u00e1bil (Art. 25 Ley del IVA).
               </div>
             </div>
           `;
@@ -1000,8 +1000,8 @@ export default function SalidasPage() {
       <div>• <strong>0102 0467 4500 0096 7787</strong> <span style="font-size: 8.5px; color: #000;">(JORGE FLORES)</span></div>
     </div>
     <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
-    <div style="font-size: 10px; font-weight: normal; text-align: center; color: #000; line-height: 1.45; padding-top: 3px;">
-      <strong>NOTA:</strong> Los pagos en Bs. emitidos en fines de semana o feriados se calculan a la tasa oficial BCV fijada para el siguiente día hábil (Art. 25 Ley del IVA).
+    <div style="font-size: 9.5px; font-weight: 400; text-align: center; color: #000; line-height: 1.4; padding-top: 2px;">
+      NOTA: Los pagos en Bs. emitidos en fines de semana o feriados se calculan a la tasa oficial BCV fijada para el siguiente día hábil (Art. 25 Ley del IVA).
     </div>
   </div>`;
 
@@ -1479,8 +1479,8 @@ export default function SalidasPage() {
                       <div>• <strong>0102 0467 4500 0096 7787</strong> <span style={{fontSize:'8.5px', color:'#000'}}>(JORGE FLORES)</span></div>
                     </div>
                     <div style={{borderTop:'1px dashed #000', margin:'6px 0'}}></div>
-                    <div style={{fontSize:'10px', fontWeight:'normal', textAlign:'center', color:'#000', lineHeight:1.45, paddingTop:'3px'}}>
-                      <strong>NOTA:</strong> Los pagos en Bs. emitidos en fines de semana o feriados se calculan a la tasa oficial BCV fijada para el siguiente día hábil (Art. 25 Ley del IVA).
+                    <div style={{fontSize:'9.5px', fontWeight:400, textAlign:'center', color:'#000', lineHeight:1.4, paddingTop:'2px'}}>
+                      NOTA: Los pagos en Bs. emitidos en fines de semana o feriados se calculan a la tasa oficial BCV fijada para el siguiente día hábil (Art. 25 Ley del IVA).
                     </div>
                   </div>
                 </div>
