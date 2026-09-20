@@ -613,6 +613,8 @@ export default function EntradasPage() {
       totalUSD: calcTotalUSD.toFixed(2),
       totalVES: calcTotalVES.toFixed(2)
     }));
+
+    return itemsExtraidos.length;
   };
 
   const handleOCR = async (file) => {
@@ -672,8 +674,8 @@ export default function EntradasPage() {
 
         setImgRotation(bestAngle);
         setOcrText('Extrayendo datos de la factura: proveedor, RIF, número, tasa BCV, precios y renglones...');
-        parseAndFillOCRText(bestText, bcvTasa);
-        setOcrText('✅ Factura digitalizada correctamente. Todos los datos han sido cargados.');
+        const count = parseAndFillOCRText(bestText, bcvTasa);
+        setOcrText(`✅ Digitalizado con éxito: ${count} renglón(es) cargados y validados.`);
       } else {
         setOcrText('⚠️ Motor OCR aún cargando. Puedes ingresar los datos manualmente.');
       }
