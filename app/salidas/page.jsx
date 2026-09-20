@@ -438,58 +438,133 @@ export default function SalidasPage() {
     const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
     const cleanFecha = String(lastSalida.fecha || '').split('T')[0];
 
-    // 1. En teléfonos Android, capturar el ticket visual en ultra-alta resolución con binarización de contraste puro (1-bit)
+    // 1. En teléfonos Android, renderizar a ancho completo de 80mm con tipografía grande y binarización 1-bit
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
     if (isAndroid) {
       try {
-        const ticketEl = document.getElementById('ticketPrintableArea');
-        if (ticketEl) {
-          let h2c = window.html2canvas;
-          if (!h2c) {
-            await new Promise((resolve) => {
-              const script = document.createElement('script');
-              script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-              script.onload = () => { h2c = window.html2canvas; resolve(); };
-              script.onerror = () => resolve();
-              document.head.appendChild(script);
-            });
+        let h2c = window.html2canvas;
+        if (!h2c) {
+          await new Promise((resolve) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+            script.onload = () => { h2c = window.html2canvas; resolve(); };
+            script.onerror = () => resolve();
+            document.head.appendChild(script);
+          });
+        }
+
+        if (h2c) {
+          const printDiv = document.createElement('div');
+          printDiv.style.position = 'fixed';
+          printDiv.style.left = '-9999px';
+          printDiv.style.top = '0';
+          printDiv.style.width = '530px';
+          printDiv.style.background = '#ffffff';
+          printDiv.style.color = '#000000';
+          printDiv.style.padding = '10px 4px';
+          printDiv.style.fontFamily = 'Arial, Helvetica, sans-serif';
+          printDiv.style.boxSizing = 'border-box';
+          printDiv.style.lineHeight = '1.35';
+
+          printDiv.innerHTML = `
+            <div style="text-align:center; font-weight:800; font-size:22px; margin-bottom:2px;">BESTEDA 2, C.A.</div>
+            <div style="text-align:center; font-weight:700; font-size:14.5px; margin:2px 0;">RIF: J-40529263-6</div>
+            <div style="text-align:center; font-size:13.5px; margin:1px 0;">Calle Principal Casa Nº A-13, Urb. Alto de Fenix II</div>
+            <div style="text-align:center; font-size:13.5px; margin:1px 0;">San Juan de los Morros - Estado Guárico</div>
+            <div style="text-align:center; font-size:13.5px; margin:1px 0;">Tlfs: 0424-313.68.05 / 0424-300.48.02</div>
+            
+            <hr style="border:none; border-top:2px solid #000; margin:10px 0;" />
+            
+            <div style="text-align:center; font-weight:800; font-size:19px; letter-spacing:0.5px;">NOTA DE ENTREGA</div>
+            <div style="text-align:center; font-weight:800; font-size:19px; margin-top:2px;">Nº ${lastSalida.factura_number}</div>
+            
+            <hr style="border:none; border-top:1.5px dashed #000; margin:10px 0;" />
+            
+            <div style="display:flex; justify-content:space-between; font-size:15px; padding:2.5px 0;"><b>FECHA:</b><span>${cleanFecha}</span></div>
+            <div style="display:flex; justify-content:space-between; font-size:15px; padding:2.5px 0;"><b>CLIENTE:</b><span style="font-weight:700;">${lastSalida.cliente_name || ''}</span></div>
+            <div style="display:flex; justify-content:space-between; font-size:15px; padding:2.5px 0;"><b>C.I./RIF:</b><span>${lastSalida.cedula_rif || '—'}</span></div>
+            <div style="display:flex; justify-content:space-between; font-size:15px; padding:2.5px 0;"><b>TELF:</b><span>${lastSalida.telefono || '—'}</span></div>
+            <div style="display:flex; justify-content:space-between; font-size:15px; padding:2.5px 0;"><b>DIR:</b><span>${lastSalida.direccion || '—'}</span></div>
+            
+            <hr style="border:none; border-top:1.5px dashed #000; margin:10px 0;" />
+            
+            <table style="width:100%; border-collapse:collapse; font-size:15px; margin:8px 0; table-layout:fixed;">
+              <thead>
+                <tr style="border-bottom:2px solid #000;">
+                  <th style="text-align:left; width:12%; padding:4px 0; font-size:14.5px; font-weight:800;">CAN</th>
+                  <th style="text-align:left; width:46%; padding:4px 0; font-size:14.5px; font-weight:800;">DESCRIPCIÓN</th>
+                  <th style="text-align:right; width:21%; padding:4px 0; font-size:14.5px; font-weight:800;">P/U</th>
+                  <th style="text-align:right; width:21%; padding:4px 0; font-size:14.5px; font-weight:800;">TOTAL</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items.map(it => {
+                  const pu = Number(it.precioUnitario || it.precio_unitario || 0);
+                  const cant = Number(it.cantidad || 0);
+                  const tot = pu * cant;
+                  return `
+                    <tr style="border-bottom:1px dashed #000;">
+                      <td style="padding:6px 0; vertical-align:top; font-size:15px; font-weight:700;">${cant}</td>
+                      <td style="padding:6px 0; vertical-align:top; font-size:15px; font-weight:700; word-break:break-word;">${it.productoNombre || it.producto_nombre}</td>
+                      <td style="text-align:right; padding:6px 0; vertical-align:top; font-size:15px;">$${pu.toFixed(2)}</td>
+                      <td style="text-align:right; padding:6px 0; vertical-align:top; font-size:15px; font-weight:800;">$${tot.toFixed(2)}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+            
+            <hr style="border:none; border-top:2px solid #000; margin:10px 0;" />
+            
+            <div style="display:flex; justify-content:space-between; font-weight:800; font-size:19px; margin:12px 0;">
+              <span>UND: ${totalUnits}</span>
+              <span>TOTAL: $${Number(lastSalida.total_factura || 0).toFixed(2)}</span>
+            </div>
+            
+            <div style="border:2px solid #000; border-radius:8px; padding:10px 12px; margin:12px 0 6px 0; background:#fff; font-size:13px; line-height:1.45; color:#000;">
+              <div style="font-weight:800; font-size:14px; text-align:center; margin-bottom:6px;">— PAGO MÓVIL BDV —</div>
+              <div style="display:flex; flex-direction:column; gap:3px;">
+                <div>• <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3136805</strong> &nbsp;|&nbsp; C.I. 10.668.263</div>
+                <div>• <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3004802</strong> &nbsp;|&nbsp; C.I. 28.012.615</div>
+              </div>
+              <div style="border-top:1.5px dashed #000; margin:8px 0;"></div>
+              <div style="font-weight:800; font-size:14px; text-align:center; margin-bottom:6px;">— DEPÓSITO BANCARIO BDV —</div>
+              <div style="display:flex; flex-direction:column; gap:3px;">
+                <div>• <strong>0102 0467 4501 0162 8166</strong> <span style="font-size:11.5px;">(JUAN MORA)</span></div>
+                <div>• <strong>0102 0467 4500 0096 7787</strong> <span style="font-size:11.5px;">(JORGE FLORES)</span></div>
+              </div>
+            </div>
+          `;
+
+          document.body.appendChild(printDiv);
+
+          const canvas = await h2c(printDiv, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            logging: false,
+            width: 530
+          });
+
+          document.body.removeChild(printDiv);
+
+          // Binarización de alto contraste (1-bit)
+          const ctx = canvas.getContext('2d');
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const d = imgData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+            const val = lum < 210 ? 0 : 255;
+            d[i] = val;
+            d[i + 1] = val;
+            d[i + 2] = val;
+            d[i + 3] = 255;
           }
+          ctx.putImageData(imgData, 0, 0);
 
-          if (h2c) {
-            const prevMaxHeight = ticketEl.style.maxHeight;
-            const prevOverflow = ticketEl.style.overflow;
-            ticketEl.style.maxHeight = 'none';
-            ticketEl.style.overflow = 'visible';
-
-            const canvas = await h2c(ticketEl, {
-              scale: 3,
-              backgroundColor: '#ffffff',
-              useCORS: true,
-              logging: false
-            });
-
-            ticketEl.style.maxHeight = prevMaxHeight;
-            ticketEl.style.overflow = prevOverflow;
-
-            // Binarización de alto contraste: convierte grises de antialiasing en negro puro (#000000)
-            // Esto elimina el efecto borroso/dithering y logra que el cabezal térmico imprima con máxima nitidez
-            const ctx = canvas.getContext('2d');
-            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const d = imgData.data;
-            for (let i = 0; i < d.length; i += 4) {
-              const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-              const val = lum < 210 ? 0 : 255;
-              d[i] = val;
-              d[i + 1] = val;
-              d[i + 2] = val;
-              d[i + 3] = 255;
-            }
-            ctx.putImageData(imgData, 0, 0);
-
-            const base64Png = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
-            window.location.href = `rawbt:data:image/png;base64,${base64Png}`;
-            return;
-          }
+          const base64Png = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+          window.location.href = `rawbt:data:image/png;base64,${base64Png}`;
+          return;
         }
       } catch (e) {
         console.error('Error generando imagen para RawBT:', e);
