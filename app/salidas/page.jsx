@@ -16,6 +16,7 @@ export default function SalidasPage() {
   const [searchText, setSearchText] = useState('');
   const [filterFecha, setFilterFecha] = useState('');
   const [selectedVendedorFilter, setSelectedVendedorFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('todas');
   const [bcvTasa, setBcvTasa] = useState(798.33);
   const [showModal, setShowModal] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
@@ -213,12 +214,24 @@ export default function SalidasPage() {
   useEffect(() => { load(); }, []);
   useEffect(() => { fetch('/api/bcv').then(r=>r.json()).then(d => { if(d.success) setBcvTasa(d.data.tasaHoy); }); }, []);
 
+  const totalCount = salidas.length;
+  const pendientesCount = salidas.filter(s => parseFloat(s.saldo_adeudado || 0) > 0.001).length;
+  const saldadasCount = salidas.filter(s => parseFloat(s.saldo_adeudado || 0) <= 0.001).length;
+
   const filteredSalidas = salidas.filter(s => {
     const q = searchText.toLowerCase();
     const matchText = !q || (s.cliente_name||'').toLowerCase().includes(q) || (s.factura_number||'').includes(q) || (s.vendedor_name||'').toLowerCase().includes(q);
     const matchFecha = !filterFecha || s.fecha === filterFecha;
     const matchVendedor = !selectedVendedorFilter || (s.vendedor_name || '').toLowerCase() === selectedVendedorFilter.toLowerCase();
-    return matchText && matchFecha && matchVendedor;
+    
+    const saldo = parseFloat(s.saldo_adeudado || 0);
+    const matchStatus = statusFilter === 'todas'
+      ? true
+      : statusFilter === 'pendientes'
+        ? saldo > 0.001
+        : saldo <= 0.001;
+
+    return matchText && matchFecha && matchVendedor && matchStatus;
   });
 
   const selectProduct = (i, prodId) => {
@@ -1106,8 +1119,106 @@ export default function SalidasPage() {
 
       {/* Tabla Historial */}
       <div className="table-container">
-        <div style={{padding:'1rem 1.25rem', background:'#fff', borderBottom:'1px solid var(--border-color)', display:'flex', flexWrap:'wrap', gap:'0.75rem', alignItems:'center', justifyContent:'space-between'}}>
-          <h3 style={{fontSize:'1rem', fontWeight:600}}><i className="fa-solid fa-receipt"></i> Historial de Ventas y Facturación</h3>
+        <div style={{padding:'1rem 1.25rem', background:'#fff', borderBottom:'1px solid var(--border-color)', display:'flex', flexWrap:'wrap', gap:'0.85rem', alignItems:'center', justifyContent:'space-between'}}>
+          {/* Botones Filtro de Estado: Todas / Pendientes / Saldadas */}
+          <div style={{display:'flex', gap:'0.45rem', flexWrap:'wrap', alignItems:'center'}}>
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{
+                fontWeight: 700,
+                fontSize: '0.82rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                padding: '0.45rem 0.85rem',
+                borderRadius: 8,
+                background: statusFilter === 'todas' ? '#0284c7' : '#f8fafc',
+                color: statusFilter === 'todas' ? '#fff' : '#475569',
+                border: `1.5px solid ${statusFilter === 'todas' ? '#0284c7' : '#e2e8f0'}`,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onClick={() => setStatusFilter('todas')}
+            >
+              <i className="fa-solid fa-list-ul"></i> Todas
+              <span style={{
+                background: statusFilter === 'todas' ? 'rgba(255,255,255,0.28)' : '#e2e8f0',
+                color: statusFilter === 'todas' ? '#fff' : '#334155',
+                padding: '1px 6px',
+                borderRadius: 10,
+                fontSize: '0.72rem',
+                fontWeight: 800
+              }}>
+                {totalCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{
+                fontWeight: 700,
+                fontSize: '0.82rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                padding: '0.45rem 0.85rem',
+                borderRadius: 8,
+                background: statusFilter === 'pendientes' ? '#dc2626' : '#fff5f5',
+                color: statusFilter === 'pendientes' ? '#fff' : '#b91c1c',
+                border: `1.5px solid ${statusFilter === 'pendientes' ? '#dc2626' : '#fecaca'}`,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onClick={() => setStatusFilter('pendientes')}
+            >
+              <i className="fa-solid fa-clock"></i> Pendientes por Cobrar
+              <span style={{
+                background: statusFilter === 'pendientes' ? 'rgba(255,255,255,0.3)' : '#fee2e2',
+                color: statusFilter === 'pendientes' ? '#fff' : '#991b1b',
+                padding: '1px 6px',
+                borderRadius: 10,
+                fontSize: '0.72rem',
+                fontWeight: 800
+              }}>
+                {pendientesCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{
+                fontWeight: 700,
+                fontSize: '0.82rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                padding: '0.45rem 0.85rem',
+                borderRadius: 8,
+                background: statusFilter === 'saldadas' ? '#16a34a' : '#f0fdf4',
+                color: statusFilter === 'saldadas' ? '#fff' : '#15803d',
+                border: `1.5px solid ${statusFilter === 'saldadas' ? '#16a34a' : '#bbf7d0'}`,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onClick={() => setStatusFilter('saldadas')}
+            >
+              <i className="fa-solid fa-circle-check"></i> Saldadas / Pagadas
+              <span style={{
+                background: statusFilter === 'saldadas' ? 'rgba(255,255,255,0.3)' : '#dcfce7',
+                color: statusFilter === 'saldadas' ? '#fff' : '#166534',
+                padding: '1px 6px',
+                borderRadius: 10,
+                fontSize: '0.72rem',
+                fontWeight: 800
+              }}>
+                {saldadasCount}
+              </span>
+            </button>
+          </div>
+
           <div style={{display:'flex', gap:'0.6rem', flexWrap:'wrap', alignItems:'center'}}>
             {selectedIds.size > 0 && (
               <button
@@ -1141,10 +1252,24 @@ export default function SalidasPage() {
               ))}
             </select>
             <input type="date" className="form-control" style={{minHeight:36, width:'auto', fontSize:'0.85rem'}} value={filterFecha} onChange={e=>setFilterFecha(e.target.value)} />
-            <button className="btn btn-secondary btn-sm" onClick={()=>{ setFilterFecha(''); setSelectedVendedorFilter(''); }} title="Limpiar filtros"><i className="fa-solid fa-xmark"></i></button>
+            <button className="btn btn-secondary btn-sm" onClick={()=>{ setFilterFecha(''); setSelectedVendedorFilter(''); setStatusFilter('todas'); setSearchText(''); }} title="Limpiar filtros"><i className="fa-solid fa-xmark"></i></button>
             <input type="text" className="form-control" placeholder="🔍 Buscar cliente, Nº factura, vendedor..." style={{maxWidth:220, minHeight:36, fontSize:'0.85rem'}} value={searchText} onChange={e=>setSearchText(e.target.value)} />
           </div>
         </div>
+
+        {/* Resumen informativo cuando se activa el filtro Pendientes */}
+        {statusFilter === 'pendientes' && (
+          <div style={{background: '#fff1f2', borderBottom: '1px solid #fecdd3', padding: '0.65rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.85rem', color: '#9f1239'}}>
+            <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+              <i className="fa-solid fa-hand-holding-dollar" style={{color: '#e11d48', fontSize: '1rem'}}></i>
+              <span>Facturas Pendientes: <strong>{filteredSalidas.length}</strong></span>
+            </div>
+            <div style={{display: 'flex', alignItems: 'center', gap: '1rem', fontWeight: 700}}>
+              <span>Total por Cobrar: <strong style={{color: '#be123c', fontSize:'0.95rem'}}>${filteredSalidas.reduce((s, r) => s + parseFloat(r.saldo_adeudado || 0), 0).toFixed(2)} USD</strong></span>
+              <span style={{color: '#881337', fontWeight: 600}}>(Bs. {(filteredSalidas.reduce((s, r) => s + parseFloat(r.saldo_adeudado || 0), 0) * bcvTasa).toLocaleString('es-VE', {minimumFractionDigits: 2})})</span>
+            </div>
+          </div>
+        )}
 
         {selectedVendedorFilter && (
           <div style={{background: '#f0fdf4', borderBottom: '1px solid #bbf7d0', padding: '0.65rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.85rem', color: '#166534'}}>
