@@ -647,23 +647,20 @@ export default function SalidasPage() {
         canvases.push(canvas);
       }
 
-      // Concatenar todos los canvases verticalmente en uno solo
-      const totalHeight = canvases.reduce((sum, c) => sum + c.height, 0);
-      const combined = document.createElement('canvas');
-      combined.width = 576;
-      combined.height = totalHeight;
-      const ctxCombined = combined.getContext('2d');
-      ctxCombined.fillStyle = '#ffffff';
-      ctxCombined.fillRect(0, 0, 576, totalHeight);
-      let y = 0;
-      for (const c of canvases) {
-        ctxCombined.drawImage(c, 0, y);
-        y += c.height;
+      // Enviar cada nota como trabajo independiente a RawBT → la impresora pica entre cada una
+      for (let i = 0; i < canvases.length; i++) {
+        const base64Png = canvases[i].toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+        const link = document.createElement('a');
+        link.href = `rawbt:data:image/png;base64,${base64Png}`;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        // Esperar antes de la siguiente para que RawBT procese cada trabajo por separado
+        if (i < canvases.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1400));
+        }
       }
-
-      // Enviar a RawBT igual que printTicket
-      const base64Png = combined.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
-      window.location.href = `rawbt:data:image/png;base64,${base64Png}`;
 
     } catch (e) {
       console.error('Error en impresión múltiple:', e);
