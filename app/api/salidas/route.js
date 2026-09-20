@@ -24,6 +24,18 @@ export async function GET(request) {
       return NextResponse.json({ success: true, nextNumber: String(nextNum) });
     }
 
+    if (action === 'vendedores') {
+      await query(`
+        CREATE TABLE IF NOT EXISTS \`vendedores\` (
+          \`id\` VARCHAR(50) PRIMARY KEY,
+          \`nombre\` VARCHAR(150) NOT NULL UNIQUE,
+          \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `).catch(() => {});
+      const rows = await query('SELECT id, nombre, created_at FROM vendedores ORDER BY nombre ASC');
+      return NextResponse.json({ success: true, data: rows });
+    }
+
     if (action === 'clientes') {
       const rows = await query(
         `SELECT id, cliente_name, cedula_rif, telefono, direccion, total_factura, saldo_adeudado, created_at
@@ -181,11 +193,19 @@ export async function POST(request) {
       totalFactura += parseInt(item.cantidad ?? 0) * parseFloat(item.precioUnitario ?? 0);
     }
 
+    const vendedor = (input.vendedorName || '').trim();
+    if (vendedor) {
+      await conn.execute(
+        'INSERT IGNORE INTO vendedores (id, nombre) VALUES (?, ?)',
+        ['vend_' + Math.random().toString(36).slice(2, 10), vendedor]
+      ).catch(() => {});
+    }
+
     await conn.execute(
       `INSERT INTO salidas (id, tipo_documento, cliente_name, cedula_rif, telefono, direccion, vendedor_name, factura_number, total_unidades, total_factura, saldo_adeudado, fecha, observaciones)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [id, 'NOTA DE ENTREGA', input.clienteName.trim(), input.cedulaRif||'', input.telefono||'', input.direccion||'',
-       input.vendedorName||'JUAN MORA', facturaNumber, totalUnidades, totalFactura, totalFactura, fecha, input.observaciones||'']
+       vendedor, facturaNumber, totalUnidades, totalFactura, totalFactura, fecha, input.observaciones||'']
     );
 
     for (const item of items) {

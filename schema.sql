@@ -115,3 +115,11 @@ CREATE TABLE IF NOT EXISTS `abonos_salidas` (
     INDEX (`cliente_name`),
     CONSTRAINT `fk_abonos_salidas_salida` FOREIGN KEY (`salida_id`) REFERENCES `salidas` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Tabla de Vendedores
+CREATE TABLE IF NOT EXISTS `vendedores` (
+    `id` VARCHAR(50) PRIMARY KEY,
+    `nombre` VARCHAR(150) NOT NULL UNIQUE,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

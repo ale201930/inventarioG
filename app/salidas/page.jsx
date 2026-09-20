@@ -11,9 +11,11 @@ export default function SalidasPage() {
   const [salidas, setSalidas] = useState([]);
   const [productos, setProductos] = useState([]);
   const [clientes, setClientes] = useState([]);
+  const [vendedores, setVendedores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [filterFecha, setFilterFecha] = useState('');
+  const [selectedVendedorFilter, setSelectedVendedorFilter] = useState('');
   const [bcvTasa, setBcvTasa] = useState(798.33);
   const [showModal, setShowModal] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
@@ -44,7 +46,7 @@ export default function SalidasPage() {
 
   const [form, setForm] = useState({
     clienteName:'', cedulaRif:'', telefono:'', fecha:today(), direccion:'',
-    vendedorName:'JUAN MORA', facturaNumber:'', observaciones:'',
+    vendedorName:'', facturaNumber:'', observaciones:'',
     items:[emptyItem()]
   });
   const [abonoForm, setAbonoForm] = useState({ salidaId:'', clienteName:'', montoUSD:0, montoVES:0, referencia:'', fecha:today() });
@@ -75,10 +77,12 @@ export default function SalidasPage() {
       fetch('/api/salidas').then(r=>r.json()),
       fetch('/api/inventario').then(r=>r.json()),
       fetch('/api/salidas?action=clientes').then(r=>r.json()),
-    ]).then(([sal, inv, cli]) => {
+      fetch('/api/vendedores').then(r=>r.json()),
+    ]).then(([sal, inv, cli, vend]) => {
       if(sal.success) setSalidas(sal.data);
       if(inv.success) setProductos(inv.data);
       if(cli.success) setClientes(cli.data);
+      if(vend.success) setVendedores(vend.data);
     }).finally(() => setLoading(false));
   };
 
@@ -211,9 +215,10 @@ export default function SalidasPage() {
 
   const filteredSalidas = salidas.filter(s => {
     const q = searchText.toLowerCase();
-    const matchText = !q || s.cliente_name.toLowerCase().includes(q) || (s.factura_number||'').includes(q);
+    const matchText = !q || (s.cliente_name||'').toLowerCase().includes(q) || (s.factura_number||'').includes(q) || (s.vendedor_name||'').toLowerCase().includes(q);
     const matchFecha = !filterFecha || s.fecha === filterFecha;
-    return matchText && matchFecha;
+    const matchVendedor = !selectedVendedorFilter || (s.vendedor_name || '').toLowerCase() === selectedVendedorFilter.toLowerCase();
+    return matchText && matchFecha && matchVendedor;
   });
 
   const selectProduct = (i, prodId) => {
@@ -322,7 +327,7 @@ export default function SalidasPage() {
         load();
         setShowModal(false);
         if (printTicket) setShowTicketModal(true);
-        setForm({ clienteName:'', cedulaRif:'', telefono:'', fecha:today(), direccion:'', vendedorName:'JUAN MORA', facturaNumber:'', observaciones:'', items:[emptyItem()] });
+        setForm({ clienteName:'', cedulaRif:'', telefono:'', fecha:today(), direccion:'', vendedorName:'', facturaNumber:'', observaciones:'', items:[emptyItem()] });
       } else {
         setConfirmDialog({
           isOpen: true,
@@ -419,16 +424,20 @@ export default function SalidasPage() {
       if (d.success && d.nextNumber) nextNum = d.nextNumber;
     } catch {}
 
-    // Refrescar lista de clientes siempre al abrir el modal para que incluya cualquier cliente nuevo recién guardado
+    // Refrescar lista de clientes y vendedores siempre al abrir el modal
     fetch('/api/salidas?action=clientes')
       .then(r => r.json())
       .then(d => { if (d.success) setClientes(d.data); })
+      .catch(() => {});
+    fetch('/api/vendedores')
+      .then(r => r.json())
+      .then(d => { if (d.success) setVendedores(d.data); })
       .catch(() => {});
 
     setSelectedClienteKey('');
     setForm({
       clienteName: '', cedulaRif: '', telefono: '', fecha: today(), direccion: '',
-      vendedorName: 'JUAN MORA', facturaNumber: nextNum, observaciones: '',
+      vendedorName: '', facturaNumber: nextNum, observaciones: '',
       items: [emptyItem()]
     });
     setShowModal(true);
@@ -477,6 +486,7 @@ export default function SalidasPage() {
         <hr class="divider-dashed" />
         <table class="info-table">
           <tr><td class="info-label">FECHA:</td><td class="info-val">${cleanFecha}</td></tr>
+          ${(salida.vendedor_name || salida.vendedorName) ? `<tr><td class="info-label">VENDEDOR:</td><td class="info-val">${salida.vendedor_name || salida.vendedorName}</td></tr>` : ''}
           <tr><td class="info-label">CLIENTE:</td><td class="info-val">${salida.cliente_name || ''}</td></tr>
           <tr><td class="info-label">C.I./RIF:</td><td class="info-val">${salida.cedula_rif || '—'}</td></tr>
           <tr><td class="info-label">TELF:</td><td class="info-val">${salida.telefono || '—'}</td></tr>
@@ -486,7 +496,7 @@ export default function SalidasPage() {
         <table class="items-table">
           <thead>
             <tr>
-              <th style="width:12%">CAN</th>
+              <th style="width:12%">CANT</th>
               <th style="width:46%">DESCRIPCIÓN</th>
               <th style="width:21%; text-align:right">P/U</th>
               <th style="width:21%; text-align:right">TOTAL</th>
@@ -540,6 +550,7 @@ export default function SalidasPage() {
       <div style="text-align:center; font-weight:800; font-size:27px; margin-top:2px;">N\u00ba ${salida.factura_number}</div>
       <hr style="border:none; border-top:2.5px dashed #000; margin:12px 0;" />
       <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>FECHA:</b><span>${cleanFecha}</span></div>
+      ${(salida.vendedor_name || salida.vendedorName) ? `<div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>VENDEDOR:</b><span style="font-weight:700;">${salida.vendedor_name || salida.vendedorName}</span></div>` : ''}
       <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>CLIENTE:</b><span style="font-weight:700;">${salida.cliente_name || ''}</span></div>
       <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>C.I./RIF:</b><span>${salida.cedula_rif || '\u2014'}</span></div>
       <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>TELF:</b><span>${salida.telefono || '\u2014'}</span></div>
@@ -548,7 +559,7 @@ export default function SalidasPage() {
       <table style="width:100%; border-collapse:collapse; font-size:20.5px; margin:12px 0; table-layout:fixed;">
         <thead>
           <tr style="border-bottom:3px solid #000;">
-            <th style="text-align:left; width:12%; padding:6px 0; font-size:19.5px; font-weight:800;">CAN</th>
+            <th style="text-align:left; width:12%; padding:6px 0; font-size:19.5px; font-weight:800;">CANT</th>
             <th style="text-align:left; width:46%; padding:6px 0; font-size:19.5px; font-weight:800;">DESCRIPCI\u00d3N</th>
             <th style="text-align:right; width:21%; padding:6px 0; font-size:19.5px; font-weight:800;">P/U</th>
             <th style="text-align:right; width:21%; padding:6px 0; font-size:19.5px; font-weight:800;">TOTAL</th>
@@ -797,6 +808,7 @@ export default function SalidasPage() {
             <hr style="border:none; border-top:2.5px dashed #000; margin:12px 0;" />
             
             <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>FECHA:</b><span>${cleanFecha}</span></div>
+            ${(lastSalida.vendedor_name || lastSalida.vendedorName) ? `<div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>VENDEDOR:</b><span style="font-weight:700;">${lastSalida.vendedor_name || lastSalida.vendedorName}</span></div>` : ''}
             <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>CLIENTE:</b><span style="font-weight:700;">${lastSalida.cliente_name || ''}</span></div>
             <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>C.I./RIF:</b><span>${lastSalida.cedula_rif || '—'}</span></div>
             <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>TELF:</b><span>${lastSalida.telefono || '—'}</span></div>
@@ -807,7 +819,7 @@ export default function SalidasPage() {
             <table style="width:100%; border-collapse:collapse; font-size:20.5px; margin:12px 0; table-layout:fixed;">
               <thead>
                 <tr style="border-bottom:3px solid #000;">
-                  <th style="text-align:left; width:12%; padding:6px 0; font-size:19.5px; font-weight:800;">CAN</th>
+                  <th style="text-align:left; width:12%; padding:6px 0; font-size:19.5px; font-weight:800;">CANT</th>
                   <th style="text-align:left; width:46%; padding:6px 0; font-size:19.5px; font-weight:800;">DESCRIPCIÓN</th>
                   <th style="text-align:right; width:21%; padding:6px 0; font-size:19.5px; font-weight:800;">P/U</th>
                   <th style="text-align:right; width:21%; padding:6px 0; font-size:19.5px; font-weight:800;">TOTAL</th>
@@ -926,6 +938,7 @@ export default function SalidasPage() {
   <hr class="divider-dashed" />
   <table class="info-table">
     <tr><td class="info-label">FECHA:</td><td class="info-val">${cleanFecha}</td></tr>
+    ${(lastSalida.vendedor_name || lastSalida.vendedorName) ? `<tr><td class="info-label">VENDEDOR:</td><td class="info-val">${lastSalida.vendedor_name || lastSalida.vendedorName}</td></tr>` : ''}
     <tr><td class="info-label">CLIENTE:</td><td class="info-val">${lastSalida.cliente_name || ''}</td></tr>
     <tr><td class="info-label">C.I./RIF:</td><td class="info-val">${lastSalida.cedula_rif || '—'}</td></tr>
     <tr><td class="info-label">TELF:</td><td class="info-val">${lastSalida.telefono || '—'}</td></tr>
@@ -935,7 +948,7 @@ export default function SalidasPage() {
   <table class="items-table">
     <thead>
       <tr>
-        <th style="width: 12%;">CAN</th>
+        <th style="width: 12%;">CANT</th>
         <th style="width: 46%;">DESCRIPCIÓN</th>
         <th style="width: 21%; text-align: right;">P/U</th>
         <th style="width: 21%; text-align: right;">TOTAL</th>
@@ -1034,11 +1047,40 @@ export default function SalidasPage() {
                 )}
               </button>
             )}
+            <select
+              className="form-control"
+              style={{maxWidth: 180, minHeight: 36, fontSize: '0.85rem', fontWeight: 600, borderColor: selectedVendedorFilter ? '#0284c7' : undefined}}
+              value={selectedVendedorFilter}
+              onChange={e => setSelectedVendedorFilter(e.target.value)}
+              title="Filtrar por Vendedor"
+            >
+              <option value="">Todos los vendedores</option>
+              {Array.from(new Set([...vendedores.map(v => v.nombre), ...salidas.map(s => s.vendedor_name).filter(Boolean)])).sort().map((vend, idx) => (
+                <option key={idx} value={vend}>{vend}</option>
+              ))}
+            </select>
             <input type="date" className="form-control" style={{minHeight:36, width:'auto', fontSize:'0.85rem'}} value={filterFecha} onChange={e=>setFilterFecha(e.target.value)} />
-            <button className="btn btn-secondary btn-sm" onClick={()=>setFilterFecha('')}><i className="fa-solid fa-xmark"></i></button>
-            <input type="text" className="form-control" placeholder="🔍 Buscar cliente, Nº factura..." style={{maxWidth:220, minHeight:36, fontSize:'0.85rem'}} value={searchText} onChange={e=>setSearchText(e.target.value)} />
+            <button className="btn btn-secondary btn-sm" onClick={()=>{ setFilterFecha(''); setSelectedVendedorFilter(''); }} title="Limpiar filtros"><i className="fa-solid fa-xmark"></i></button>
+            <input type="text" className="form-control" placeholder="🔍 Buscar cliente, Nº factura, vendedor..." style={{maxWidth:220, minHeight:36, fontSize:'0.85rem'}} value={searchText} onChange={e=>setSearchText(e.target.value)} />
           </div>
         </div>
+
+        {selectedVendedorFilter && (
+          <div style={{background: '#f0fdf4', borderBottom: '1px solid #bbf7d0', padding: '0.65rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.85rem', color: '#166534'}}>
+            <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+              <i className="fa-solid fa-user-check" style={{color: '#16a34a', fontSize: '1rem'}}></i>
+              <span>Vendedor: <strong>{selectedVendedorFilter}</strong></span>
+              <span style={{background: '#dcfce7', padding: '2px 8px', borderRadius: 6, fontWeight: 700}}>
+                {filteredSalidas.length} venta(s)
+              </span>
+            </div>
+            <div style={{display: 'flex', alignItems: 'center', gap: '1rem', fontWeight: 700}}>
+              <span>Total Ventas: <strong style={{color: '#15803d'}}>${filteredSalidas.reduce((s, r) => s + parseFloat(r.total_factura || 0), 0).toFixed(2)}</strong></span>
+              <span style={{color: '#64748b', fontWeight: 600}}>(Bs. {(filteredSalidas.reduce((s, r) => s + parseFloat(r.total_factura || 0), 0) * bcvTasa).toLocaleString('es-VE', {minimumFractionDigits: 2})})</span>
+            </div>
+          </div>
+        )}
+
         <table>
           <thead>
             <tr>
@@ -1053,14 +1095,14 @@ export default function SalidasPage() {
                   }}
                 />
               </th>
-              <th>Tipo</th><th>Nº Documento</th><th>Fecha</th><th>Cliente</th>
+              <th>Tipo</th><th>Nº Documento</th><th>Fecha</th><th>Vendedor</th><th>Cliente</th>
               <th>Total ($)</th><th>Total (Bs.)</th><th>Saldo Pendiente</th><th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {filteredSalidas.length === 0 ? (
-              <tr><td colSpan={9} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
-                {searchText || filterFecha ? 'Sin resultados para los filtros' : 'Sin ventas registradas'}
+              <tr><td colSpan={10} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
+                {searchText || filterFecha || selectedVendedorFilter ? 'Sin resultados para los filtros' : 'Sin ventas registradas'}
               </td></tr>
             ) : filteredSalidas.map(s => (
               <tr key={s.id} style={selectedIds.has(s.id) ? {background:'#f0f9ff'} : {}}>
@@ -1081,6 +1123,9 @@ export default function SalidasPage() {
                 <td><span className="badge badge-primary" style={{fontSize:'0.7rem'}}>NOTA DE ENTREGA</span></td>
                 <td style={{fontWeight:600}}>Nº {s.factura_number}</td>
                 <td>{s.fecha ? String(s.fecha).split('T')[0] : '—'}</td>
+                <td>
+                  <div style={{fontWeight:600, fontSize:'0.85rem', color:'#334155'}}>{s.vendedor_name || '—'}</div>
+                </td>
                 <td>
                   <div style={{fontWeight:600, fontSize:'0.88rem'}}>{s.cliente_name}</div>
                   {s.cedula_rif && <div style={{fontSize:'0.72rem', color:'var(--text-muted)'}}>{s.cedula_rif}</div>}
@@ -1128,7 +1173,6 @@ export default function SalidasPage() {
               </div>
               <button type="button" className="modal-close" onClick={()=>setShowModal(false)}>&times;</button>
             </div>
-
             {/* Selector de Cliente Frecuente / Existente */}
             <div style={{marginBottom:'0.85rem', background:'#f0f9ff', padding:'0.75rem 0.9rem', borderRadius:10, border:'1.5px solid #bae6fd'}}>
               <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.4rem'}}>
@@ -1157,6 +1201,45 @@ export default function SalidasPage() {
                   );
                 })}
               </select>
+            </div>
+
+            {/* Selector de Vendedor Guardado / Nuevo */}
+            <div style={{marginBottom:'0.85rem', background:'#f8fafc', padding:'0.75rem 0.9rem', borderRadius:10, border:'1.5px solid #cbd5e1'}}>
+              <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.4rem'}}>
+                <label style={{fontSize:'0.82rem', fontWeight:800, color:'#334155', margin:0, display:'flex', alignItems:'center', gap:'0.4rem'}}>
+                  <i className="fa-solid fa-user-tie" style={{color:'#0284c7'}}></i> Vendedor Asignado:
+                </label>
+                {form.vendedorName && (
+                  <button type="button" style={{background:'#f1f5f9', border:'1px solid #cbd5e1', color:'#475569', fontSize:'0.75rem', cursor:'pointer', fontWeight:700, padding:'2px 8px', borderRadius:6}} onClick={() => setForm(f => ({ ...f, vendedorName:'' }))}>
+                    + Limpiar / Escribir Nuevo
+                  </button>
+                )}
+              </div>
+              <div style={{display:'grid', gridTemplateColumns: vendedores.length > 0 ? '1fr 1fr' : '1fr', gap:'0.5rem'}}>
+                {vendedores.length > 0 && (
+                  <select 
+                    className="form-control" 
+                    style={{fontSize:'0.85rem', minHeight:38, background:'#fff', borderColor:'#94a3b8', color:'#0f172a', fontWeight:600}}
+                    value={form.vendedorName}
+                    onChange={e => setForm(f => ({ ...f, vendedorName: e.target.value }))}
+                  >
+                    <option value="">-- Seleccionar vendedor ({vendedores.length}) --</option>
+                    {vendedores.map((v, idx) => (
+                      <option key={v.id || idx} value={v.nombre}>
+                        {v.nombre}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  style={{fontSize:'0.85rem', minHeight:38, fontWeight:600}} 
+                  placeholder={vendedores.length > 0 ? "O escribe nombre de vendedor..." : "Nombre del vendedor (se guardará)"} 
+                  value={form.vendedorName} 
+                  onChange={e=>setForm(f=>({...f, vendedorName:e.target.value}))} 
+                />
+              </div>
             </div>
 
             {/* Formulario Cliente y Factura Adaptado a Móvil */}
@@ -1324,6 +1407,9 @@ export default function SalidasPage() {
                   <hr style={{border:'none', borderTop:'1px dashed #444', margin:'8px 0'}} />
                   
                   <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', padding:'1.5px 0'}}><b>FECHA:</b><span>{cleanFecha}</span></div>
+                  {(lastSalida.vendedor_name || lastSalida.vendedorName) && (
+                    <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', padding:'1.5px 0'}}><b>VENDEDOR:</b><span>{lastSalida.vendedor_name || lastSalida.vendedorName}</span></div>
+                  )}
                   <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', padding:'1.5px 0'}}><b>CLIENTE:</b><span>{lastSalida.cliente_name || ''}</span></div>
                   <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', padding:'1.5px 0'}}><b>C.I./RIF:</b><span>{lastSalida.cedula_rif || '—'}</span></div>
                   <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', padding:'1.5px 0'}}><b>TELF:</b><span>{lastSalida.telefono || '—'}</span></div>
@@ -1334,7 +1420,7 @@ export default function SalidasPage() {
                   <table style={{width:'100%', minWidth:0, borderCollapse:'collapse', fontSize:'11px', margin:'6px 0', tableLayout:'fixed'}}>
                     <thead>
                       <tr style={{borderBottom:'1.5px solid #000'}}>
-                        <th style={{textAlign:'left', width:'12%', padding:'3px 0', background:'transparent', color:'#000', fontSize:'10.5px', fontWeight:800}}>CAN</th>
+                        <th style={{textAlign:'left', width:'12%', padding:'3px 0', background:'transparent', color:'#000', fontSize:'10.5px', fontWeight:800}}>CANT</th>
                         <th style={{textAlign:'left', width:'46%', padding:'3px 0', background:'transparent', color:'#000', fontSize:'10.5px', fontWeight:800}}>DESCRIPCIÓN</th>
                         <th style={{textAlign:'right', width:'21%', padding:'3px 0', background:'transparent', color:'#000', fontSize:'10.5px', fontWeight:800}}>P/U</th>
                         <th style={{textAlign:'right', width:'21%', padding:'3px 0', background:'transparent', color:'#000', fontSize:'10.5px', fontWeight:800}}>TOTAL</th>
