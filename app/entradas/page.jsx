@@ -299,50 +299,58 @@ export default function EntradasPage() {
   // Preprocesar imagen en canvas para OCR nítido con alto contraste
   const preprocessImage = (imageElement, angle) => {
     return new Promise((resolve) => {
-      if (!imageElement || !imageElement.naturalWidth) {
-        resolve(null);
-        return;
-      }
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const w = imageElement.naturalWidth;
-      const h = imageElement.naturalHeight;
-
-      if (angle === 90 || angle === 270) {
-        canvas.width = h;
-        canvas.height = w;
-      } else {
-        canvas.width = w;
-        canvas.height = h;
-      }
-
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.rotate((angle * Math.PI) / 180);
-      ctx.drawImage(imageElement, -w / 2, -h / 2);
-
       try {
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const d = imgData.data;
-        for (let i = 0; i < d.length; i += 4) {
-          const avg = (d[i] + d[i+1] + d[i+2]) / 3;
-          const v = avg < 145 ? 0 : 255;
-          d[i] = v; d[i+1] = v; d[i+2] = v;
+        if (!imageElement || !imageElement.naturalWidth) {
+          resolve(null);
+          return;
         }
-        ctx.putImageData(imgData, 0, 0);
-      } catch (e) {}
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const w = imageElement.naturalWidth;
+        const h = imageElement.naturalHeight;
 
-        const calculateOCRScore = (text) => {
+        if (angle === 90 || angle === 270) {
+          canvas.width = h;
+          canvas.height = w;
+        } else {
+          canvas.width = w;
+          canvas.height = h;
+        }
+
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((angle * Math.PI) / 180);
+        ctx.drawImage(imageElement, -w / 2, -h / 2);
+
+        try {
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const d = imgData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const avg = (d[i] + d[i+1] + d[i+2]) / 3;
+            const v = avg < 145 ? 0 : 255;
+            d[i] = v; d[i+1] = v; d[i+2] = v;
+          }
+          ctx.putImageData(imgData, 0, 0);
+        } catch (e) {}
+
+        resolve(canvas);
+      } catch (err) {
+        resolve(null);
+      }
+    });
+  };
+
+  const calculateOCRScore = (text) => {
     if (!text) return 0;
     const t = text.toLowerCase();
     let score = 0;
     const keywords = [
       'distribuidora', 'transporte', 'entrega', 'factura', 'rif', 'nota',
       'sub-total', 'total', 'cantidad', 'precio', 'descripcion', 'cajetillas',
-      'cig', 'bcv', 'cambio', 'tasa', 'bolivares', 'dolar', 'cliente'
+      'cig', 'bcv', 'cambio', 'tasa', 'bolivares', 'dolar', 'cliente', 'belmont', 'consul'
     ];
-    keywords.forEach(kw => { if (t.includes(kw)) score += 3; });
+    keywords.forEach(kw => { if (t.includes(kw)) score += 4; });
     const numMatches = t.match(/\d+[.,]\d{2}/g);
-    if (numMatches) score += numMatches.length * 1.5;
+    if (numMatches) score += numMatches.length * 2;
     return score;
   };
 
@@ -367,6 +375,20 @@ export default function EntradasPage() {
     }).filter(n => n > 0);
   };
 
+  const defaultKnownCatalog = [
+    { id: 'bes20', nombre: 'Belmont 20 Cig x 10 Cajetillas (E)', keywords: ['belmont 20', 'bes20', 'bes 20'] },
+    { id: 'bes10', nombre: 'Belmont 10 Cig x 12 Cajetillas (E)', keywords: ['belmont 10', 'bes10', 'bes 10'] },
+    { id: 'pal20', nombre: 'Pall Mall 20 Cig x 10 Cajetillas (E)', keywords: ['pall mall', 'pal20', 'pal 20'] },
+    { id: 'c20', nombre: 'Consul Cig x 10 Cajetillas (E)', keywords: ['consul', 'c20', 'c 20'] },
+    { id: 'vic20', nombre: 'Viceroy 20 Cig x 10 Cajetillas (E)', keywords: ['viceroy', 'vic20', 'vic 20'] },
+    { id: 'univ20', nombre: 'Universal 20 Cig x 10 Cajetillas (E)', keywords: ['universal', 'univ20', 'univ 20', 'uni20'] },
+    { id: 'lnv', nombre: 'Lucky Nova 20 Cig x 10 Cajetillas (E)', keywords: ['lucky nova', 'lnv', 'inv', '1nv'] },
+    { id: 'icc', nombre: 'Lucky Cosmic 20 Cig x 10 Cajetillas (E)', keywords: ['lucky cosmic', 'icc', '1cc'] },
+    { id: 'ice', nombre: 'Lucky Eclipse 20 Cig x 10 Cajetillas (E)', keywords: ['lucky eclipse', 'ice', '1ce'] },
+    { id: 'lcr', nombre: 'Lucky Strike Red 20 Cig x 10 Cajetillas (E)', keywords: ['lucky strike red', 'lucky strike', 'lcr', '1cr', 'ler', 'isr', 'lsr'] },
+    { id: 'bol-02', nombre: 'Boligrafos BIC Azul 12 UND (E)', keywords: ['boligrafo', 'bic', 'bol-02', 'bol02'] }
+  ];
+
   const parseAndFillOCRText = (fullText, currentTasa) => {
     const textClean = fullText.replace(/\r/g, '');
     const lines = textClean.split('\n').map(l => l.trim()).filter(Boolean);
@@ -377,6 +399,7 @@ export default function EntradasPage() {
     let proveedorDir = form.proveedorDir || '';
     let facturaNum = form.facturaNum || '';
     let fecha = form.fecha || today();
+    let fechaVenc = form.fechaVenc || todayPlus7();
     let tasaBCV = form.tasaBCV || currentTasa;
 
     // 1. Proveedor & RIF
@@ -393,19 +416,31 @@ export default function EntradasPage() {
     }
 
     // 2. Nº Documento / Nota de Entrega
-    const docMatch = textClean.match(/(?:NOTA DE ENTREGA|FACTURA|Nº|N°|Nro\.?)\s*(\d{4,10})/i) || textClean.match(/\b(\d{6,8})\b/);
+    const docMatch = textClean.match(/Nota\s*(?:de\s*)?Entrega\s*(?:N[°ºo\.]*)?\s*([0-9]{4,10})/i) ||
+                     textClean.match(/Factura\s*(?:N[°ºo\.]*)?\s*([0-9]{4,10})/i) ||
+                     textClean.match(/\b(000\d{4,6}|033\d{3,5})\b/);
     if (docMatch) {
       facturaNum = docMatch[1];
     }
 
-    // 2.1 Fecha de la Factura
-    const dateMatch = textClean.match(/\b(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})\b/);
+    // 2.1 Fechas
+    const dateMatch = textClean.match(/Fecha:\s*(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})/i) ||
+                      textClean.match(/\b(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})\b/);
     if (dateMatch) {
       let day = dateMatch[1].padStart(2, '0');
       let month = dateMatch[2].padStart(2, '0');
       let year = dateMatch[3];
       if (year.length === 2) year = '20' + year;
       fecha = `${year}-${month}-${day}`;
+    }
+
+    const vencMatch = textClean.match(/Vence:\s*(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})/i);
+    if (vencMatch) {
+      let day = vencMatch[1].padStart(2, '0');
+      let month = vencMatch[2].padStart(2, '0');
+      let year = vencMatch[3];
+      if (year.length === 2) year = '20' + year;
+      fechaVenc = `${year}-${month}-${day}`;
     }
 
     // 3. Tasa BCV
@@ -422,12 +457,16 @@ export default function EntradasPage() {
       }
     }
 
-    // 4. Mapeo dinámico de productos contra inventario
-    const knownCodesMap = {};
+    // 4. Mapeo dinámico de productos contra inventario y catálogo
+    const activeCatalog = [...defaultKnownCatalog];
     if (inventarioList && inventarioList.length > 0) {
       inventarioList.forEach(inv => {
-        if (inv.id) {
-          knownCodesMap[inv.id.toLowerCase().trim()] = inv;
+        if (inv.id && !activeCatalog.some(c => c.id.toLowerCase() === inv.id.toLowerCase())) {
+          activeCatalog.push({
+            id: inv.id,
+            nombre: inv.nombre,
+            keywords: [inv.id.toLowerCase(), (inv.nombre || '').toLowerCase()]
+          });
         }
       });
     }
@@ -435,106 +474,60 @@ export default function EntradasPage() {
     let itemsExtraidos = [];
     const processedCodes = new Set();
 
+    const isHeaderOrSummaryLine = (line) => {
+      return /sub-?total|base imponible|exento|i\.v\.a|total operaci|tasa de cambio|ley de impuesto|cliente|direcci[oó]n|tel[eé]fono|fecha|vence|cr[eé]dito|nota de entrega|c\.a|edo\.|turmero|san juan|r\.?i\.?f/i.test(line);
+    };
+
     // Recorrer líneas buscando filas de productos
     lines.forEach(line => {
-      const nums = extractInvoiceLineNumbers(line);
-      // Descartar líneas de encabezados, subtotales o tasas
-      if (/sub-?total|base imponible|exento|i\.v\.a|total operaci|tasa de cambio|ley de impuesto/i.test(line)) {
+      if (isHeaderOrSummaryLine(line)) {
         return;
       }
+      const nums = extractInvoiceLineNumbers(line);
 
       if (nums.length >= 2) {
+        const lLower = line.toLowerCase();
         const parts = line.split(/\s+/);
         const rawCode = parts[0] ? parts[0].toLowerCase().replace(/[^a-z0-9]/gi, '') : '';
         
-        let matchedProduct = knownCodesMap[rawCode] || null;
-        let matchedCode = matchedProduct ? matchedProduct.id : rawCode;
-        let matchedName = matchedProduct ? matchedProduct.nombre : '';
-
-        // Si no empató por código directo, buscar por coincidencia en nombre de inventario
-        if (!matchedProduct && inventarioList.length > 0) {
-          const lLower = line.toLowerCase();
-          matchedProduct = inventarioList.find(inv => {
-            const nLower = (inv.nombre || '').toLowerCase();
-            const words = nLower.split(/\s+/).filter(w => w.length > 3);
-            return words.length > 0 && words.filter(w => lLower.includes(w)).length >= 2;
-          });
-          if (matchedProduct) {
-            matchedCode = matchedProduct.id;
-            matchedName = matchedProduct.nombre;
-          }
+        // 1. Coincidencia exacta por código
+        let matched = activeCatalog.find(p => p.id.toLowerCase() === rawCode);
+        
+        // 2. Coincidencia por palabra clave completa
+        if (!matched) {
+          matched = activeCatalog.find(p => p.keywords.some(kw => new RegExp(`\\b${kw}\\b`, 'i').test(lLower)));
         }
 
+        let code = matched ? matched.id : rawCode;
+        let name = matched ? matched.nombre : '';
+
         // Si aún no tiene nombre, extraer descripción limpia de la línea
-        if (!matchedName) {
+        if (!name) {
           let desc = line;
           if (rawCode) desc = desc.replace(parts[0], '');
           desc = desc.replace(/[\d.,]+\s*$/g, '').replace(/[\d.,]+/g, '').replace(/cajetillas|und|cig/gi, '').trim();
-          if (desc.length > 3) matchedName = desc;
+          if (desc.length > 3) name = desc;
         }
 
-        if (matchedName || matchedCode.length >= 2) {
+        if (name || code.length >= 2) {
           let cant = Math.round(nums[0]);
           let cost = nums[1];
-          let lineTotal = 0;
-
-          if (nums.length >= 3) {
-            cant = Math.round(nums[0]);
-            cost = nums[1];
-            lineTotal = nums[2];
-          } else {
-            lineTotal = cant * cost;
-          }
+          let lineTotal = nums.length >= 3 ? nums[2] : cant * cost;
 
           if (cant > 0 && cost > 0) {
             itemsExtraidos.push({
-              codigo: matchedCode || `item-${itemsExtraidos.length + 1}`,
-              nombre: matchedName || line,
+              codigo: code || `item-${itemsExtraidos.length + 1}`,
+              nombre: name || line,
               cantidad: cant,
               costoUSD: Number(cost).toFixed(2),
               totalUSD: Number(lineTotal > 0 ? lineTotal : cant * cost).toFixed(2),
               totalVES: (Number(lineTotal > 0 ? lineTotal : cant * cost) * parseFloat(tasaBCV)).toFixed(2)
             });
-            if (matchedCode) processedCodes.add(matchedCode.toLowerCase());
+            if (code) processedCodes.add(code.toLowerCase());
           }
         }
       }
     });
-
-    // Si aún no extrajo suficientes renglones, buscar en inventario por palabras clave en todo el texto OCR
-    if (inventarioList.length > 0 && itemsExtraidos.length < 3) {
-      inventarioList.forEach(inv => {
-        const code = (inv.id || '').toLowerCase().trim();
-        if (code && !processedCodes.has(code)) {
-          const nameLower = (inv.nombre || '').toLowerCase();
-          const regexCode = new RegExp(`\\b${code}\\b`, 'i');
-          const hasCode = regexCode.test(textClean);
-          const words = nameLower.split(/\s+/).filter(w => w.length > 3);
-          const hasName = words.length >= 2 && words.filter(w => textClean.toLowerCase().includes(w)).length >= 2;
-
-          if (hasCode || hasName) {
-            const foundLine = lines.find(l => l.toLowerCase().includes(code) || (words[0] && l.toLowerCase().includes(words[0])));
-            if (foundLine) {
-              const nums = extractInvoiceLineNumbers(foundLine);
-              if (nums.length >= 2) {
-                const cant = Math.round(nums[0]) || 1;
-                const cost = nums[1] || Number(inv.costo_unitario || 0);
-                const lineTotal = nums.length >= 3 ? nums[2] : cant * cost;
-                itemsExtraidos.push({
-                  codigo: inv.id,
-                  nombre: inv.nombre,
-                  cantidad: cant,
-                  costoUSD: Number(cost).toFixed(2),
-                  totalUSD: Number(lineTotal).toFixed(2),
-                  totalVES: (Number(lineTotal) * parseFloat(tasaBCV)).toFixed(2)
-                });
-                processedCodes.add(code);
-              }
-            }
-          }
-        }
-      });
-    }
 
     if (itemsExtraidos.length === 0) {
       itemsExtraidos = [emptyItem()];
@@ -551,6 +544,7 @@ export default function EntradasPage() {
       proveedorDir,
       facturaNum,
       fecha,
+      fechaVenc,
       tasaBCV: parseFloat(tasaBCV).toFixed(2),
       items: itemsExtraidos,
       totalUSD: calcTotalUSD.toFixed(2),
@@ -583,8 +577,8 @@ export default function EntradasPage() {
           });
         }
 
-        // Evaluar en orden: 270° (típico de fotos con teléfono en horizontal), 0°, 90°, 180°
-        const anglesToTest = [270, 0, 90, 180];
+        // Evaluar orientaciones
+        const anglesToTest = [0, 270, 90, 180];
         let bestText = '';
         let bestAngle = 0;
         let highestScore = -1;
@@ -618,7 +612,7 @@ export default function EntradasPage() {
         parseAndFillOCRText(bestText, bcvTasa);
         setOcrText('✅ Factura digitalizada correctamente. Todos los datos han sido cargados.');
       } else {
-        setOcrText('⚠️ Motor OCR aún cargando. Puedes ingresar los datos o hacer clic en "Ejemplo SOSACRUZ".');
+        setOcrText('⚠️ Motor OCR aún cargando. Puedes ingresar los datos manualmente.');
       }
     } catch (err) {
       console.warn('OCR error:', err);
@@ -629,13 +623,17 @@ export default function EntradasPage() {
   };
 
   const demoSosacruz = () => {
-    const tasa = parseFloat(bcvTasa || 791.32);
+    const tasa = parseFloat(bcvTasa || 848.55);
     const items = [
-      { codigo: 'inv', nombre: 'Lucky Nova 20 Cig x 10 Cajetillas (E)', cantidad: 75, costoUSD: '28.90', totalUSD: '2167.50', totalVES: (2167.50 * tasa).toFixed(2) },
-      { codigo: 'ice', nombre: 'Lucky Eclipse 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: '151.70', totalVES: (151.70 * tasa).toFixed(2) },
-      { codigo: 'icc', nombre: 'Lucky Cosmic 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '30.34', totalUSD: '151.69', totalVES: (151.69 * tasa).toFixed(2) },
-      { codigo: 'isr', nombre: 'Lucky Strike Red 20 Cig x 10 Cajetillas (E)', cantidad: 6, costoUSD: '28.05', totalUSD: '168.27', totalVES: (168.27 * tasa).toFixed(2) },
-      { codigo: 'bol-02', nombre: 'Boligrafos BIC Azul 12 UND (E)', cantidad: 1, costoUSD: '4.42', totalUSD: '4.42', totalVES: (4.42 * tasa).toFixed(2) }
+      { codigo: 'bes20', nombre: 'Belmont 20 Cig x 10 Cajetillas (E)', cantidad: 70, costoUSD: '25.12', totalUSD: '1758.40', totalVES: (1758.40 * tasa).toFixed(2) },
+      { codigo: 'bes10', nombre: 'Belmont 10 Cig x 12 Cajetillas (E)', cantidad: 10, costoUSD: '15.14', totalUSD: '151.40', totalVES: (151.40 * tasa).toFixed(2) },
+      { codigo: 'pal20', nombre: 'Pall Mall 20 Cig x 10 Cajetillas (E)', cantidad: 12, costoUSD: '8.00', totalUSD: '96.00', totalVES: (96.00 * tasa).toFixed(2) },
+      { codigo: 'c20', nombre: 'Consul Cig x 10 Cajetillas (E)', cantidad: 280, costoUSD: '13.04', totalUSD: '3651.20', totalVES: (3651.20 * tasa).toFixed(2) },
+      { codigo: 'vic20', nombre: 'Viceroy 20 Cig x 10 Cajetillas (E)', cantidad: 30, costoUSD: '15.97', totalUSD: '479.10', totalVES: (479.10 * tasa).toFixed(2) },
+      { codigo: 'univ20', nombre: 'Universal 20 Cig x 10 Cajetillas (E)', cantidad: 10, costoUSD: '15.85', totalUSD: '158.50', totalVES: (158.50 * tasa).toFixed(2) },
+      { codigo: 'lnv', nombre: 'Lucky Nova 20 Cig x 10 Cajetillas (E)', cantidad: 50, costoUSD: '28.90', totalUSD: '1445.00', totalVES: (1445.00 * tasa).toFixed(2) },
+      { codigo: 'icc', nombre: 'Lucky Cosmic 20 Cig x 10 Cajetillas (E)', cantidad: 5, costoUSD: '28.90', totalUSD: '144.50', totalVES: (144.50 * tasa).toFixed(2) },
+      { codigo: 'lcr', nombre: 'Lucky Strike Red 20 Cig x 10 Cajetillas (E)', cantidad: 10, costoUSD: '28.05', totalUSD: '280.45', totalVES: (280.45 * tasa).toFixed(2) }
     ];
     const totalUSD = items.reduce((s, it) => s + parseFloat(it.totalUSD), 0);
     setForm(f => ({
@@ -645,10 +643,10 @@ export default function EntradasPage() {
       proveedorTelf: '(0244)419.26.46',
       proveedorDir: 'Calle 8, Casa Nro. 04, Turmero - Edo. Aragua',
       tipoDoc: 'NOTA DE ENTREGA',
-      facturaNum: '032047',
+      facturaNum: '00033015',
       tasaBCV: tasa.toFixed(2),
-      fecha: '2026-08-27',
-      fechaVenc: '2026-09-03',
+      fecha: '2026-09-18',
+      fechaVenc: '2026-09-25',
       items: items,
       totalUSD: totalUSD.toFixed(2),
       totalVES: (totalUSD * tasa).toFixed(2)
