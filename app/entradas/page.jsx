@@ -402,6 +402,51 @@ export default function EntradasPage() {
     const textClean = fullText.replace(/\r/g, '');
     const lines = textClean.split('\n').map(l => l.trim()).filter(Boolean);
 
+    let headerLines = [];
+    let tableLines = [];
+    let footerLines = [];
+    let currentSection = 'header'; // 'header' | 'table' | 'footer'
+
+    const isTableHeaderRow = (line) => {
+      const l = line.toLowerCase();
+      const count = ['código', 'codigo', 'descrip', 'cant', 'precio', 'total', 'p.unit', 'costo'].filter(k => l.includes(k)).length;
+      return count >= 2;
+    };
+
+    const isTableFooterRow = (line) => {
+      const l = line.toLowerCase();
+      return /sub-?total|base imponible|exento|i\.v\.a|total operaci|total general|total usd|tasa de cambio|ley de impuesto/i.test(l);
+    };
+
+    lines.forEach(line => {
+      if (currentSection === 'header') {
+        if (isTableHeaderRow(line)) {
+          currentSection = 'table';
+          return;
+        }
+        // Si la línea contiene un código evidente de catálogo junto a números, inicia la tabla
+        const hasDirectProduct = defaultKnownCatalog.some(p => new RegExp(`\\b${p.id}\\b`, 'i').test(line) || p.keywords.some(kw => new RegExp(`\\b${kw}\\b`, 'i').test(line)));
+        if (hasDirectProduct && extractInvoiceLineNumbers(line).length >= 2) {
+          currentSection = 'table';
+          tableLines.push(line);
+          return;
+        }
+        headerLines.push(line);
+      } else if (currentSection === 'table') {
+        if (isTableFooterRow(line)) {
+          currentSection = 'footer';
+          footerLines.push(line);
+          return;
+        }
+        tableLines.push(line);
+      } else {
+        footerLines.push(line);
+      }
+    });
+
+    const headerText = headerLines.join('\n');
+    const footerText = footerLines.join('\n');
+
     let proveedorName = form.proveedorName || '';
     let proveedorRif = form.proveedorRif || '';
     let proveedorTelf = form.proveedorTelf || '';
@@ -411,30 +456,30 @@ export default function EntradasPage() {
     let fechaVenc = form.fechaVenc || todayPlus7();
     let tasaBCV = form.tasaBCV || currentTasa;
 
-    // 1. Proveedor & RIF
+    // 1. Proveedor & RIF (Detectar en cabecera)
     if (/SOSACRUZ|Sosa\s*CRUZ/i.test(textClean)) {
       proveedorName = 'DISTRIBUIDORA Y TRANSPORTE SOSACRUZ, C.A.';
       proveedorRif = 'J-50273341-8';
       proveedorTelf = '(0244)419.26.46';
       proveedorDir = 'Calle 8, Casa Nro. 04, Turmero - Edo. Aragua';
     } else {
-      const rifMatch = textClean.match(/[JVGjvg]-?\d{7,9}-?\d/i);
+      const rifMatch = headerText.match(/[JVGjvg]-?\d{7,9}-?\d/i);
       if (rifMatch) proveedorRif = rifMatch[0].toUpperCase();
-      const provLine = lines.find(l => /DISTRIBUIDORA|TRANSPORTE|COMERCIAL|INVERSIONES|C\.A\.|S\.A\./i.test(l));
+      const provLine = headerLines.find(l => /DISTRIBUIDORA|TRANSPORTE|COMERCIAL|INVERSIONES|C\.A\.|S\.A\./i.test(l));
       if (provLine) proveedorName = provLine;
     }
 
-    // 2. Nº Documento / Nota de Entrega
-    const docMatch = textClean.match(/Nota\s*(?:de\s*)?Entrega\s*(?:N[°ºo\.]*)?\s*([0-9]{4,10})/i) ||
-                     textClean.match(/Factura\s*(?:N[°ºo\.]*)?\s*([0-9]{4,10})/i) ||
-                     textClean.match(/\b(000\d{4,6}|033\d{3,5})\b/);
+    // 2. Nº Documento / Nota de Entrega (Exclusivamente de cabecera)
+    const docMatch = headerText.match(/Nota\s*(?:de\s*)?Entrega\s*(?:N[°ºo\.]*)?\s*([0-9]{4,10})/i) ||
+                     headerText.match(/Factura\s*(?:N[°ºo\.]*)?\s*([0-9]{4,10})/i) ||
+                     headerText.match(/\b(000\d{4,6}|033\d{3,5})\b/);
     if (docMatch) {
       facturaNum = docMatch[1];
     }
 
     // 2.1 Fechas
-    const dateMatch = textClean.match(/Fecha:\s*(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})/i) ||
-                      textClean.match(/\b(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})\b/);
+    const dateMatch = headerText.match(/Fecha:\s*(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})/i) ||
+                      headerText.match(/\b(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})\b/);
     if (dateMatch) {
       let day = dateMatch[1].padStart(2, '0');
       let month = dateMatch[2].padStart(2, '0');
@@ -443,7 +488,7 @@ export default function EntradasPage() {
       fecha = `${year}-${month}-${day}`;
     }
 
-    const vencMatch = textClean.match(/Vence:\s*(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})/i);
+    const vencMatch = headerText.match(/Vence:\s*(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})/i);
     if (vencMatch) {
       let day = vencMatch[1].padStart(2, '0');
       let month = vencMatch[2].padStart(2, '0');
@@ -452,18 +497,12 @@ export default function EntradasPage() {
       fechaVenc = `${year}-${month}-${day}`;
     }
 
-    // 3. Tasa BCV
-    const tasaMatch = textClean.match(/(?:tasa(?: de cambio)?|bcv|cambio|dolar|dólar|valor)[\s:]*([\d.,]{3,8})/i);
+    // 3. Tasa BCV (Exclusivamente de pie de página o texto explícito de tasa)
+    const tasaMatch = (footerText + '\n' + textClean).match(/(?:tasa\s*(?:de\s*cambio)?|cambio\s*:?|BCV\s*:?)\s*([\d.,]{3,8})/i);
     if (tasaMatch) {
       let rawTasa = tasaMatch[1].replace(/\./g, '').replace(',', '.');
       const v = parseFloat(rawTasa);
-      if (v > 10) tasaBCV = v;
-    } else {
-      const directTasaMatch = textClean.match(/\b(\d{3,4}[.,]\d{2})\b/);
-      if (directTasaMatch) {
-        const val = parseFloat(directTasaMatch[1].replace(',', '.'));
-        if (val > 100 && val < 5000) tasaBCV = val;
-      }
+      if (v > 10 && v < 5000) tasaBCV = v;
     }
 
     // 4. Mapeo dinámico de productos contra inventario y catálogo
@@ -483,15 +522,8 @@ export default function EntradasPage() {
     let itemsExtraidos = [];
     const processedCodes = new Set();
 
-    const isHeaderOrSummaryLine = (line) => {
-      return /sub-?total|base imponible|exento|i\.v\.a|total operaci|tasa de cambio|ley de impuesto|cliente|direcci[oó]n|tel[eé]fono|fecha|vence|cr[eé]dito|nota de entrega|c\.a|edo\.|turmero|san juan|r\.?i\.?f/i.test(line);
-    };
-
-    // Recorrer líneas buscando filas de productos
-    lines.forEach(line => {
-      if (isHeaderOrSummaryLine(line)) {
-        return;
-      }
+    // Recorrer ÚNICAMENTE las líneas de la sección de la tabla de productos
+    tableLines.forEach(line => {
       const nums = extractInvoiceLineNumbers(line);
 
       if (nums.length >= 2) {
