@@ -438,7 +438,7 @@ export default function SalidasPage() {
     const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
     const cleanFecha = String(lastSalida.fecha || '').split('T')[0];
 
-    // 1. En teléfonos Android, capturar el ticket visual exactamente como se ve en pantalla y enviarlo como imagen PNG a RawBT
+    // 1. En teléfonos Android, capturar el ticket visual en ultra-alta resolución con binarización de contraste puro (1-bit)
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
     if (isAndroid) {
       try {
@@ -462,7 +462,7 @@ export default function SalidasPage() {
             ticketEl.style.overflow = 'visible';
 
             const canvas = await h2c(ticketEl, {
-              scale: 2.5,
+              scale: 3,
               backgroundColor: '#ffffff',
               useCORS: true,
               logging: false
@@ -470,6 +470,21 @@ export default function SalidasPage() {
 
             ticketEl.style.maxHeight = prevMaxHeight;
             ticketEl.style.overflow = prevOverflow;
+
+            // Binarización de alto contraste: convierte grises de antialiasing en negro puro (#000000)
+            // Esto elimina el efecto borroso/dithering y logra que el cabezal térmico imprima con máxima nitidez
+            const ctx = canvas.getContext('2d');
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const d = imgData.data;
+            for (let i = 0; i < d.length; i += 4) {
+              const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+              const val = lum < 210 ? 0 : 255;
+              d[i] = val;
+              d[i + 1] = val;
+              d[i + 2] = val;
+              d[i + 3] = 255;
+            }
+            ctx.putImageData(imgData, 0, 0);
 
             const base64Png = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
             window.location.href = `rawbt:data:image/png;base64,${base64Png}`;
@@ -923,17 +938,17 @@ export default function SalidasPage() {
                     <span>TOTAL: ${Number(lastSalida.total_factura || totalFactura).toFixed(2)}</span>
                   </div>
                   
-                  <div style={{border:'1px solid #475569', borderRadius:'8px', padding:'8px 10px', margin:'10px 0 4px 0', background:'#fafafa', fontSize:'9.5px', lineHeight:1.45}}>
-                    <div style={{fontWeight:800, fontSize:'10.5px', textAlign:'center', color:'#0f172a', marginBottom:'4px'}}>— PAGO MÓVIL BDV —</div>
-                    <div style={{textAlign:'left', paddingLeft:'2px', display:'flex', flexDirection:'column', gap:'2px', color:'#1e293b'}}>
+                  <div style={{border:'1.5px solid #000', borderRadius:'8px', padding:'8px 10px', margin:'10px 0 4px 0', background:'#fff', fontSize:'9.5px', lineHeight:1.45, color:'#000'}}>
+                    <div style={{fontWeight:800, fontSize:'10.5px', textAlign:'center', color:'#000', marginBottom:'4px'}}>— PAGO MÓVIL BDV —</div>
+                    <div style={{textAlign:'left', paddingLeft:'2px', display:'flex', flexDirection:'column', gap:'2px', color:'#000'}}>
                       <div>• <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3136805</strong> &nbsp;|&nbsp; C.I. 10.668.263</div>
                       <div>• <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3004802</strong> &nbsp;|&nbsp; C.I. 28.012.615</div>
                     </div>
-                    <div style={{borderTop:'1px dashed #cbd5e1', margin:'6px 0'}}></div>
-                    <div style={{fontWeight:800, fontSize:'10.5px', textAlign:'center', color:'#0f172a', marginBottom:'4px'}}>— DEPÓSITO BANCARIO BDV —</div>
-                    <div style={{textAlign:'left', paddingLeft:'2px', display:'flex', flexDirection:'column', gap:'2px', color:'#1e293b'}}>
-                      <div>• <strong>0102 0467 4501 0162 8166</strong> <span style={{fontSize:'8.5px', color:'#475569'}}>(JUAN MORA)</span></div>
-                      <div>• <strong>0102 0467 4500 0096 7787</strong> <span style={{fontSize:'8.5px', color:'#475569'}}>(JORGE FLORES)</span></div>
+                    <div style={{borderTop:'1px dashed #000', margin:'6px 0'}}></div>
+                    <div style={{fontWeight:800, fontSize:'10.5px', textAlign:'center', color:'#000', marginBottom:'4px'}}>— DEPÓSITO BANCARIO BDV —</div>
+                    <div style={{textAlign:'left', paddingLeft:'2px', display:'flex', flexDirection:'column', gap:'2px', color:'#000'}}>
+                      <div>• <strong>0102 0467 4501 0162 8166</strong> <span style={{fontSize:'8.5px', color:'#000'}}>(JUAN MORA)</span></div>
+                      <div>• <strong>0102 0467 4500 0096 7787</strong> <span style={{fontSize:'8.5px', color:'#000'}}>(JORGE FLORES)</span></div>
                     </div>
                   </div>
                 </div>
