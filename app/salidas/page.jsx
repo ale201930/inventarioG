@@ -756,81 +756,174 @@ export default function SalidasPage() {
     `;
   };
 
-  // Convierte un array de canvas binarizados a un stream de comandos ESC/POS binario
-  // Incluye avance de papel y corte de papel automático entre cada factura
-  const buildEscPosStream = (canvases) => {
+  // Construye el stream binario ESC/POS en modo texto de alto rendimiento para 1 o múltiples facturas
+  // Tamaño por factura: ~1.2 KB (permite enviar 20 o 50 facturas de golpe en un solo paquete ultraligero a RawBT)
+  const buildEscPosReceiptStream = (salidasList, width = 48) => {
     const chunks = [];
-    
-    // ESC @: Inicializar impresora
-    chunks.push(new Uint8Array([0x1B, 0x40]));
-    
-    for (let cIdx = 0; cIdx < canvases.length; cIdx++) {
-      const canvas = canvases[cIdx];
-      const ctx = canvas.getContext('2d');
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const d = imgData.data;
-      
-      const width = canvas.width; // 576px
-      const height = canvas.height;
-      const xBytes = Math.ceil(width / 8); // 72 bytes por línea horizontal
-      const yHeight = height;
-      
-      // Comando ESC/POS Raster Bit Image: GS v 0 0 xL xH yL yH
-      const header = [
-        0x1D, 0x76, 0x30, 0x00,
-        xBytes & 0xFF, (xBytes >> 8) & 0xFF,
-        yHeight & 0xFF, (yHeight >> 8) & 0xFF
-      ];
-      
-      const imgBuf = new Uint8Array(header.length + xBytes * yHeight);
-      imgBuf.set(header, 0);
-      let offset = header.length;
-      
-      for (let y = 0; y < yHeight; y++) {
-        for (let x = 0; x < xBytes; x++) {
-          let bVal = 0;
-          for (let b = 0; b < 8; b++) {
-            const px = x * 8 + b;
-            if (px < width) {
-              const idx = (y * width + px) * 4;
-              // Pixel negro (0) en imagen binarizada
-              if (d[idx] < 128) {
-                bVal |= (1 << (7 - b));
-              }
-            }
+    const add = (bytes) => {
+      if (typeof bytes === 'string') {
+        const buf = new Uint8Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) {
+          let code = bytes.charCodeAt(i);
+          const ch = bytes[i];
+          if (ch === 'á' || ch === 'Á') code = 0xA0;
+          else if (ch === 'é' || ch === 'É') code = 0x82;
+          else if (ch === 'í' || ch === 'Í') code = 0xA1;
+          else if (ch === 'ó' || ch === 'Ó') code = 0xA2;
+          else if (ch === 'ú' || ch === 'Ú') code = 0xA3;
+          else if (ch === 'ñ') code = 0xA4;
+          else if (ch === 'Ñ') code = 0xA5;
+          else if (ch === 'º' || ch === '°') code = 0xA7;
+          else if (ch === '¿') code = 0xA8;
+          else if (ch === '¡') code = 0xAD;
+          else if (ch === '—' || ch === '–') code = 0x2D;
+          else if (ch === '•') code = 0x2A;
+          else if (code > 255) code = 0x3F;
+          buf[i] = code;
+        }
+        chunks.push(buf);
+      } else {
+        chunks.push(new Uint8Array(bytes));
+      }
+    };
+
+    const CMD = {
+      INIT: [0x1B, 0x40],
+      CODEPAGE_PC850: [0x1B, 0x74, 0x02],
+      ALIGN_LEFT: [0x1B, 0x61, 0x00],
+      ALIGN_CENTER: [0x1B, 0x61, 0x01],
+      ALIGN_RIGHT: [0x1B, 0x61, 0x02],
+      BOLD_ON: [0x1B, 0x45, 0x01],
+      BOLD_OFF: [0x1B, 0x45, 0x00],
+      DOUBLE_SIZE: [0x1D, 0x21, 0x11],
+      DOUBLE_HEIGHT: [0x1D, 0x21, 0x01],
+      NORMAL_SIZE: [0x1D, 0x21, 0x00],
+      FEED_AND_CUT: [0x1B, 0x64, 0x04, 0x1D, 0x56, 0x41, 0x00, 0x1B, 0x40]
+    };
+
+    const padLeft = (s, l) => { s = String(s || ''); return s.length >= l ? s.slice(0, l) : ' '.repeat(l - s.length) + s; };
+    const padRight = (s, l) => { s = String(s || ''); return s.length >= l ? s.slice(0, l) : s + ' '.repeat(l - s.length); };
+
+    for (const salida of salidasList) {
+      add(CMD.INIT);
+      add(CMD.CODEPAGE_PC850);
+      add(CMD.ALIGN_CENTER);
+      add(CMD.DOUBLE_SIZE);
+      add(CMD.BOLD_ON);
+      add("BESTEDA 2, C.A.\n");
+      add(CMD.NORMAL_SIZE);
+      add("RIF: J-40529263-6\n");
+      add(CMD.BOLD_OFF);
+      add("Calle Principal Casa Nº A-13, Urb. Alto de Fenix II\n");
+      add("San Juan de los Morros - Estado Guárico\n");
+      add("Tlfs: 0424-313.68.05 / 0424-300.48.02\n");
+      add("=".repeat(width) + "\n");
+
+      // Title & Doc Number
+      add(CMD.DOUBLE_HEIGHT);
+      add(CMD.BOLD_ON);
+      add("NOTA DE ENTREGA\n");
+      add(`Nº ${salida.factura_number || ''}\n`);
+      add(CMD.NORMAL_SIZE);
+      add(CMD.BOLD_OFF);
+      add("-".repeat(width) + "\n");
+
+      // Customer Info
+      add(CMD.ALIGN_LEFT);
+      const cleanFecha = String(salida.fecha || '').split('T')[0];
+      add(padRight("FECHA:", 10) + cleanFecha + "\n");
+      if (salida.vendedor_name || salida.vendedorName) {
+        add(padRight("VENDEDOR:", 10) + (salida.vendedor_name || salida.vendedorName) + "\n");
+      }
+      add(padRight("CLIENTE:", 10) + (salida.cliente_name || '') + "\n");
+      add(padRight("C.I./RIF:", 10) + (salida.cedula_rif || '—') + "\n");
+      add(padRight("TELF:", 10) + (salida.telefono || '—') + "\n");
+      add(padRight("DIR:", 10) + (salida.direccion || '—') + "\n");
+      add("-".repeat(width) + "\n");
+
+      // Table Columns: CANT(5) DESCRIPCION(23) P/U(9) TOTAL(11) -> Total 48
+      add(CMD.BOLD_ON);
+      add(padRight("CANT", 5) + padRight("DESCRIPCION", 23) + padLeft("P/U", 9) + padLeft("TOTAL", 11) + "\n");
+      add(CMD.BOLD_OFF);
+      add("-".repeat(width) + "\n");
+
+      const items = salida.items || [];
+      let totalUnits = 0;
+      for (const it of items) {
+        const cant = Number(it.cantidad || 0);
+        const pu = Number(it.precio_unitario || it.precioUnitario || 0);
+        const tot = cant * pu;
+        totalUnits += cant;
+        const name = String(it.producto_nombre || it.productoNombre || '');
+
+        const cantStr = padRight(cant, 5);
+        const puStr = padLeft("$" + pu.toFixed(2), 9);
+        const totStr = padLeft("$" + tot.toFixed(2), 11);
+
+        if (name.length <= 23) {
+          add(cantStr + padRight(name, 23) + puStr + totStr + "\n");
+        } else {
+          add(cantStr + padRight(name.slice(0, 23), 23) + puStr + totStr + "\n");
+          let rest = name.slice(23);
+          while (rest.length > 0) {
+            add(" ".repeat(5) + padRight(rest.slice(0, 23), 23) + "\n");
+            rest = rest.slice(23);
           }
-          imgBuf[offset++] = bVal;
         }
       }
-      chunks.push(imgBuf);
-      
-      // Avance de papel + Corte de papel para cada factura:
-      // ESC d 5: Avanzar 5 líneas para que el final de la factura pase la cuchilla
-      // GS V 65 0: Cortar papel (Full cut con alimentación de cabezal)
-      // GS V 0: Cortar papel estándar
-      // ESC @: Reiniciar estado para la siguiente factura
-      chunks.push(new Uint8Array([
-        0x1B, 0x64, 0x05,
-        0x1D, 0x56, 0x41, 0x00,
-        0x1D, 0x56, 0x00,
-        0x1B, 0x40
-      ]));
+
+      add("=".repeat(width) + "\n");
+
+      // Totals Row
+      add(CMD.DOUBLE_HEIGHT);
+      add(CMD.BOLD_ON);
+      const leftTotal = `UND: ${totalUnits}`;
+      const rightTotal = `TOTAL: $${Number(salida.total_factura || 0).toFixed(2)}`;
+      const totalLine = padRight(leftTotal, 20) + padLeft(rightTotal, 28);
+      add(totalLine + "\n");
+      add(CMD.NORMAL_SIZE);
+      add(CMD.BOLD_OFF);
+
+      add("-".repeat(width) + "\n");
+
+      // Payment Box
+      add(CMD.ALIGN_CENTER);
+      add(CMD.BOLD_ON);
+      add("- PAGO MOVIL BDV -\n");
+      add(CMD.BOLD_OFF);
+      add("0102 | 0424-3136805 | C.I. 10.668.263\n");
+      add("0102 | 0424-3004802 | C.I. 28.012.615\n");
+      add("-".repeat(width) + "\n");
+
+      add(CMD.BOLD_ON);
+      add("- DEPOSITO BANCARIO BDV -\n");
+      add(CMD.BOLD_OFF);
+      add("0102 0467 4501 0162 8166 (JUAN MORA)\n");
+      add("0102 0467 4500 0096 7787 (JORGE FLORES)\n");
+      add("-".repeat(width) + "\n");
+
+      add("NOTA: Los pagos en Bs. emitidos en fines de\n");
+      add("semana o feriados se calculan a la tasa oficial\n");
+      add("BCV fijada para el siguiente dia habil.\n");
+      add("=".repeat(width) + "\n");
+
+      // Cut
+      add(CMD.FEED_AND_CUT);
     }
-    
-    // Unir todos los buffers en un solo Uint8Array
+
     const totalLen = chunks.reduce((acc, c) => acc + c.length, 0);
-    const combined = new Uint8Array(totalLen);
-    let curOffset = 0;
+    const out = new Uint8Array(totalLen);
+    let off = 0;
     for (const c of chunks) {
-      combined.set(c, curOffset);
-      curOffset += c.length;
+      out.set(c, off);
+      off += c.length;
     }
-    
-    // Codificación Base64 segura por bloques
+
+    // Convert to Base64
     let binary = '';
     const chunkSize = 8192;
     for (let i = 0; i < totalLen; i += chunkSize) {
-      const sub = combined.subarray(i, Math.min(i + chunkSize, totalLen));
+      const sub = out.subarray(i, Math.min(i + chunkSize, totalLen));
       binary += String.fromCharCode.apply(null, sub);
     }
     return btoa(binary);
@@ -864,12 +957,11 @@ export default function SalidasPage() {
     }
   };
 
-  // Imprime múltiples notas: en Android envía lotes de 4 en 4 a RawBT; en PC abre ventana de impresión directa
+  // Imprime múltiples notas: en Android envía stream ESC/POS nativo ultrarrápido; en PC abre ventana de impresión directa
   const printMultiple = async () => {
     const toprint = filteredSalidas.filter(s => selectedIds.has(s.id));
     if (toprint.length === 0) return;
     setIsPrintingMultiple(true);
-    setPrintingStatusText('Iniciando...');
 
     try {
       const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
@@ -897,87 +989,9 @@ export default function SalidasPage() {
         return;
       }
 
-      // En Android: Procesamiento por lotes de 4 en 4 hacia RawBT
-      let h2c = window.html2canvas;
-      if (!h2c) {
-        await new Promise((resolve) => {
-          const script = document.createElement('script');
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-          script.onload = () => { h2c = window.html2canvas; resolve(); };
-          script.onerror = () => resolve();
-          document.head.appendChild(script);
-        });
-      }
-
-      if (!h2c) {
-        setConfirmDialog({
-          isOpen: true,
-          title: 'Error de Impresión',
-          message: 'No se pudo cargar el motor gráfico para imprimir. Revisa tu conexión a internet.',
-          confirmText: 'Entendido',
-          variant: 'danger',
-          onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
-          onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
-        });
-        return;
-      }
-
-      const BATCH_SIZE = 4;
-      const total = toprint.length;
-
-      for (let i = 0; i < total; i += BATCH_SIZE) {
-        const batch = toprint.slice(i, i + BATCH_SIZE);
-        const startNum = i + 1;
-        const endNum = Math.min(i + BATCH_SIZE, total);
-        setPrintingStatusText(`Enviando ${startNum}-${endNum} de ${total}...`);
-
-        const canvases = [];
-
-        for (const salida of batch) {
-          const printDiv = document.createElement('div');
-          printDiv.style.position = 'fixed';
-          printDiv.style.left = '-9999px';
-          printDiv.style.top = '0';
-          printDiv.style.width = '576px';
-          printDiv.style.minWidth = '576px';
-          printDiv.style.maxWidth = '576px';
-          printDiv.style.background = '#ffffff';
-          printDiv.style.color = '#000000';
-          printDiv.style.padding = '6px 0px';
-          printDiv.style.fontFamily = 'Arial, Helvetica, sans-serif';
-          printDiv.style.boxSizing = 'border-box';
-          printDiv.style.lineHeight = '1.35';
-          printDiv.innerHTML = buildAndroidInnerHTML(salida);
-
-          document.body.appendChild(printDiv);
-          const canvas = await h2c(printDiv, {
-            scale: 1, width: 576, windowWidth: 576,
-            backgroundColor: '#ffffff', useCORS: true, logging: false
-          });
-          if (printDiv.parentNode) document.body.removeChild(printDiv);
-
-          // Binarización de alto contraste
-          const ctx = canvas.getContext('2d');
-          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const d = imgData.data;
-          for (let k = 0; k < d.length; k += 4) {
-            const lum = d[k] * 0.299 + d[k + 1] * 0.587 + d[k + 2] * 0.114;
-            const val = lum < 210 ? 0 : 255;
-            d[k] = val; d[k + 1] = val; d[k + 2] = val; d[k + 3] = 255;
-          }
-          ctx.putImageData(imgData, 0, 0);
-          canvases.push(canvas);
-        }
-
-        // Construir stream ESC/POS del lote
-        const base64EscPos = buildEscPosStream(canvases);
-        sendRawBtUri(`rawbt:base64,${base64EscPos}`);
-
-        // Si faltan lotes por enviar, pausa para que RawBT e impresora procesen el lote previo
-        if (i + BATCH_SIZE < total) {
-          await new Promise(r => setTimeout(r, 2000));
-        }
-      }
+      // En Android: stream ESC/POS nativo ultraligero (todas las notas en 1 solo paquete instantáneo con corte individual)
+      const base64EscPos = buildEscPosReceiptStream(toprint);
+      sendRawBtUri(`rawbt:base64,${base64EscPos}`);
 
     } catch (e) {
       console.error('Error en impresión múltiple:', e);
@@ -1003,142 +1017,13 @@ export default function SalidasPage() {
     const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
     const cleanFecha = String(lastSalida.fecha || '').split('T')[0];
 
-    // 1. En teléfonos Android, enviar a RawBT a 576px de ancho exacto (ancho nativo del cabezal térmico de 80mm)
+    // 1. En teléfonos Android, enviar comando nativo ESC/POS ultraligero y nítido a RawBT
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
     if (isAndroid) {
       try {
-        let h2c = window.html2canvas;
-        if (!h2c) {
-          await new Promise((resolve) => {
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-            script.onload = () => { h2c = window.html2canvas; resolve(); };
-            script.onerror = () => resolve();
-            document.head.appendChild(script);
-          });
-        }
-
-        if (h2c) {
-          const printDiv = document.createElement('div');
-          printDiv.style.position = 'fixed';
-          printDiv.style.left = '-9999px';
-          printDiv.style.top = '0';
-          printDiv.style.width = '576px';
-          printDiv.style.minWidth = '576px';
-          printDiv.style.maxWidth = '576px';
-          printDiv.style.background = '#ffffff';
-          printDiv.style.color = '#000000';
-          printDiv.style.padding = '6px 0px';
-          printDiv.style.fontFamily = 'Arial, Helvetica, sans-serif';
-          printDiv.style.boxSizing = 'border-box';
-          printDiv.style.lineHeight = '1.35';
-
-          printDiv.innerHTML = `
-            <div style="text-align:center; font-weight:800; font-size:32px; margin-bottom:3px; letter-spacing:0.5px;">BESTEDA 2, C.A.</div>
-            <div style="text-align:center; font-weight:700; font-size:20px; margin:2px 0;">RIF: J-40529263-6</div>
-            <div style="text-align:center; font-size:17.5px; margin:1px 0;">Calle Principal Casa Nº A-13, Urb. Alto de Fenix II</div>
-            <div style="text-align:center; font-size:17.5px; margin:1px 0;">San Juan de los Morros - Estado Guárico</div>
-            <div style="text-align:center; font-size:17.5px; margin:1px 0;">Tlfs: 0424-313.68.05 / 0424-300.48.02</div>
-            
-            <hr style="border:none; border-top:3px solid #000; margin:12px 0;" />
-            
-            <div style="text-align:center; font-weight:800; font-size:27px; letter-spacing:0.8px;">NOTA DE ENTREGA</div>
-            <div style="text-align:center; font-weight:800; font-size:27px; margin-top:2px;">Nº ${lastSalida.factura_number}</div>
-            
-            <hr style="border:none; border-top:2.5px dashed #000; margin:12px 0;" />
-            
-            <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>FECHA:</b><span>${cleanFecha}</span></div>
-            ${(lastSalida.vendedor_name || lastSalida.vendedorName) ? `<div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>VENDEDOR:</b><span style="font-weight:700;">${lastSalida.vendedor_name || lastSalida.vendedorName}</span></div>` : ''}
-            <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>CLIENTE:</b><span style="font-weight:700;">${lastSalida.cliente_name || ''}</span></div>
-            <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>C.I./RIF:</b><span>${lastSalida.cedula_rif || '—'}</span></div>
-            <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>TELF:</b><span>${lastSalida.telefono || '—'}</span></div>
-            <div style="display:flex; justify-content:space-between; font-size:20.5px; padding:3px 0;"><b>DIR:</b><span>${lastSalida.direccion || '—'}</span></div>
-            
-            <hr style="border:none; border-top:2.5px dashed #000; margin:12px 0;" />
-            
-            <table style="width:100%; border-collapse:collapse; font-size:20.5px; margin:12px 0; table-layout:fixed;">
-              <thead>
-                <tr style="border-bottom:3px solid #000;">
-                  <th style="text-align:left; width:12%; padding:6px 0; font-size:19.5px; font-weight:800;">CANT</th>
-                  <th style="text-align:left; width:46%; padding:6px 0; font-size:19.5px; font-weight:800;">DESCRIPCIÓN</th>
-                  <th style="text-align:right; width:21%; padding:6px 0; font-size:19.5px; font-weight:800;">P/U</th>
-                  <th style="text-align:right; width:21%; padding:6px 0; font-size:19.5px; font-weight:800;">TOTAL</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${items.map(it => {
-                  const pu = Number(it.precioUnitario || it.precio_unitario || 0);
-                  const cant = Number(it.cantidad || 0);
-                  const tot = pu * cant;
-                  return `
-                    <tr style="border-bottom:1.5px dashed #000;">
-                      <td style="padding:8px 0; vertical-align:top; font-size:20.5px; font-weight:700;">${cant}</td>
-                      <td style="padding:8px 0; vertical-align:top; font-size:20.5px; font-weight:700; word-break:break-word;">${it.productoNombre || it.producto_nombre}</td>
-                      <td style="text-align:right; padding:8px 0; vertical-align:top; font-size:20.5px;">$${pu.toFixed(2)}</td>
-                      <td style="text-align:right; padding:8px 0; vertical-align:top; font-size:20.5px; font-weight:800;">$${tot.toFixed(2)}</td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
-            
-            <hr style="border:none; border-top:3px solid #000; margin:12px 0;" />
-            
-            <div style="display:flex; justify-content:space-between; font-weight:800; font-size:26px; margin:14px 0;">
-              <span>UND: ${totalUnits}</span>
-              <span>TOTAL: $${Number(lastSalida.total_factura || 0).toFixed(2)}</span>
-            </div>
-            
-            <div style="border:2.5px solid #000; border-radius:8px; padding:12px 10px; margin:14px 0 8px 0; background:#fff; font-size:17.5px; line-height:1.45; color:#000;">
-              <div style="font-weight:800; font-size:19px; text-align:center; margin-bottom:8px;">— PAGO MÓVIL BDV —</div>
-              <div style="display:flex; flex-direction:column; gap:4px;">
-                <div>• <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3136805</strong> &nbsp;|&nbsp; C.I. 10.668.263</div>
-                <div>• <strong>0102</strong> &nbsp;|&nbsp; <strong>0424-3004802</strong> &nbsp;|&nbsp; C.I. 28.012.615</div>
-              </div>
-              <div style="border-top:2px dashed #000; margin:10px 0;"></div>
-              <div style="font-weight:800; font-size:19px; text-align:center; margin-bottom:8px;">— DEPÓSITO BANCARIO BDV —</div>
-              <div style="display:flex; flex-direction:column; gap:4px;">
-                <div>• <strong>0102 0467 4501 0162 8166</strong> <span style="font-size:15px;">(JUAN MORA)</span></div>
-                <div>• <strong>0102 0467 4500 0096 7787</strong> <span style="font-size:15px;">(JORGE FLORES)</span></div>
-              </div>
-              <div style="border-top:2px dashed #000; margin:10px 0;"></div>
-              <div style="font-size:18px; font-weight:400; text-align:center; color:#000; line-height:1.35; padding-top:2px;">
-                NOTA: Los pagos en Bs. emitidos en fines de semana o feriados se calculan a la tasa oficial BCV fijada para el siguiente d\u00eda h\u00e1bil (Art. 25 Ley del IVA).
-              </div>
-            </div>
-          `;
-
-          document.body.appendChild(printDiv);
-
-          const canvas = await h2c(printDiv, {
-            scale: 1,
-            width: 576,
-            windowWidth: 576,
-            backgroundColor: '#ffffff',
-            useCORS: true,
-            logging: false
-          });
-
-          if (printDiv.parentNode) document.body.removeChild(printDiv);
-
-          // Binarización de contraste puro (1-bit): texto negro sólido y nítido
-          const ctx = canvas.getContext('2d');
-          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const d = imgData.data;
-          for (let i = 0; i < d.length; i += 4) {
-            const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-            const val = lum < 210 ? 0 : 255;
-            d[i] = val;
-            d[i + 1] = val;
-            d[i + 2] = val;
-            d[i + 3] = 255;
-          }
-          ctx.putImageData(imgData, 0, 0);
-
-          const base64Png = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
-          sendRawBtUri(`rawbt:data:image/png;base64,${base64Png}`);
-          return;
-        }
+        const base64EscPos = buildEscPosReceiptStream([lastSalida]);
+        sendRawBtUri(`rawbt:base64,${base64EscPos}`);
+        return;
       } catch (e) {
         console.error('Error enviando a RawBT:', e);
       }
