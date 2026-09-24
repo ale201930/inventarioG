@@ -33,6 +33,7 @@ export default function SalidasPage() {
   const [loadingEstado, setLoadingEstado] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [isPrintingMultiple, setIsPrintingMultiple] = useState(false);
+  const [printingStatusText, setPrintingStatusText] = useState('');
 
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -835,14 +836,68 @@ export default function SalidasPage() {
     return btoa(binary);
   };
 
-  // Imprime múltiples notas enviando un único stream ESC/POS completo a RawBT con corte entre facturas
+  // Despacha un esquema URI a RawBT sin recargar jamás la aplicación ni destruir la sesión
+  const sendRawBtUri = (uri) => {
+    try {
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = uri;
+      document.body.appendChild(iframe);
+      setTimeout(() => {
+        try {
+          if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+        } catch {}
+      }, 4000);
+    } catch (err) {
+      try {
+        const a = document.createElement('a');
+        a.href = uri;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          try { if (a.parentNode) a.parentNode.removeChild(a); } catch {}
+        }, 1500);
+      } catch (e2) {
+        console.error('Error enviando a RawBT:', e2);
+      }
+    }
+  };
+
+  // Imprime múltiples notas: en Android envía lotes de 4 en 4 a RawBT; en PC abre ventana de impresión directa
   const printMultiple = async () => {
     const toprint = filteredSalidas.filter(s => selectedIds.has(s.id));
     if (toprint.length === 0) return;
     setIsPrintingMultiple(true);
+    setPrintingStatusText('Iniciando...');
 
     try {
-      // Cargar html2canvas si no está disponible
+      const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
+
+      if (!isAndroid) {
+        // En PC / Escritorio: concatenar HTMLs con corte de página nativo e imprimir de un solo golpe
+        const allHtml = toprint.map(s => buildNotaHTML(s));
+        const combinedBody = allHtml.map(h => h.body).join('');
+        const styles = allHtml[0]?.styles || '';
+        
+        const win = window.open('', '_blank', 'width=420,height=600');
+        if (win) {
+          win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+            <title>Imprimir Notas de Entrega (${toprint.length})</title>
+            <style>${styles}</style>
+            </head><body>
+              ${combinedBody}
+            </body></html>`);
+          win.document.close();
+          win.focus();
+          setTimeout(() => { win.print(); }, 400);
+        } else {
+          window.print();
+        }
+        return;
+      }
+
+      // En Android: Procesamiento por lotes de 4 en 4 hacia RawBT
       let h2c = window.html2canvas;
       if (!h2c) {
         await new Promise((resolve) => {
@@ -855,59 +910,89 @@ export default function SalidasPage() {
       }
 
       if (!h2c) {
-        setIsPrintingMultiple(false);
+        setConfirmDialog({
+          isOpen: true,
+          title: 'Error de Impresión',
+          message: 'No se pudo cargar el motor gráfico para imprimir. Revisa tu conexión a internet.',
+          confirmText: 'Entendido',
+          variant: 'danger',
+          onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+          onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+        });
         return;
       }
 
-      const canvases = [];
+      const BATCH_SIZE = 4;
+      const total = toprint.length;
 
-      // Renderizar cada nota a su propio canvas a 576px
-      for (const salida of toprint) {
-        const printDiv = document.createElement('div');
-        printDiv.style.position = 'fixed';
-        printDiv.style.left = '-9999px';
-        printDiv.style.top = '0';
-        printDiv.style.width = '576px';
-        printDiv.style.minWidth = '576px';
-        printDiv.style.maxWidth = '576px';
-        printDiv.style.background = '#ffffff';
-        printDiv.style.color = '#000000';
-        printDiv.style.padding = '6px 0px';
-        printDiv.style.fontFamily = 'Arial, Helvetica, sans-serif';
-        printDiv.style.boxSizing = 'border-box';
-        printDiv.style.lineHeight = '1.35';
-        printDiv.innerHTML = buildAndroidInnerHTML(salida);
+      for (let i = 0; i < total; i += BATCH_SIZE) {
+        const batch = toprint.slice(i, i + BATCH_SIZE);
+        const startNum = i + 1;
+        const endNum = Math.min(i + BATCH_SIZE, total);
+        setPrintingStatusText(`Enviando ${startNum}-${endNum} de ${total}...`);
 
-        document.body.appendChild(printDiv);
-        const canvas = await h2c(printDiv, {
-          scale: 1, width: 576, windowWidth: 576,
-          backgroundColor: '#ffffff', useCORS: true, logging: false
-        });
-        document.body.removeChild(printDiv);
+        const canvases = [];
 
-        // Binarización de alto contraste
-        const ctx = canvas.getContext('2d');
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const d = imgData.data;
-        for (let i = 0; i < d.length; i += 4) {
-          const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-          const val = lum < 210 ? 0 : 255;
-          d[i] = val; d[i + 1] = val; d[i + 2] = val; d[i + 3] = 255;
+        for (const salida of batch) {
+          const printDiv = document.createElement('div');
+          printDiv.style.position = 'fixed';
+          printDiv.style.left = '-9999px';
+          printDiv.style.top = '0';
+          printDiv.style.width = '576px';
+          printDiv.style.minWidth = '576px';
+          printDiv.style.maxWidth = '576px';
+          printDiv.style.background = '#ffffff';
+          printDiv.style.color = '#000000';
+          printDiv.style.padding = '6px 0px';
+          printDiv.style.fontFamily = 'Arial, Helvetica, sans-serif';
+          printDiv.style.boxSizing = 'border-box';
+          printDiv.style.lineHeight = '1.35';
+          printDiv.innerHTML = buildAndroidInnerHTML(salida);
+
+          document.body.appendChild(printDiv);
+          const canvas = await h2c(printDiv, {
+            scale: 1, width: 576, windowWidth: 576,
+            backgroundColor: '#ffffff', useCORS: true, logging: false
+          });
+          if (printDiv.parentNode) document.body.removeChild(printDiv);
+
+          // Binarización de alto contraste
+          const ctx = canvas.getContext('2d');
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const d = imgData.data;
+          for (let k = 0; k < d.length; k += 4) {
+            const lum = d[k] * 0.299 + d[k + 1] * 0.587 + d[k + 2] * 0.114;
+            const val = lum < 210 ? 0 : 255;
+            d[k] = val; d[k + 1] = val; d[k + 2] = val; d[k + 3] = 255;
+          }
+          ctx.putImageData(imgData, 0, 0);
+          canvases.push(canvas);
         }
-        ctx.putImageData(imgData, 0, 0);
-        canvases.push(canvas);
-      }
 
-      // Construir stream ESC/POS completo con cortes individuales entre facturas
-      const base64EscPos = buildEscPosStream(canvases);
-      
-      // Enviar a RawBT en un solo Intent directo (Android lo ejecuta completo sin bloquearse)
-      window.location.href = `rawbt:base64,${base64EscPos}`;
+        // Construir stream ESC/POS del lote
+        const base64EscPos = buildEscPosStream(canvases);
+        sendRawBtUri(`rawbt:base64,${base64EscPos}`);
+
+        // Si faltan lotes por enviar, pausa para que RawBT e impresora procesen el lote previo
+        if (i + BATCH_SIZE < total) {
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      }
 
     } catch (e) {
       console.error('Error en impresión múltiple:', e);
+      setConfirmDialog({
+        isOpen: true,
+        title: 'Error de Impresión',
+        message: 'Ocurrió un error al procesar la impresión: ' + (e?.message || e),
+        confirmText: 'Entendido',
+        variant: 'danger',
+        onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+        onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+      });
     } finally {
       setIsPrintingMultiple(false);
+      setPrintingStatusText('');
     }
   };
 
@@ -1034,7 +1119,7 @@ export default function SalidasPage() {
             logging: false
           });
 
-          document.body.removeChild(printDiv);
+          if (printDiv.parentNode) document.body.removeChild(printDiv);
 
           // Binarización de contraste puro (1-bit): texto negro sólido y nítido
           const ctx = canvas.getContext('2d');
@@ -1051,7 +1136,7 @@ export default function SalidasPage() {
           ctx.putImageData(imgData, 0, 0);
 
           const base64Png = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
-          window.location.href = `rawbt:data:image/png;base64,${base64Png}`;
+          sendRawBtUri(`rawbt:data:image/png;base64,${base64Png}`);
           return;
         }
       } catch (e) {
@@ -1299,7 +1384,7 @@ export default function SalidasPage() {
               >
                 {isPrintingMultiple ? (
                   <>
-                    <i className="fa-solid fa-spinner fa-spin"></i> Preparando ({selectedIds.size})...
+                    <i className="fa-solid fa-spinner fa-spin"></i> {printingStatusText || `Imprimiendo (${selectedIds.size})...`}
                   </>
                 ) : (
                   <>
