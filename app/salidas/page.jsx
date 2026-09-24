@@ -756,179 +756,6 @@ export default function SalidasPage() {
     `;
   };
 
-  // Construye el stream binario ESC/POS en modo texto de alto rendimiento para 1 o múltiples facturas
-  // Tamaño por factura: ~1.2 KB (permite enviar 20 o 50 facturas de golpe en un solo paquete ultraligero a RawBT)
-  const buildEscPosReceiptStream = (salidasList, width = 48) => {
-    const chunks = [];
-    const add = (bytes) => {
-      if (typeof bytes === 'string') {
-        const buf = new Uint8Array(bytes.length);
-        for (let i = 0; i < bytes.length; i++) {
-          let code = bytes.charCodeAt(i);
-          const ch = bytes[i];
-          if (ch === 'á' || ch === 'Á') code = 0xA0;
-          else if (ch === 'é' || ch === 'É') code = 0x82;
-          else if (ch === 'í' || ch === 'Í') code = 0xA1;
-          else if (ch === 'ó' || ch === 'Ó') code = 0xA2;
-          else if (ch === 'ú' || ch === 'Ú') code = 0xA3;
-          else if (ch === 'ñ') code = 0xA4;
-          else if (ch === 'Ñ') code = 0xA5;
-          else if (ch === 'º' || ch === '°') code = 0xA7;
-          else if (ch === '¿') code = 0xA8;
-          else if (ch === '¡') code = 0xAD;
-          else if (ch === '—' || ch === '–') code = 0x2D;
-          else if (ch === '•') code = 0x2A;
-          else if (code > 255) code = 0x3F;
-          buf[i] = code;
-        }
-        chunks.push(buf);
-      } else {
-        chunks.push(new Uint8Array(bytes));
-      }
-    };
-
-    const CMD = {
-      INIT: [0x1B, 0x40],
-      CODEPAGE_PC850: [0x1B, 0x74, 0x02],
-      ALIGN_LEFT: [0x1B, 0x61, 0x00],
-      ALIGN_CENTER: [0x1B, 0x61, 0x01],
-      ALIGN_RIGHT: [0x1B, 0x61, 0x02],
-      BOLD_ON: [0x1B, 0x45, 0x01],
-      BOLD_OFF: [0x1B, 0x45, 0x00],
-      DOUBLE_SIZE: [0x1D, 0x21, 0x11],
-      DOUBLE_HEIGHT: [0x1D, 0x21, 0x01],
-      NORMAL_SIZE: [0x1D, 0x21, 0x00],
-      FEED_AND_CUT: [0x1B, 0x64, 0x04, 0x1D, 0x56, 0x41, 0x00, 0x1B, 0x40]
-    };
-
-    const padLeft = (s, l) => { s = String(s || ''); return s.length >= l ? s.slice(0, l) : ' '.repeat(l - s.length) + s; };
-    const padRight = (s, l) => { s = String(s || ''); return s.length >= l ? s.slice(0, l) : s + ' '.repeat(l - s.length); };
-
-    for (const salida of salidasList) {
-      add(CMD.INIT);
-      add(CMD.CODEPAGE_PC850);
-      add(CMD.ALIGN_CENTER);
-      add(CMD.DOUBLE_SIZE);
-      add(CMD.BOLD_ON);
-      add("BESTEDA 2, C.A.\n");
-      add(CMD.NORMAL_SIZE);
-      add("RIF: J-40529263-6\n");
-      add(CMD.BOLD_OFF);
-      add("Calle Principal Casa Nº A-13, Urb. Alto de Fenix II\n");
-      add("San Juan de los Morros - Estado Guárico\n");
-      add("Tlfs: 0424-313.68.05 / 0424-300.48.02\n");
-      add("=".repeat(width) + "\n");
-
-      // Title & Doc Number
-      add(CMD.DOUBLE_HEIGHT);
-      add(CMD.BOLD_ON);
-      add("NOTA DE ENTREGA\n");
-      add(`Nº ${salida.factura_number || ''}\n`);
-      add(CMD.NORMAL_SIZE);
-      add(CMD.BOLD_OFF);
-      add("-".repeat(width) + "\n");
-
-      // Customer Info
-      add(CMD.ALIGN_LEFT);
-      const cleanFecha = String(salida.fecha || '').split('T')[0];
-      add(padRight("FECHA:", 10) + cleanFecha + "\n");
-      if (salida.vendedor_name || salida.vendedorName) {
-        add(padRight("VENDEDOR:", 10) + (salida.vendedor_name || salida.vendedorName) + "\n");
-      }
-      add(padRight("CLIENTE:", 10) + (salida.cliente_name || '') + "\n");
-      add(padRight("C.I./RIF:", 10) + (salida.cedula_rif || '—') + "\n");
-      add(padRight("TELF:", 10) + (salida.telefono || '—') + "\n");
-      add(padRight("DIR:", 10) + (salida.direccion || '—') + "\n");
-      add("-".repeat(width) + "\n");
-
-      // Table Columns: CANT(5) DESCRIPCION(23) P/U(9) TOTAL(11) -> Total 48
-      add(CMD.BOLD_ON);
-      add(padRight("CANT", 5) + padRight("DESCRIPCION", 23) + padLeft("P/U", 9) + padLeft("TOTAL", 11) + "\n");
-      add(CMD.BOLD_OFF);
-      add("-".repeat(width) + "\n");
-
-      const items = salida.items || [];
-      let totalUnits = 0;
-      for (const it of items) {
-        const cant = Number(it.cantidad || 0);
-        const pu = Number(it.precio_unitario || it.precioUnitario || 0);
-        const tot = cant * pu;
-        totalUnits += cant;
-        const name = String(it.producto_nombre || it.productoNombre || '');
-
-        const cantStr = padRight(cant, 5);
-        const puStr = padLeft("$" + pu.toFixed(2), 9);
-        const totStr = padLeft("$" + tot.toFixed(2), 11);
-
-        if (name.length <= 23) {
-          add(cantStr + padRight(name, 23) + puStr + totStr + "\n");
-        } else {
-          add(cantStr + padRight(name.slice(0, 23), 23) + puStr + totStr + "\n");
-          let rest = name.slice(23);
-          while (rest.length > 0) {
-            add(" ".repeat(5) + padRight(rest.slice(0, 23), 23) + "\n");
-            rest = rest.slice(23);
-          }
-        }
-      }
-
-      add("=".repeat(width) + "\n");
-
-      // Totals Row
-      add(CMD.DOUBLE_HEIGHT);
-      add(CMD.BOLD_ON);
-      const leftTotal = `UND: ${totalUnits}`;
-      const rightTotal = `TOTAL: $${Number(salida.total_factura || 0).toFixed(2)}`;
-      const totalLine = padRight(leftTotal, 20) + padLeft(rightTotal, 28);
-      add(totalLine + "\n");
-      add(CMD.NORMAL_SIZE);
-      add(CMD.BOLD_OFF);
-
-      add("-".repeat(width) + "\n");
-
-      // Payment Box
-      add(CMD.ALIGN_CENTER);
-      add(CMD.BOLD_ON);
-      add("- PAGO MOVIL BDV -\n");
-      add(CMD.BOLD_OFF);
-      add("0102 | 0424-3136805 | C.I. 10.668.263\n");
-      add("0102 | 0424-3004802 | C.I. 28.012.615\n");
-      add("-".repeat(width) + "\n");
-
-      add(CMD.BOLD_ON);
-      add("- DEPOSITO BANCARIO BDV -\n");
-      add(CMD.BOLD_OFF);
-      add("0102 0467 4501 0162 8166 (JUAN MORA)\n");
-      add("0102 0467 4500 0096 7787 (JORGE FLORES)\n");
-      add("-".repeat(width) + "\n");
-
-      add("NOTA: Los pagos en Bs. emitidos en fines de\n");
-      add("semana o feriados se calculan a la tasa oficial\n");
-      add("BCV fijada para el siguiente dia habil.\n");
-      add("=".repeat(width) + "\n");
-
-      // Cut
-      add(CMD.FEED_AND_CUT);
-    }
-
-    const totalLen = chunks.reduce((acc, c) => acc + c.length, 0);
-    const out = new Uint8Array(totalLen);
-    let off = 0;
-    for (const c of chunks) {
-      out.set(c, off);
-      off += c.length;
-    }
-
-    // Convert to Base64
-    let binary = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < totalLen; i += chunkSize) {
-      const sub = out.subarray(i, Math.min(i + chunkSize, totalLen));
-      binary += String.fromCharCode.apply(null, sub);
-    }
-    return btoa(binary);
-  };
-
   // Despacha un esquema URI a RawBT sin recargar jamás la aplicación ni destruir la sesión
   const sendRawBtUri = (uri) => {
     try {
@@ -957,7 +784,7 @@ export default function SalidasPage() {
     }
   };
 
-  // Imprime múltiples notas: en Android envía stream ESC/POS nativo ultrarrápido; en PC abre ventana de impresión directa
+  // Imprime múltiples notas con el diseño gráfico elegante idéntico a Foto 2
   const printMultiple = async () => {
     const toprint = filteredSalidas.filter(s => selectedIds.has(s.id));
     if (toprint.length === 0) return;
@@ -989,9 +816,61 @@ export default function SalidasPage() {
         return;
       }
 
-      // En Android: stream ESC/POS nativo ultraligero (todas las notas en 1 solo paquete instantáneo con corte individual)
-      const base64EscPos = buildEscPosReceiptStream(toprint);
-      sendRawBtUri(`rawbt:base64,${base64EscPos}`);
+      // En Android: renderizar diseño gráfico (Foto 2) en imagen PNG nítida de alta definición
+      let h2c = window.html2canvas;
+      if (!h2c) {
+        await new Promise((resolve) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+          script.onload = () => { h2c = window.html2canvas; resolve(); };
+          script.onerror = () => resolve();
+          document.head.appendChild(script);
+        });
+      }
+
+      if (h2c) {
+        const printDiv = document.createElement('div');
+        printDiv.style.position = 'fixed';
+        printDiv.style.left = '-9999px';
+        printDiv.style.top = '0';
+        printDiv.style.width = '576px';
+        printDiv.style.minWidth = '576px';
+        printDiv.style.maxWidth = '576px';
+        printDiv.style.background = '#ffffff';
+        printDiv.style.color = '#000000';
+        printDiv.style.padding = '0px';
+        printDiv.style.fontFamily = 'Arial, Helvetica, sans-serif';
+        printDiv.style.boxSizing = 'border-box';
+        printDiv.style.lineHeight = '1.35';
+
+        // Unir las notas con separador visual limpio
+        printDiv.innerHTML = toprint.map((salida, idx) => `
+          <div style="padding: 6px 0px ${idx < toprint.length - 1 ? '24px 0px' : '6px 0px'}; ${idx < toprint.length - 1 ? 'border-bottom: 3.5px dashed #000; margin-bottom: 20px;' : ''}">
+            ${buildAndroidInnerHTML(salida)}
+          </div>
+        `).join('');
+
+        document.body.appendChild(printDiv);
+        const canvas = await h2c(printDiv, {
+          scale: 1, width: 576, windowWidth: 576,
+          backgroundColor: '#ffffff', useCORS: true, logging: false
+        });
+        if (printDiv.parentNode) document.body.removeChild(printDiv);
+
+        // Binarización de alto contraste (1-bit): texto negro puro y nítido
+        const ctx = canvas.getContext('2d');
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imgData.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+          const val = lum < 210 ? 0 : 255;
+          d[i] = val; d[i + 1] = val; d[i + 2] = val; d[i + 3] = 255;
+        }
+        ctx.putImageData(imgData, 0, 0);
+
+        const base64Png = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+        sendRawBtUri(`rawbt:data:image/png;base64,${base64Png}`);
+      }
 
     } catch (e) {
       console.error('Error en impresión múltiple:', e);
@@ -1013,17 +892,64 @@ export default function SalidasPage() {
 
   const printTicket = async () => {
     if (!lastSalida) return;
-    const items = lastSalida.items || [];
-    const totalUnits = items.reduce((s, it) => s + parseInt(it.cantidad || 0), 0);
-    const cleanFecha = String(lastSalida.fecha || '').split('T')[0];
 
-    // 1. En teléfonos Android, enviar comando nativo ESC/POS ultraligero y nítido a RawBT
+    // 1. En teléfonos Android, renderizar diseño gráfico (Foto 2) a 576px exactos y enviar PNG nítido
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
     if (isAndroid) {
       try {
-        const base64EscPos = buildEscPosReceiptStream([lastSalida]);
-        sendRawBtUri(`rawbt:base64,${base64EscPos}`);
-        return;
+        let h2c = window.html2canvas;
+        if (!h2c) {
+          await new Promise((resolve) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+            script.onload = () => { h2c = window.html2canvas; resolve(); };
+            script.onerror = () => resolve();
+            document.head.appendChild(script);
+          });
+        }
+
+        if (h2c) {
+          const printDiv = document.createElement('div');
+          printDiv.style.position = 'fixed';
+          printDiv.style.left = '-9999px';
+          printDiv.style.top = '0';
+          printDiv.style.width = '576px';
+          printDiv.style.minWidth = '576px';
+          printDiv.style.maxWidth = '576px';
+          printDiv.style.background = '#ffffff';
+          printDiv.style.color = '#000000';
+          printDiv.style.padding = '6px 0px';
+          printDiv.style.fontFamily = 'Arial, Helvetica, sans-serif';
+          printDiv.style.boxSizing = 'border-box';
+          printDiv.style.lineHeight = '1.35';
+          printDiv.innerHTML = buildAndroidInnerHTML(lastSalida);
+
+          document.body.appendChild(printDiv);
+          const canvas = await h2c(printDiv, {
+            scale: 1,
+            width: 576,
+            windowWidth: 576,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            logging: false
+          });
+          if (printDiv.parentNode) document.body.removeChild(printDiv);
+
+          // Binarización de contraste puro (1-bit): texto negro sólido y nítido
+          const ctx = canvas.getContext('2d');
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const d = imgData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+            const val = lum < 210 ? 0 : 255;
+            d[i] = val; d[i + 1] = val; d[i + 2] = val; d[i + 3] = 255;
+          }
+          ctx.putImageData(imgData, 0, 0);
+
+          const base64Png = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+          sendRawBtUri(`rawbt:data:image/png;base64,${base64Png}`);
+          return;
+        }
       } catch (e) {
         console.error('Error enviando a RawBT:', e);
       }
