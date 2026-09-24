@@ -18,6 +18,7 @@ export default function EntradasPage() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [bcvTasa, setBcvTasa] = useState(798.33);
   const [currentEntradaId, setCurrentEntradaId] = useState(null);
+  const [editingEntradaId, setEditingEntradaId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [ocrText, setOcrText] = useState('');
   const [ocrRunning, setOcrRunning] = useState(false);
@@ -123,6 +124,7 @@ export default function EntradasPage() {
   };
 
   const resetModalForm = () => {
+    setEditingEntradaId(null);
     setForm({
       proveedorName: '',
       proveedorRif: '',
@@ -149,10 +151,50 @@ export default function EntradasPage() {
     setShowModal(true);
   };
 
+  const openEditModal = (entrada) => {
+    setEditingEntradaId(entrada.id);
+    const items = (entrada.items && entrada.items.length > 0)
+      ? entrada.items.map(it => {
+          const cant = parseFloat(it.cantidad || 0);
+          const costoUSD = parseFloat(it.costo_unitario_usd ?? it.costo_unitario ?? 0);
+          const totalUSD = (cant * costoUSD).toFixed(2);
+          const tasa = parseFloat(entrada.tasa_bcv || bcvTasa || 798.33);
+          const totalVES = (parseFloat(totalUSD) * tasa).toFixed(2);
+          return {
+            codigo: it.codigo_producto || '',
+            nombre: it.producto_nombre || '',
+            cantidad: cant,
+            costoUSD: costoUSD,
+            totalUSD: totalUSD,
+            totalVES: totalVES
+          };
+        })
+      : [emptyItem()];
+
+    setForm({
+      proveedorName: entrada.proveedor_name || '',
+      proveedorRif: entrada.proveedor_rif || '',
+      proveedorTelf: entrada.proveedor_telefono || '',
+      proveedorDir: entrada.proveedor_direccion || '',
+      tipoDoc: entrada.tipo_documento || 'NOTA DE ENTREGA',
+      facturaNum: entrada.factura_number || entrada.numero_documento || '',
+      fecha: entrada.fecha ? String(entrada.fecha).split('T')[0] : today(),
+      fechaVenc: entrada.fecha_vencimiento ? String(entrada.fecha_vencimiento).split('T')[0] : todayPlus7(),
+      tasaBCV: entrada.tasa_bcv || bcvTasa || 798.33,
+      totalUSD: Number(entrada.total_factura || entrada.total_usd || 0).toFixed(2),
+      totalVES: Number(entrada.total_ves || 0).toFixed(2),
+      observaciones: entrada.observaciones || '',
+      items: items
+    });
+    setFacturaImg(null);
+    setOcrText('');
+    setShowModal(true);
+  };
+
   const handleSave = async (confirmed, skipDuplicateCheck = false) => {
     if (!skipDuplicateCheck && form.facturaNum) {
       const docTrim = form.facturaNum.toString().trim().toLowerCase();
-      const docExiste = entradas.find(e => (e.factura_number || '').toString().trim().toLowerCase() === docTrim);
+      const docExiste = entradas.find(e => e.id !== editingEntradaId && (e.factura_number || '').toString().trim().toLowerCase() === docTrim);
       if (docExiste) {
         setConfirmDialog({
           isOpen: true,
@@ -168,11 +210,11 @@ export default function EntradasPage() {
                 <div><strong>💵 Total:</strong> ${Number(docExiste.total_factura||0).toFixed(2)}</div>
               </div>
               <p style={{margin:0, color:'#b45309', fontWeight:700, fontSize:'0.9rem'}}>
-                ¿Deseas registrar esta compra de todos modos?
+                {editingEntradaId ? '¿Deseas guardar estos cambios de todos modos?' : '¿Deseas registrar esta compra de todos modos?'}
               </p>
             </div>
           ),
-          confirmText: 'Sí, Registrar de Todos Modos',
+          confirmText: 'Sí, Continuar',
           cancelText: 'Corregir Número',
           variant: 'warning',
           icon: 'fa-triangle-exclamation',
@@ -190,6 +232,7 @@ export default function EntradasPage() {
     setSaving(true);
     try {
       const payload = {
+        ...(editingEntradaId ? { id: editingEntradaId } : {}),
         proveedorName: form.proveedorName, proveedorRif: form.proveedorRif,
         proveedorTelefono: form.proveedorTelf, proveedorDireccion: form.proveedorDir,
         tipoDocumento: form.tipoDoc, numeroDocumento: form.facturaNum,
@@ -204,7 +247,8 @@ export default function EntradasPage() {
           costoUnitarioVES: parseFloat(it.costoUSD||0) * parseFloat(form.tasaBCV||798.33)
         })).filter(it => it.productoNombre && it.cantidad > 0)
       };
-      const res = await fetch('/api/entradas', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+      const method = editingEntradaId ? 'PUT' : 'POST';
+      const res = await fetch('/api/entradas', { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
       const d = await res.json();
       if (d.success) {
         resetModalForm();
@@ -213,7 +257,7 @@ export default function EntradasPage() {
         setConfirmDialog({
           isOpen: true,
           title: 'Error al Guardar',
-          message: d.error || 'No se pudo registrar la compra.',
+          message: d.error || (editingEntradaId ? 'No se pudo actualizar la compra.' : 'No se pudo registrar la compra.'),
           confirmText: 'Entendido',
           cancelText: 'Cerrar',
           variant: 'danger',
@@ -842,6 +886,10 @@ export default function EntradasPage() {
                 </td>
                 <td>
                   <div style={{display:'flex', gap:'0.4rem'}}>
+                    <button className="btn btn-secondary btn-sm" title="Editar compra"
+                      onClick={()=>openEditModal(e)} style={{color:'#0284c7', borderColor:'#bae6fd', background:'#f0f9ff'}}>
+                      <i className="fa-solid fa-pen-to-square"></i>
+                    </button>
                     {Number(e.saldo_adeudado)>0 && (
                       <button className="btn btn-secondary btn-sm" title="Registrar abono"
                         onClick={()=>{ setAbonoForm({...abonoForm, entradaId:e.id}); setShowAbonoModal(true); }}>
@@ -865,8 +913,12 @@ export default function EntradasPage() {
           <div className="modal-content" style={{maxWidth:950}}>
             <div className="modal-header">
               <div>
-                <h2><i className="fa-solid fa-file-circle-plus"></i> Cargar Factura de Proveedor / Entrada</h2>
-                <p style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>Toma una foto de la factura o sube la imagen para escaneo automático OCR</p>
+                <h2>
+                  <i className={`fa-solid ${editingEntradaId ? 'fa-pen-to-square' : 'fa-file-circle-plus'}`}></i> {editingEntradaId ? `Editar Compra Nº ${form.facturaNum || ''}` : 'Cargar Factura de Proveedor / Entrada'}
+                </h2>
+                <p style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>
+                  {editingEntradaId ? 'Modifica los productos, cantidades o precios. El inventario se actualizará automáticamente.' : 'Toma una foto de la factura o sube la imagen para escaneo automático OCR'}
+                </p>
               </div>
               <button type="button" className="modal-close" onClick={resetModalForm}>&times;</button>
             </div>
@@ -1034,8 +1086,12 @@ export default function EntradasPage() {
           <div className="modal-content" style={{maxWidth:950}}>
             <div className="modal-header" style={{marginBottom:'0.75rem', borderBottom:'2px solid var(--primary-light)', paddingBottom:'0.5rem'}}>
               <div>
-                <h2><i className="fa-solid fa-clipboard-check" style={{color:'var(--success)'}}></i> Inspección Visual Completa de la Factura</h2>
-                <p style={{fontSize:'0.82rem', color:'var(--text-secondary)'}}>Verifica todos los datos de la factura/nota de entrega antes de ingresar al inventario</p>
+                <h2>
+                  <i className="fa-solid fa-clipboard-check" style={{color:'var(--success)'}}></i> {editingEntradaId ? 'Inspección de Cambios de la Compra' : 'Inspección Visual Completa de la Factura'}
+                </h2>
+                <p style={{fontSize:'0.82rem', color:'var(--text-secondary)'}}>
+                  {editingEntradaId ? 'Verifica los cambios antes de guardar y sincronizar el inventario' : 'Verifica todos los datos de la factura/nota de entrega antes de ingresar al inventario'}
+                </p>
               </div>
               <button type="button" className="modal-close" onClick={()=>setShowPreviewModal(false)}>&times;</button>
             </div>
@@ -1116,7 +1172,7 @@ export default function EntradasPage() {
             <div style={{display:'grid', gridTemplateColumns:'1fr 1.5fr', gap:'1rem', marginTop:'1.25rem'}}>
               <button type="button" className="btn btn-secondary" onClick={()=>setShowPreviewModal(false)}><i className="fa-solid fa-arrow-left"></i> Volver a Editar</button>
               <button type="button" className="btn btn-primary" style={{background:'var(--success)', borderColor:'var(--success)'}} onClick={()=>handleSave(true)} disabled={saving}>
-                {saving ? <><i className="fa-solid fa-spinner fa-spin"></i> Guardando...</> : <><i className="fa-solid fa-check-double"></i> Confirmar e Ingresar al Inventario</>}
+                {saving ? <><i className="fa-solid fa-spinner fa-spin"></i> Guardando...</> : (editingEntradaId ? <><i className="fa-solid fa-check-double"></i> Guardar Cambios y Actualizar Inventario</> : <><i className="fa-solid fa-check-double"></i> Confirmar e Ingresar al Inventario</>)}
               </button>
             </div>
           </div>
