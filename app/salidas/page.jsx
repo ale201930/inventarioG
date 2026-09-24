@@ -837,6 +837,7 @@ export default function SalidasPage() {
           else if (ch === '└') code = 0xC0;
           else if (ch === '┘') code = 0xD9;
           else if (ch === '─') code = 0xC4;
+          else if (ch === '═') code = 0xCD;
           else if (ch === '│') code = 0xB3;
           else if (ch === '├') code = 0xC3;
           else if (ch === '┤') code = 0xB4;
@@ -872,15 +873,25 @@ export default function SalidasPage() {
     const DOTTED_SEP = ' . . . . . . . . . . . . . . . . . . . . . . . .\n';
     const innerW = width - 2;
 
+    const addThickSolidLine = () => {
+      add(CMD.BOLD_ON);
+      add(CMD.DOUBLE_STRIKE_ON);
+      add(SOLID_LINE);
+      add(CMD.DOUBLE_STRIKE_OFF);
+      add(CMD.BOLD_OFF);
+    };
+
     for (const salida of salidasList) {
       add(CMD.INIT);
       add(CMD.CODEPAGE_PC850);
       
-      // Encabezado BESTEDA 2, C.A. - Centrado, Negrita Intensa y Elegante
+      // Encabezado BESTEDA 2, C.A. - Solo uno, Doble Alto, Negrita Nítida y Centrado
       add(CMD.ALIGN_CENTER);
+      add(CMD.DOUBLE_HEIGHT);
       add(CMD.BOLD_ON);
       add(CMD.DOUBLE_STRIKE_ON);
       add(padCenter("BESTEDA 2, C.A.", width) + '\n');
+      add(CMD.NORMAL_SIZE);
       add(CMD.DOUBLE_STRIKE_OFF);
       add(padCenter("RIF: J-40529263-6", width) + '\n');
       add(CMD.BOLD_OFF);
@@ -889,9 +900,9 @@ export default function SalidasPage() {
       add(padCenter("Tlfs: 0424-313.68.05 / 0424-300.48.02", width) + '\n');
 
       // 1. PRIMERA LÍNEA SÓLIDA GRUESA
-      add(SOLID_LINE);
+      addThickSolidLine();
 
-      // Título NOTA DE ENTREGA y Nº Documento - Proporcionado, Negrita y sin deformación
+      // Título NOTA DE ENTREGA y Nº Documento - Destacado y Proporcionado
       add(CMD.BOLD_ON);
       add(CMD.DOUBLE_STRIKE_ON);
       add(padCenter("NOTA DE ENTREGA", width) + '\n');
@@ -917,7 +928,9 @@ export default function SalidasPage() {
       add(CMD.BOLD_ON);
       add(padRight("CANT", 5) + padRight("DESCRIPCIÓN", 23) + padLeft("P/U", 9) + padLeft("TOTAL", 11) + '\n');
       add(CMD.BOLD_OFF);
-      add(DASHED_LINE);
+
+      // 2. SEGUNDA LÍNEA SÓLIDA GRUESA (Debajo de los títulos de columnas)
+      addThickSolidLine();
 
       const items = salida.items || [];
       let totalUnits = 0;
@@ -944,8 +957,8 @@ export default function SalidasPage() {
         }
       }
 
-      // 2. SEGUNDA LÍNEA SÓLIDA GRUESA
-      add(SOLID_LINE);
+      // 3. TERCERA LÍNEA SÓLIDA GRUESA (Arriba de la fila de totales)
+      addThickSolidLine();
 
       // Fila de Totales Destacada
       add(CMD.BOLD_ON);
@@ -954,8 +967,8 @@ export default function SalidasPage() {
       add(CMD.DOUBLE_STRIKE_OFF);
       add(CMD.BOLD_OFF);
 
-      // 3. TERCERA LÍNEA SÓLIDA GRUESA
-      add(SOLID_LINE);
+      // 4. CUARTA LÍNEA SÓLIDA GRUESA (Debajo de la fila de totales)
+      addThickSolidLine();
 
       // Recuadro Rectangular Cerrado con Líneas Continuas Sólidas
       add('┌' + '─'.repeat(innerW) + '┐\n');
