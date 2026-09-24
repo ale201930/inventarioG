@@ -9,7 +9,7 @@ export default function InventarioPage() {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ nombre:'', cantidad:0, costoUnitario:0, precioVenta1:0, precioVenta2:0, precioVenta3:0 });
+  const [form, setForm] = useState({ nombre:'', cantidad:0, costoUnitario:0, precioVenta1:0, precioVenta2:0, precioVenta3:0, precioVenta4:0 });
   
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -84,6 +84,7 @@ export default function InventarioPage() {
         precioVenta1: edits.precio_venta1 !== undefined ? edits.precio_venta1 : p.precio_venta1,
         precioVenta2: edits.precio_venta2 !== undefined ? edits.precio_venta2 : p.precio_venta2,
         precioVenta3: edits.precio_venta3 !== undefined ? edits.precio_venta3 : p.precio_venta3,
+        precioVenta4: edits.precio_venta4 !== undefined ? edits.precio_venta4 : (p.precio_venta4 || 0),
       };
       const res = await fetch('/api/inventario', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
       const d = await res.json();
@@ -105,13 +106,21 @@ export default function InventarioPage() {
   const openNew = (e) => {
     if (e) { e.preventDefault(); e.stopPropagation(); }
     setEditing(null);
-    setForm({ nombre:'', cantidad:0, costoUnitario:0, precioVenta1:0, precioVenta2:0, precioVenta3:0 });
+    setForm({ nombre:'', cantidad:0, costoUnitario:0, precioVenta1:0, precioVenta2:0, precioVenta3:0, precioVenta4:0 });
     setShowModal(true);
   };
   const openEdit = (p, e) => {
     if (e) { e.preventDefault(); e.stopPropagation(); }
     setEditing(p);
-    setForm({ nombre:p.nombre, cantidad:p.cantidad, costoUnitario:p.costo_unitario, precioVenta1:p.precio_venta1, precioVenta2:p.precio_venta2, precioVenta3:p.precio_venta3 });
+    setForm({
+      nombre: p.nombre,
+      cantidad: p.cantidad,
+      costoUnitario: p.costo_unitario,
+      precioVenta1: p.precio_venta1,
+      precioVenta2: p.precio_venta2,
+      precioVenta3: p.precio_venta3,
+      precioVenta4: p.precio_venta4 || 0
+    });
     setShowModal(true);
   };
 
@@ -213,16 +222,17 @@ export default function InventarioPage() {
             <tr>
               <th>Producto</th>
               <th>Stock</th>
-              <th style={{minWidth:110}}>Costo Compra ($)</th>
-              <th style={{minWidth:110}}>Precio 1 ($)</th>
-              <th style={{minWidth:110}}>Precio 2 ($)</th>
-              <th style={{minWidth:110}}>Precio 3 ($)</th>
+              <th style={{minWidth:100}}>Costo Compra ($)</th>
+              <th style={{minWidth:100}}>Bigott ($)</th>
+              <th style={{minWidth:100}}>Clientes ($)</th>
+              <th style={{minWidth:100}}>Descuento ($)</th>
+              <th style={{minWidth:100}}>Especial ($)</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={7} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
+              <tr><td colSpan={8} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
                 {search ? 'Sin resultados para la búsqueda' : 'Sin productos en inventario'}
               </td></tr>
             ) : filtered.map(p => {
@@ -231,6 +241,7 @@ export default function InventarioPage() {
               const curP1 = inlinePrices[p.id]?.precio_venta1 !== undefined ? inlinePrices[p.id].precio_venta1 : p.precio_venta1;
               const curP2 = inlinePrices[p.id]?.precio_venta2 !== undefined ? inlinePrices[p.id].precio_venta2 : p.precio_venta2;
               const curP3 = inlinePrices[p.id]?.precio_venta3 !== undefined ? inlinePrices[p.id].precio_venta3 : p.precio_venta3;
+              const curP4 = inlinePrices[p.id]?.precio_venta4 !== undefined ? inlinePrices[p.id].precio_venta4 : (p.precio_venta4 || 0);
               const isSaving = savingId === p.id;
               const isSaved = savedSuccessId === p.id;
 
@@ -252,7 +263,7 @@ export default function InventarioPage() {
                         type="number"
                         step="0.01"
                         className="form-control"
-                        style={{width:80, fontSize:'0.85rem', padding:'0.25rem 0.4rem', fontWeight:600}}
+                        style={{width:75, fontSize:'0.85rem', padding:'0.25rem 0.4rem', fontWeight:600}}
                         value={curCosto}
                         onChange={e=>handleQuickPriceChange(p.id, 'costo_unitario', e.target.value)}
                         onKeyDown={e=>{ if (e.key === 'Enter') handleQuickPriceSave(p); }}
@@ -266,7 +277,7 @@ export default function InventarioPage() {
                         type="number"
                         step="0.01"
                         className="form-control"
-                        style={{width:80, fontSize:'0.85rem', padding:'0.25rem 0.4rem', fontWeight:700, borderColor:'#38bdf8', color:'#0284c7'}}
+                        style={{width:75, fontSize:'0.85rem', padding:'0.25rem 0.4rem', fontWeight:700, borderColor:'#38bdf8', color:'#0284c7'}}
                         value={curP1}
                         onChange={e=>handleQuickPriceChange(p.id, 'precio_venta1', e.target.value)}
                         onKeyDown={e=>{ if (e.key === 'Enter') handleQuickPriceSave(p); }}
@@ -280,7 +291,7 @@ export default function InventarioPage() {
                         type="number"
                         step="0.01"
                         className="form-control"
-                        style={{width:80, fontSize:'0.85rem', padding:'0.25rem 0.4rem', fontWeight:700, borderColor:'#38bdf8', color:'#0284c7'}}
+                        style={{width:75, fontSize:'0.85rem', padding:'0.25rem 0.4rem', fontWeight:700, borderColor:'#38bdf8', color:'#0284c7'}}
                         value={curP2}
                         onChange={e=>handleQuickPriceChange(p.id, 'precio_venta2', e.target.value)}
                         onKeyDown={e=>{ if (e.key === 'Enter') handleQuickPriceSave(p); }}
@@ -294,9 +305,23 @@ export default function InventarioPage() {
                         type="number"
                         step="0.01"
                         className="form-control"
-                        style={{width:80, fontSize:'0.85rem', padding:'0.25rem 0.4rem', fontWeight:700, borderColor:'#38bdf8', color:'#0284c7'}}
+                        style={{width:75, fontSize:'0.85rem', padding:'0.25rem 0.4rem', fontWeight:700, borderColor:'#38bdf8', color:'#0284c7'}}
                         value={curP3}
                         onChange={e=>handleQuickPriceChange(p.id, 'precio_venta3', e.target.value)}
+                        onKeyDown={e=>{ if (e.key === 'Enter') handleQuickPriceSave(p); }}
+                      />
+                    </div>
+                  </td>
+                  <td>
+                    <div style={{display:'flex', alignItems:'center', gap:'0.2rem'}}>
+                      <span style={{fontSize:'0.85rem', color:'#0284c7'}}>$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="form-control"
+                        style={{width:75, fontSize:'0.85rem', padding:'0.25rem 0.4rem', fontWeight:700, borderColor:'#38bdf8', color:'#0284c7'}}
+                        value={curP4}
+                        onChange={e=>handleQuickPriceChange(p.id, 'precio_venta4', e.target.value)}
                         onKeyDown={e=>{ if (e.key === 'Enter') handleQuickPriceSave(p); }}
                       />
                     </div>
@@ -332,7 +357,7 @@ export default function InventarioPage() {
       {/* Modal */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{maxWidth:550}}>
+          <div className="modal-content" style={{maxWidth:600}}>
             <div className="modal-header">
               <h2>{editing ? 'Editar Producto' : 'Nuevo Producto'}</h2>
               <button type="button" className="modal-close" onClick={()=>setShowModal(false)}>&times;</button>
@@ -354,15 +379,31 @@ export default function InventarioPage() {
               </div>
               <div style={{background:'#f8fafc', border:'1px solid #cbd5e1', borderRadius:6, padding:'0.75rem', marginTop:'0.5rem', marginBottom:'1rem'}}>
                 <h4 style={{fontSize:'0.8rem', fontWeight:700, color:'var(--primary)', textTransform:'uppercase', marginBottom:'0.5rem'}}>Precios de Venta de Salida</h4>
-                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'0.5rem'}}>
-                  {[1,2,3].map(n => (
-                    <div className="form-group" key={n} style={{margin:0}}>
-                      <label className="form-label" style={{fontSize:'0.75rem'}}>Precio {n} ($)</label>
-                      <input type="number" step="0.01" className="form-control" min="0" placeholder="0.00"
-                        value={form[`precioVenta${n}`]}
-                        onChange={e=>setForm({...form,[`precioVenta${n}`]:e.target.value})} />
-                    </div>
-                  ))}
+                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'0.5rem'}}>
+                  <div className="form-group" style={{margin:0}}>
+                    <label className="form-label" style={{fontSize:'0.72rem'}}>Bigott ($)</label>
+                    <input type="number" step="0.01" className="form-control" min="0" placeholder="0.00"
+                      value={form.precioVenta1}
+                      onChange={e=>setForm({...form, precioVenta1:e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{margin:0}}>
+                    <label className="form-label" style={{fontSize:'0.72rem'}}>Clientes ($)</label>
+                    <input type="number" step="0.01" className="form-control" min="0" placeholder="0.00"
+                      value={form.precioVenta2}
+                      onChange={e=>setForm({...form, precioVenta2:e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{margin:0}}>
+                    <label className="form-label" style={{fontSize:'0.72rem'}}>Descuento ($)</label>
+                    <input type="number" step="0.01" className="form-control" min="0" placeholder="0.00"
+                      value={form.precioVenta3}
+                      onChange={e=>setForm({...form, precioVenta3:e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{margin:0}}>
+                    <label className="form-label" style={{fontSize:'0.72rem'}}>Especial ($)</label>
+                    <input type="number" step="0.01" className="form-control" min="0" placeholder="0.00"
+                      value={form.precioVenta4}
+                      onChange={e=>setForm({...form, precioVenta4:e.target.value})} />
+                  </div>
                 </div>
               </div>
               <button type="submit" className="btn btn-primary" style={{width:'100%'}}>Guardar Producto</button>

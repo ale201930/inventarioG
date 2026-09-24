@@ -111,9 +111,9 @@ export async function POST(request) {
         prodId = codigo ? 'prod_' + codigo.toLowerCase().replace(/[^a-z0-9]/g, '') : randId('prod');
         await conn.execute(
           `INSERT INTO inventario 
-           (id, codigo_producto, nombre, cantidad, costo_unitario, precio_unitario, precio_venta1, precio_venta2, precio_venta3) 
-           VALUES (?,?,?,?,?,?,?,?,?)`,
-          [prodId, codigo, prodNombre, cant, costoUSD, costoUSD * 1.15, costoUSD * 1.15, costoUSD * 1.20, costoUSD * 1.25]
+           (id, codigo_producto, nombre, cantidad, costo_unitario, precio_unitario, precio_venta1, precio_venta2, precio_venta3, precio_venta4) 
+           VALUES (?,?,?,?,?,?,?,?,?,?)`,
+          [prodId, codigo, prodNombre, cant, costoUSD, costoUSD * 1.15, costoUSD * 1.15, costoUSD * 1.20, costoUSD * 1.25, costoUSD * 1.30]
         );
       }
 
@@ -209,9 +209,9 @@ export async function PUT(request) {
         prodId = codigo ? 'prod_' + codigo.toLowerCase().replace(/[^a-z0-9]/g, '') : randId('prod');
         await conn.execute(
           `INSERT INTO inventario 
-           (id, codigo_producto, nombre, cantidad, costo_unitario, precio_unitario, precio_venta1, precio_venta2, precio_venta3) 
-           VALUES (?,?,?,?,?,?,?,?,?)`,
-          [prodId, codigo, prodNombre, cant, costoUSD, costoUSD * 1.15, costoUSD * 1.15, costoUSD * 1.20, costoUSD * 1.25]
+           (id, codigo_producto, nombre, cantidad, costo_unitario, precio_unitario, precio_venta1, precio_venta2, precio_venta3, precio_venta4) 
+           VALUES (?,?,?,?,?,?,?,?,?,?)`,
+          [prodId, codigo, prodNombre, cant, costoUSD, costoUSD * 1.15, costoUSD * 1.15, costoUSD * 1.20, costoUSD * 1.25, costoUSD * 1.30]
         );
       }
 

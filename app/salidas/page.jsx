@@ -242,6 +242,7 @@ export default function SalidasPage() {
     if (opcion === '1') precio = parseFloat(prod.precio_venta1) || 0;
     else if (opcion === '2') precio = parseFloat(prod.precio_venta2) || 0;
     else if (opcion === '3') precio = parseFloat(prod.precio_venta3) || 0;
+    else if (opcion === '4') precio = parseFloat(prod.precio_venta4) || 0;
     else if (opcion === 'custom') precio = form.items[i]?.precioUnitario || '';
     
     const cant = parseInt(form.items[i]?.cantidad||1);
@@ -273,7 +274,12 @@ export default function SalidasPage() {
       updateItem(i, { precioOpcion: opcion });
       return;
     }
-    const precio = parseFloat(opcion === '2' ? prod.precio_venta2 : opcion === '3' ? prod.precio_venta3 : prod.precio_venta1) || 0;
+    let precio = 0;
+    if (opcion === '1') precio = parseFloat(prod.precio_venta1) || 0;
+    else if (opcion === '2') precio = parseFloat(prod.precio_venta2) || 0;
+    else if (opcion === '3') precio = parseFloat(prod.precio_venta3) || 0;
+    else if (opcion === '4') precio = parseFloat(prod.precio_venta4) || 0;
+    else precio = parseFloat(prod.precio_venta1) || 0;
     updateItem(i, { precioOpcion: opcion, precioUnitario: precio, subtotal: cant * precio });
   };
 
@@ -1516,7 +1522,7 @@ export default function SalidasPage() {
                       <option value="">-- Seleccionar producto --</option>
                       {productos.map(p => (
                         <option key={p.id} value={p.id}>
-                          {p.nombre} (Stock: {p.cantidad} | P1: ${Number(p.precio_venta1||0).toFixed(2)})
+                          {p.nombre} (Stock: {p.cantidad} | Bigott: ${Number(p.precio_venta1||0).toFixed(2)})
                         </option>
                       ))}
                     </select>
@@ -1525,13 +1531,14 @@ export default function SalidasPage() {
                     </button>
                   </div>
                   {/* Fila 2: Tipo Precio | Cantidad | P. Unitario | Subtotal */}
-                  <div style={{display:'grid', gridTemplateColumns:'85px 60px 80px 1fr', gap:'0.4rem', alignItems:'center', background:'#f8fafc', padding:'0.4rem 0.6rem', borderRadius:8, border:'1px solid #f1f5f9'}}>
+                  <div style={{display:'grid', gridTemplateColumns:'95px 60px 80px 1fr', gap:'0.4rem', alignItems:'center', background:'#f8fafc', padding:'0.4rem 0.6rem', borderRadius:8, border:'1px solid #f1f5f9'}}>
                     <div>
                       <span style={{fontSize:'0.7rem', fontWeight:600, color:'#64748b', display:'block', marginBottom:2}}>Precio:</span>
                       <select className="form-control" style={{fontSize:'0.78rem', padding:'0.25rem 0.3rem', minHeight:34}} value={item.precioOpcion || '1'} onChange={e=>selectPrecio(i, e.target.value)}>
-                        <option value="1">P1</option>
-                        <option value="2">P2</option>
-                        <option value="3">P3</option>
+                        <option value="1">Bigott</option>
+                        <option value="2">Clientes</option>
+                        <option value="3">Descuento</option>
+                        <option value="4">Especial</option>
                         <option value="custom">Manual</option>
                       </select>
                     </div>
