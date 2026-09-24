@@ -859,40 +859,46 @@ export default function SalidasPage() {
       ALIGN_RIGHT: [0x1B, 0x61, 0x02],
       BOLD_ON: [0x1B, 0x45, 0x01],
       BOLD_OFF: [0x1B, 0x45, 0x00],
+      DOUBLE_STRIKE_ON: [0x1B, 0x47, 0x01],
+      DOUBLE_STRIKE_OFF: [0x1B, 0x47, 0x00],
       DOUBLE_SIZE: [0x1D, 0x21, 0x11],
       DOUBLE_HEIGHT: [0x1D, 0x21, 0x01],
       NORMAL_SIZE: [0x1D, 0x21, 0x00],
       FEED_AND_CUT: [0x1B, 0x64, 0x05, 0x1D, 0x56, 0x41, 0x00, 0x1B, 0x40]
     };
 
-    const sep = '-'.repeat(width) + '\n';
+    const SOLID_LINE = '─'.repeat(width) + '\n';
+    const DASHED_LINE = '- - - - - - - - - - - - - - - - - - - - - - - - \n';
+    const DOTTED_SEP = ' . . . . . . . . . . . . . . . . . . . . . . . .\n';
     const innerW = width - 2;
 
     for (const salida of salidasList) {
       add(CMD.INIT);
       add(CMD.CODEPAGE_PC850);
       
-      // Encabezado Grande y Destacado
+      // Encabezado BESTEDA 2, C.A. - Centrado, Negrita Intensa y Elegante
       add(CMD.ALIGN_CENTER);
-      add(CMD.DOUBLE_SIZE);
       add(CMD.BOLD_ON);
-      add(padCenter("BESTEDA 2, C.A.", Math.floor(width / 2)) + '\n');
-      add(CMD.NORMAL_SIZE);
+      add(CMD.DOUBLE_STRIKE_ON);
+      add(padCenter("BESTEDA 2, C.A.", width) + '\n');
+      add(CMD.DOUBLE_STRIKE_OFF);
       add(padCenter("RIF: J-40529263-6", width) + '\n');
       add(CMD.BOLD_OFF);
       add(padCenter("Calle Principal Casa Nº A-13, Urb. Alto de Fenix II", width) + '\n');
       add(padCenter("San Juan de los Morros - Estado Guárico", width) + '\n');
       add(padCenter("Tlfs: 0424-313.68.05 / 0424-300.48.02", width) + '\n');
-      add(sep);
 
-      // Título y Número de Factura Destacados
-      add(CMD.DOUBLE_HEIGHT);
+      // 1. PRIMERA LÍNEA SÓLIDA GRUESA
+      add(SOLID_LINE);
+
+      // Título NOTA DE ENTREGA y Nº Documento - Proporcionado, Negrita y sin deformación
       add(CMD.BOLD_ON);
+      add(CMD.DOUBLE_STRIKE_ON);
       add(padCenter("NOTA DE ENTREGA", width) + '\n');
       add(padCenter(`Nº ${salida.factura_number || ''}`, width) + '\n');
-      add(CMD.NORMAL_SIZE);
+      add(CMD.DOUBLE_STRIKE_OFF);
       add(CMD.BOLD_OFF);
-      add(sep);
+      add(DASHED_LINE);
 
       // Datos de Cliente y Fecha Justificados de extremo a extremo
       add(CMD.ALIGN_LEFT);
@@ -905,17 +911,18 @@ export default function SalidasPage() {
       add(twoCol("C.I./RIF:", salida.cedula_rif || '—', width));
       add(twoCol("TELF:", salida.telefono || '—', width));
       add(twoCol("DIR:", salida.direccion || '—', width));
-      add(sep);
+      add(DASHED_LINE);
 
       // Columnas: CANT(5) DESCRIPCIÓN(23) P/U(9) TOTAL(11) -> 48 cols exactas
       add(CMD.BOLD_ON);
       add(padRight("CANT", 5) + padRight("DESCRIPCIÓN", 23) + padLeft("P/U", 9) + padLeft("TOTAL", 11) + '\n');
       add(CMD.BOLD_OFF);
-      add(sep);
+      add(DASHED_LINE);
 
       const items = salida.items || [];
       let totalUnits = 0;
-      for (const it of items) {
+      for (let idx = 0; idx < items.length; idx++) {
+        const it = items[idx];
         const cant = Number(it.cantidad || 0);
         const pu = Number(it.precio_unitario || it.precioUnitario || 0);
         const tot = cant * pu;
@@ -930,17 +937,25 @@ export default function SalidasPage() {
         for (let k = 1; k < descLines.length; k++) {
           add(' '.repeat(5) + padRight(descLines[k], 23) + '\n');
         }
+
+        // Separador punteado entre productos
+        if (idx < items.length - 1) {
+          add(DOTTED_SEP);
+        }
       }
 
-      add(sep);
+      // 2. SEGUNDA LÍNEA SÓLIDA GRUESA
+      add(SOLID_LINE);
 
-      // Fila de Totales en Doble Alto
-      add(CMD.DOUBLE_HEIGHT);
+      // Fila de Totales Destacada
       add(CMD.BOLD_ON);
+      add(CMD.DOUBLE_STRIKE_ON);
       add(twoCol("UND: " + totalUnits, "TOTAL: $" + Number(salida.total_factura || 0).toFixed(2), width));
-      add(CMD.NORMAL_SIZE);
+      add(CMD.DOUBLE_STRIKE_OFF);
       add(CMD.BOLD_OFF);
-      add(sep);
+
+      // 3. TERCERA LÍNEA SÓLIDA GRUESA
+      add(SOLID_LINE);
 
       // Recuadro Rectangular Cerrado con Líneas Continuas Sólidas
       add('┌' + '─'.repeat(innerW) + '┐\n');
