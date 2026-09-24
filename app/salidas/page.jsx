@@ -756,6 +756,82 @@ export default function SalidasPage() {
     `;
   };
 
+  // Convierte un array de canvases gráficos (Foto 2) a un stream ESC/POS con corte de papel automático entre cada factura
+  const buildEscPosStreamFromCanvases = (canvases) => {
+    const chunks = [];
+    chunks.push(new Uint8Array([0x1B, 0x40])); // ESC @ (Reset)
+    
+    for (let cIdx = 0; cIdx < canvases.length; cIdx++) {
+      const canvas = canvases[cIdx];
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const d = imgData.data;
+      
+      const width = canvas.width; // 576px
+      const height = canvas.height;
+      const xBytes = Math.ceil(width / 8); // 72 bytes por fila horizontal
+      const yHeight = height;
+      
+      // Comando ESC/POS Raster Bit Image: GS v 0 0 xL xH yL yH
+      const header = [
+        0x1D, 0x76, 0x30, 0x00,
+        xBytes & 0xFF, (xBytes >> 8) & 0xFF,
+        yHeight & 0xFF, (yHeight >> 8) & 0xFF
+      ];
+      
+      const imgBuf = new Uint8Array(header.length + xBytes * yHeight);
+      imgBuf.set(header, 0);
+      let offset = header.length;
+      
+      for (let y = 0; y < yHeight; y++) {
+        for (let x = 0; x < xBytes; x++) {
+          let bVal = 0;
+          for (let b = 0; b < 8; b++) {
+            const px = x * 8 + b;
+            if (px < width) {
+              const idx = (y * width + px) * 4;
+              if (d[idx] < 128) {
+                bVal |= (1 << (7 - b));
+              }
+            }
+          }
+          imgBuf[offset++] = bVal;
+        }
+      }
+      chunks.push(imgBuf);
+      
+      // Avance de papel + Corte de papel para cada factura individual:
+      // ESC d 5: Avanzar 5 líneas para que el final del ticket libre la cuchilla
+      // GS V 65 0: Cortar papel (Full cut con alimentación)
+      // GS V 0: Cortar papel estándar
+      // ESC @: Reiniciar estado para la siguiente factura
+      chunks.push(new Uint8Array([
+        0x1B, 0x64, 0x05,
+        0x1D, 0x56, 0x41, 0x00,
+        0x1D, 0x56, 0x00,
+        0x1B, 0x40
+      ]));
+    }
+    
+    // Unir todos los buffers en un solo Uint8Array
+    const totalLen = chunks.reduce((acc, c) => acc + c.length, 0);
+    const combined = new Uint8Array(totalLen);
+    let curOffset = 0;
+    for (const c of chunks) {
+      combined.set(c, curOffset);
+      curOffset += c.length;
+    }
+    
+    // Codificación Base64 segura por bloques
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < totalLen; i += chunkSize) {
+      const sub = combined.subarray(i, Math.min(i + chunkSize, totalLen));
+      binary += String.fromCharCode.apply(null, sub);
+    }
+    return btoa(binary);
+  };
+
   // Despacha un esquema URI a RawBT sin recargar jamás la aplicación ni destruir la sesión
   const sendRawBtUri = (uri) => {
     try {
@@ -784,7 +860,7 @@ export default function SalidasPage() {
     }
   };
 
-  // Imprime múltiples notas con el diseño gráfico elegante idéntico a Foto 2
+  // Imprime múltiples notas con el diseño gráfico elegante (Foto 2) y corte de papel automático en cada una
   const printMultiple = async () => {
     const toprint = filteredSalidas.filter(s => selectedIds.has(s.id));
     if (toprint.length === 0) return;
@@ -816,7 +892,7 @@ export default function SalidasPage() {
         return;
       }
 
-      // En Android: renderizar diseño gráfico (Foto 2) en imagen PNG nítida de alta definición
+      // En Android: renderizar diseño gráfico (Foto 2) y generar stream ESC/POS con corte individual
       let h2c = window.html2canvas;
       if (!h2c) {
         await new Promise((resolve) => {
@@ -829,47 +905,45 @@ export default function SalidasPage() {
       }
 
       if (h2c) {
-        const printDiv = document.createElement('div');
-        printDiv.style.position = 'fixed';
-        printDiv.style.left = '-9999px';
-        printDiv.style.top = '0';
-        printDiv.style.width = '576px';
-        printDiv.style.minWidth = '576px';
-        printDiv.style.maxWidth = '576px';
-        printDiv.style.background = '#ffffff';
-        printDiv.style.color = '#000000';
-        printDiv.style.padding = '0px';
-        printDiv.style.fontFamily = 'Arial, Helvetica, sans-serif';
-        printDiv.style.boxSizing = 'border-box';
-        printDiv.style.lineHeight = '1.35';
+        const canvases = [];
+        for (const salida of toprint) {
+          const printDiv = document.createElement('div');
+          printDiv.style.position = 'fixed';
+          printDiv.style.left = '-9999px';
+          printDiv.style.top = '0';
+          printDiv.style.width = '576px';
+          printDiv.style.minWidth = '576px';
+          printDiv.style.maxWidth = '576px';
+          printDiv.style.background = '#ffffff';
+          printDiv.style.color = '#000000';
+          printDiv.style.padding = '6px 0px';
+          printDiv.style.fontFamily = 'Arial, Helvetica, sans-serif';
+          printDiv.style.boxSizing = 'border-box';
+          printDiv.style.lineHeight = '1.35';
+          printDiv.innerHTML = buildAndroidInnerHTML(salida);
 
-        // Unir las notas con separador visual limpio
-        printDiv.innerHTML = toprint.map((salida, idx) => `
-          <div style="padding: 6px 0px ${idx < toprint.length - 1 ? '24px 0px' : '6px 0px'}; ${idx < toprint.length - 1 ? 'border-bottom: 3.5px dashed #000; margin-bottom: 20px;' : ''}">
-            ${buildAndroidInnerHTML(salida)}
-          </div>
-        `).join('');
+          document.body.appendChild(printDiv);
+          const canvas = await h2c(printDiv, {
+            scale: 1, width: 576, windowWidth: 576,
+            backgroundColor: '#ffffff', useCORS: true, logging: false
+          });
+          if (printDiv.parentNode) document.body.removeChild(printDiv);
 
-        document.body.appendChild(printDiv);
-        const canvas = await h2c(printDiv, {
-          scale: 1, width: 576, windowWidth: 576,
-          backgroundColor: '#ffffff', useCORS: true, logging: false
-        });
-        if (printDiv.parentNode) document.body.removeChild(printDiv);
-
-        // Binarización de alto contraste (1-bit): texto negro puro y nítido
-        const ctx = canvas.getContext('2d');
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const d = imgData.data;
-        for (let i = 0; i < d.length; i += 4) {
-          const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-          const val = lum < 210 ? 0 : 255;
-          d[i] = val; d[i + 1] = val; d[i + 2] = val; d[i + 3] = 255;
+          // Binarización de alto contraste (1-bit): texto negro puro y nítido
+          const ctx = canvas.getContext('2d');
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const d = imgData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+            const val = lum < 210 ? 0 : 255;
+            d[i] = val; d[i + 1] = val; d[i + 2] = val; d[i + 3] = 255;
+          }
+          ctx.putImageData(imgData, 0, 0);
+          canvases.push(canvas);
         }
-        ctx.putImageData(imgData, 0, 0);
 
-        const base64Png = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
-        sendRawBtUri(`rawbt:data:image/png;base64,${base64Png}`);
+        const base64EscPos = buildEscPosStreamFromCanvases(canvases);
+        sendRawBtUri(`rawbt:base64,${base64EscPos}`);
       }
 
     } catch (e) {
@@ -893,7 +967,7 @@ export default function SalidasPage() {
   const printTicket = async () => {
     if (!lastSalida) return;
 
-    // 1. En teléfonos Android, renderizar diseño gráfico (Foto 2) a 576px exactos y enviar PNG nítido
+    // 1. En teléfonos Android, renderizar diseño gráfico (Foto 2) a 576px con corte de papel automático
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
     if (isAndroid) {
       try {
@@ -946,8 +1020,8 @@ export default function SalidasPage() {
           }
           ctx.putImageData(imgData, 0, 0);
 
-          const base64Png = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
-          sendRawBtUri(`rawbt:data:image/png;base64,${base64Png}`);
+          const base64EscPos = buildEscPosStreamFromCanvases([canvas]);
+          sendRawBtUri(`rawbt:base64,${base64EscPos}`);
           return;
         }
       } catch (e) {
