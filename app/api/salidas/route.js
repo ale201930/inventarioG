@@ -242,12 +242,109 @@ export async function PUT(request) {
   const conn = await pool.getConnection();
   try {
     const input = await request.json();
-    if (!input?.id) return NextResponse.json({ success: false, error: 'ID requerido.' });
+    const id = input?.id;
+    if (!id) return NextResponse.json({ success: false, error: 'ID de factura requerido.' });
+    if (!input?.clienteName) return NextResponse.json({ success: false, error: 'Cliente obligatorio.' });
+
     await conn.beginTransaction();
-    await conn.execute('UPDATE salidas SET total_factura = ? WHERE id = ?', [parseFloat(input.totalFactura), input.id]);
-    await recalcSaldo(conn, input.id);
+
+    // 1. Verificar existencia de la salida
+    const [existingRows] = await conn.execute('SELECT * FROM salidas WHERE id = ?', [id]);
+    if (!existingRows || existingRows.length === 0) {
+      await conn.rollback();
+      return NextResponse.json({ success: false, error: 'La factura no existe.' }, { status: 404 });
+    }
+
+    const fecha = input.fecha || new Date().toISOString().split('T')[0];
+    const items = input.items || [];
+    if (!items.length) throw new Error('Debes incluir al menos un producto en la factura.');
+
+    const facturaNumber = (input.facturaNumber || existingRows[0].factura_number || '').trim();
+    const vendedor = (input.vendedorName || '').trim();
+    if (vendedor) {
+      await conn.execute(
+        'INSERT IGNORE INTO vendedores (id, nombre) VALUES (?, ?)',
+        ['vend_' + Math.random().toString(36).slice(2, 10), vendedor]
+      ).catch(() => {});
+    }
+
+    // 2. Devolver al inventario el stock de los items anteriores de esta factura
+    const [previousItems] = await conn.execute('SELECT * FROM salidas_items WHERE salida_id = ?', [id]);
+    for (const prev of previousItems) {
+      if (prev.producto_id && prev.cantidad > 0) {
+        await conn.execute(
+          'UPDATE inventario SET cantidad = cantidad + ? WHERE id = ?',
+          [prev.cantidad, prev.producto_id]
+        );
+      }
+    }
+
+    // 3. Eliminar los renglones anteriores
+    await conn.execute('DELETE FROM salidas_items WHERE salida_id = ?', [id]);
+
+    // 4. Validar stock disponible y registrar nuevos renglones
+    let totalFactura = 0, totalUnidades = 0;
+    for (const item of items) {
+      const prodId = item.productoId;
+      const cant = parseInt(item.cantidad ?? 0);
+      const precio = parseFloat(item.precioUnitario ?? 0);
+      if (!prodId || cant <= 0) continue;
+
+      totalUnidades += cant;
+      totalFactura += cant * precio;
+
+      const [costoR] = await conn.execute('SELECT nombre, cantidad, costo_unitario FROM inventario WHERE id = ? FOR UPDATE', [prodId]);
+      const prod = costoR[0];
+      if (!prod) throw new Error(`Producto no encontrado: ${item.productoNombre}`);
+      if (parseInt(prod.cantidad) < cant) {
+        throw new Error(`Stock insuficiente para "${prod.nombre}". Disponible en almacén: ${prod.cantidad}`);
+      }
+
+      await conn.execute(
+        'INSERT INTO salidas_items (salida_id, producto_id, producto_nombre, cantidad, costo_unitario, precio_unitario) VALUES (?,?,?,?,?,?)',
+        [id, prodId, item.productoNombre || prod.nombre, cant, parseFloat(prod.costo_unitario || 0), precio]
+      );
+      await conn.execute('UPDATE inventario SET cantidad = cantidad - ? WHERE id = ?', [cant, prodId]);
+    }
+
+    // 5. Actualizar datos de la cabecera de la factura
+    await conn.execute(
+      `UPDATE salidas SET
+        cliente_name = ?,
+        cedula_rif = ?,
+        telefono = ?,
+        direccion = ?,
+        vendedor_name = ?,
+        factura_number = ?,
+        total_unidades = ?,
+        total_factura = ?,
+        fecha = ?,
+        observaciones = ?
+       WHERE id = ?`,
+      [
+        input.clienteName.trim(),
+        input.cedulaRif || '',
+        input.telefono || '',
+        input.direccion || '',
+        vendedor,
+        facturaNumber,
+        totalUnidades,
+        totalFactura,
+        fecha,
+        input.observaciones || '',
+        id
+      ]
+    );
+
+    // 6. Recalcular saldo pendiente considerando abonos existentes
+    await recalcSaldo(conn, id);
+
     await conn.commit();
-    return NextResponse.json({ success: true, message: 'Total actualizado.' });
+    return NextResponse.json({
+      success: true,
+      message: 'Factura actualizada y stock sincronizado correctamente.',
+      data: { id, factura_number: facturaNumber, total_factura: totalFactura }
+    });
   } catch (e) {
     await conn.rollback();
     return NextResponse.json({ success: false, error: e.message }, { status: 500 });

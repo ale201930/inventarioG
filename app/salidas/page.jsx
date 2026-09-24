@@ -19,6 +19,7 @@ export default function SalidasPage() {
   const [statusFilter, setStatusFilter] = useState('todas');
   const [bcvTasa, setBcvTasa] = useState(798.33);
   const [showModal, setShowModal] = useState(false);
+  const [editingSalidaId, setEditingSalidaId] = useState(null);
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [showAbonoModal, setShowAbonoModal] = useState(false);
   const [showEstadoModal, setShowEstadoModal] = useState(false);
@@ -289,7 +290,7 @@ export default function SalidasPage() {
   const handleSave = async (printTicket, skipDuplicateCheck = false) => {
     if (!skipDuplicateCheck && form.facturaNumber) {
       const numTrim = form.facturaNumber.toString().trim().toLowerCase();
-      const docExiste = salidas.find(s => (s.factura_number || '').toString().trim().toLowerCase() === numTrim);
+      const docExiste = salidas.find(s => s.id !== editingSalidaId && (s.factura_number || '').toString().trim().toLowerCase() === numTrim);
       if (docExiste) {
         setConfirmDialog({
           isOpen: true,
@@ -305,11 +306,11 @@ export default function SalidasPage() {
                 <div><strong>💵 Total:</strong> ${Number(docExiste.total_factura||0).toFixed(2)}</div>
               </div>
               <p style={{margin:0, color:'#b45309', fontWeight:700, fontSize:'0.9rem'}}>
-                ¿Deseas registrar esta venta de todos modos con el mismo número?
+                {editingSalidaId ? '¿Deseas guardar estos cambios de todos modos?' : '¿Deseas registrar esta venta de todos modos con el mismo número?'}
               </p>
             </div>
           ),
-          confirmText: 'Sí, Registrar de Todos Modos',
+          confirmText: 'Sí, Continuar',
           cancelText: 'Corregir Número',
           variant: 'warning',
           icon: 'fa-triangle-exclamation',
@@ -326,15 +327,24 @@ export default function SalidasPage() {
     setSaving(true);
     try {
       const payload = {
-        clienteName:form.clienteName, cedulaRif:form.cedulaRif, telefono:form.telefono,
-        direccion:form.direccion, vendedorName:form.vendedorName, facturaNumber:form.facturaNumber,
-        fecha:form.fecha, observaciones:form.observaciones,
+        ...(editingSalidaId ? { id: editingSalidaId } : {}),
+        clienteName: form.clienteName,
+        cedulaRif: form.cedulaRif,
+        telefono: form.telefono,
+        direccion: form.direccion,
+        vendedorName: form.vendedorName,
+        facturaNumber: form.facturaNumber,
+        fecha: form.fecha,
+        observaciones: form.observaciones,
         items: form.items.filter(it=>it.productoId&&parseInt(it.cantidad||0)>0).map(it=>({
-          productoId:it.productoId, productoNombre:it.productoNombre,
-          cantidad:parseInt(it.cantidad), precioUnitario:parseFloat(it.precioUnitario||0)
+          productoId: it.productoId,
+          productoNombre: it.productoNombre,
+          cantidad: parseInt(it.cantidad),
+          precioUnitario: parseFloat(it.precioUnitario||0)
         }))
       };
-      const res = await fetch('/api/salidas', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+      const method = editingSalidaId ? 'PUT' : 'POST';
+      const res = await fetch('/api/salidas', {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
       const d = await res.json();
       if (d.success) {
         setLastSalida({...d.data, cliente_name:form.clienteName, cedula_rif:form.cedulaRif, telefono:form.telefono,
@@ -345,13 +355,14 @@ export default function SalidasPage() {
         });
         load();
         setShowModal(false);
+        setEditingSalidaId(null);
         if (printTicket) setShowTicketModal(true);
         setForm({ clienteName:'', cedulaRif:'', telefono:'', fecha:today(), direccion:'', vendedorName:'', facturaNumber:'', observaciones:'', items:[emptyItem()] });
       } else {
         setConfirmDialog({
           isOpen: true,
-          title: 'Error al Registrar Venta',
-          message: d.error || 'No se pudo guardar la venta.',
+          title: editingSalidaId ? 'Error al Actualizar Venta' : 'Error al Registrar Venta',
+          message: d.error || (editingSalidaId ? 'No se pudo actualizar la venta.' : 'No se pudo guardar la venta.'),
           confirmText: 'Entendido',
           cancelText: 'Cerrar',
           variant: 'danger',
@@ -501,6 +512,7 @@ export default function SalidasPage() {
   };
 
   const openNewModal = async () => {
+    setEditingSalidaId(null);
     let nextNum = '3000';
     try {
       const res = await fetch('/api/salidas?action=next_number');
@@ -523,6 +535,57 @@ export default function SalidasPage() {
       clienteName: '', cedulaRif: '', telefono: '', fecha: today(), direccion: '',
       vendedorName: '', facturaNumber: nextNum, observaciones: '',
       items: [emptyItem()]
+    });
+    setShowModal(true);
+  };
+
+  const openEditModal = (salida) => {
+    setEditingSalidaId(salida.id);
+    setSelectedClienteKey('');
+
+    // Refrescar lista de clientes y vendedores
+    fetch('/api/salidas?action=clientes')
+      .then(r => r.json())
+      .then(d => { if (d.success) setClientes(d.data); })
+      .catch(() => {});
+    fetch('/api/vendedores')
+      .then(r => r.json())
+      .then(d => { if (d.success) setVendedores(d.data); })
+      .catch(() => {});
+
+    const items = (salida.items && salida.items.length > 0)
+      ? salida.items.map(it => {
+          const prod = productos.find(p => p.id === it.producto_id);
+          const pUnit = parseFloat(it.precio_unitario || 0);
+          let precioOpcion = 'custom';
+          if (prod) {
+            if (Math.abs(parseFloat(prod.precio_venta1 || 0) - pUnit) < 0.001) precioOpcion = '1';
+            else if (Math.abs(parseFloat(prod.precio_venta2 || 0) - pUnit) < 0.001) precioOpcion = '2';
+            else if (Math.abs(parseFloat(prod.precio_venta3 || 0) - pUnit) < 0.001) precioOpcion = '3';
+            else if (Math.abs(parseFloat(prod.precio_venta4 || 0) - pUnit) < 0.001) precioOpcion = '4';
+          }
+          const cant = parseInt(it.cantidad || 1);
+          return {
+            productoId: it.producto_id || '',
+            productoNombre: it.producto_nombre || (prod ? prod.nombre : ''),
+            precioOpcion,
+            cantidad: cant,
+            precioUnitario: pUnit,
+            subtotal: cant * pUnit
+          };
+        })
+      : [emptyItem()];
+
+    setForm({
+      clienteName: salida.cliente_name || '',
+      cedulaRif: salida.cedula_rif || '',
+      telefono: salida.telefono || '',
+      direccion: salida.direccion || '',
+      vendedorName: salida.vendedor_name || '',
+      facturaNumber: salida.factura_number || '',
+      fecha: salida.fecha ? String(salida.fecha).split('T')[0] : today(),
+      observaciones: salida.observaciones || '',
+      items: items
     });
     setShowModal(true);
   };
@@ -1351,6 +1414,10 @@ export default function SalidasPage() {
                 </td>
                 <td>
                   <div style={{display:'flex', gap:'0.4rem'}}>
+                    <button className="btn btn-secondary btn-sm" title="Editar Nota de Entrega / Despacho"
+                      onClick={()=>openEditModal(s)} style={{color:'#0284c7', borderColor:'#bae6fd', background:'#f0f9ff'}}>
+                      <i className="fa-solid fa-pen-to-square"></i>
+                    </button>
                     <button className="btn btn-secondary btn-sm" title="Imprimir Ticket (7.6 cm / 80mm)" onClick={()=>{ setLastSalida(s); setShowTicketModal(true); }}>
                       <i className="fa-solid fa-print"></i>
                     </button>
@@ -1394,16 +1461,20 @@ export default function SalidasPage() {
         </table>
       </div>
 
-      {/* Modal Registrar Nueva Venta */}
+      {/* Modal Registrar / Editar Venta */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-content" style={{maxWidth:850}}>
             <div className="modal-header">
               <div>
-                <h2><i className="fa-solid fa-cart-shopping"></i> Registrar Nueva Venta / Despacho</h2>
-                <p style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>Sustitución digital de talonario · Genera Nota de Entrega en Ticket de 80mm</p>
+                <h2>
+                  <i className={`fa-solid ${editingSalidaId ? 'fa-pen-to-square' : 'fa-cart-shopping'}`}></i> {editingSalidaId ? `Editar Nota de Entrega Nº ${form.facturaNumber || ''}` : 'Registrar Nueva Venta / Despacho'}
+                </h2>
+                <p style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>
+                  {editingSalidaId ? 'Modifica los productos, cantidades o datos del cliente. El inventario se actualizará automáticamente.' : 'Sustitución digital de talonario · Genera Nota de Entrega en Ticket de 80mm'}
+                </p>
               </div>
-              <button type="button" className="modal-close" onClick={()=>setShowModal(false)}>&times;</button>
+              <button type="button" className="modal-close" onClick={()=>{ setShowModal(false); setEditingSalidaId(null); }}>&times;</button>
             </div>
             {/* Selector de Cliente Frecuente / Existente */}
             <div style={{marginBottom:'0.85rem', background:'#f0f9ff', padding:'0.75rem 0.9rem', borderRadius:10, border:'1.5px solid #bae6fd'}}>
@@ -1595,10 +1666,10 @@ export default function SalidasPage() {
 
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem', marginTop:'1.25rem'}}>
               <button type="button" className="btn btn-secondary" style={{width:'100%'}} onClick={()=>handleSave(false)} disabled={saving}>
-                <i className="fa-solid fa-floppy-disk"></i> Solo Guardar
+                <i className="fa-solid fa-floppy-disk"></i> {editingSalidaId ? 'Guardar Cambios' : 'Solo Guardar'}
               </button>
               <button type="button" className="btn btn-primary" style={{width:'100%'}} onClick={()=>handleSave(true)} disabled={saving}>
-                {saving ? <><i className="fa-solid fa-spinner fa-spin"></i> Guardando...</> : <><i className="fa-solid fa-print"></i> Guardar e Imprimir Ticket (7.6 cm)</>}
+                {saving ? <><i className="fa-solid fa-spinner fa-spin"></i> Guardando...</> : <><i className="fa-solid fa-print"></i> {editingSalidaId ? 'Guardar e Imprimir Ticket' : 'Guardar e Imprimir Ticket (7.6 cm)'}</>}
               </button>
             </div>
           </div>
