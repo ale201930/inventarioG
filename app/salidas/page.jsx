@@ -756,77 +756,195 @@ export default function SalidasPage() {
     `;
   };
 
-  // Convierte un array de canvases gráficos (Foto 2) a un stream ESC/POS con corte de papel automático entre cada factura
-  const buildEscPosStreamFromCanvases = (canvases) => {
+  // Construye stream ESC/POS nativo de alta elegancia:
+  // - Tipografía compacta y nítida (sin distorsión ni pixelado)
+  // - Ajuste inteligente de palabras completas en descripción (sin cortar palabras por la mitad)
+  // - Líneas divisorias finas y limpias
+  // - Bloque bancario y Pago Móvil ordenado
+  // - Nota legal oficial BCV al pie
+  // - Corte automático individual entre cada factura
+  // - Ultraligero (~1.2 KB por factura): permite imprimir 5, 20 o 50 facturas instantáneamente
+  const buildElegantEscPosTextStream = (salidasList, width = 48) => {
     const chunks = [];
-    chunks.push(new Uint8Array([0x1B, 0x40])); // ESC @ (Reset)
     
-    for (let cIdx = 0; cIdx < canvases.length; cIdx++) {
-      const canvas = canvases[cIdx];
-      const ctx = canvas.getContext('2d');
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const d = imgData.data;
-      
-      const width = canvas.width; // 576px
-      const height = canvas.height;
-      const xBytes = Math.ceil(width / 8); // 72 bytes por fila horizontal
-      const yHeight = height;
-      
-      // Comando ESC/POS Raster Bit Image: GS v 0 0 xL xH yL yH
-      const header = [
-        0x1D, 0x76, 0x30, 0x00,
-        xBytes & 0xFF, (xBytes >> 8) & 0xFF,
-        yHeight & 0xFF, (yHeight >> 8) & 0xFF
-      ];
-      
-      const imgBuf = new Uint8Array(header.length + xBytes * yHeight);
-      imgBuf.set(header, 0);
-      let offset = header.length;
-      
-      for (let y = 0; y < yHeight; y++) {
-        for (let x = 0; x < xBytes; x++) {
-          let bVal = 0;
-          for (let b = 0; b < 8; b++) {
-            const px = x * 8 + b;
-            if (px < width) {
-              const idx = (y * width + px) * 4;
-              if (d[idx] < 128) {
-                bVal |= (1 << (7 - b));
-              }
-            }
-          }
-          imgBuf[offset++] = bVal;
+    const wrapWords = (text, maxLen) => {
+      const words = String(text || '').trim().split(/\s+/);
+      const lines = [];
+      let currentLine = '';
+      for (const word of words) {
+        if (!currentLine) {
+          if (word.length <= maxLen) currentLine = word;
+          else { lines.push(word.slice(0, maxLen)); currentLine = word.slice(maxLen); }
+        } else if ((currentLine + ' ' + word).length <= maxLen) {
+          currentLine += ' ' + word;
+        } else {
+          lines.push(currentLine);
+          if (word.length <= maxLen) currentLine = word;
+          else { lines.push(word.slice(0, maxLen)); currentLine = word.slice(maxLen); }
         }
       }
-      chunks.push(imgBuf);
-      
-      // Avance de papel + Corte de papel para cada factura individual:
-      // ESC d 5: Avanzar 5 líneas para que el final del ticket libre la cuchilla
-      // GS V 65 0: Cortar papel (Full cut con alimentación)
-      // GS V 0: Cortar papel estándar
-      // ESC @: Reiniciar estado para la siguiente factura
-      chunks.push(new Uint8Array([
-        0x1B, 0x64, 0x05,
-        0x1D, 0x56, 0x41, 0x00,
-        0x1D, 0x56, 0x00,
-        0x1B, 0x40
-      ]));
+      if (currentLine) lines.push(currentLine);
+      return lines.length > 0 ? lines : [''];
+    };
+
+    const padLeft = (s, l) => { s = String(s || ''); return s.length >= l ? s.slice(0, l) : ' '.repeat(l - s.length) + s; };
+    const padRight = (s, l) => { s = String(s || ''); return s.length >= l ? s.slice(0, l) : s + ' '.repeat(l - s.length); };
+    const padCenter = (s, l) => {
+      s = String(s || '');
+      if (s.length >= l) return s.slice(0, l);
+      const left = Math.floor((l - s.length) / 2);
+      const right = l - s.length - left;
+      return ' '.repeat(left) + s + ' '.repeat(right);
+    };
+
+    const add = (bytes) => {
+      if (typeof bytes === 'string') {
+        const buf = new Uint8Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) {
+          let code = bytes.charCodeAt(i);
+          const ch = bytes[i];
+          if (ch === 'á' || ch === 'Á') code = 0xA0;
+          else if (ch === 'é' || ch === 'É') code = 0x82;
+          else if (ch === 'í' || ch === 'Í') code = 0xA1;
+          else if (ch === 'ó' || ch === 'Ó') code = 0xA2;
+          else if (ch === 'ú' || ch === 'Ú') code = 0xA3;
+          else if (ch === 'ñ') code = 0xA4;
+          else if (ch === 'Ñ') code = 0xA5;
+          else if (ch === 'º' || ch === '°') code = 0xA7;
+          else if (ch === '¿') code = 0xA8;
+          else if (ch === '¡') code = 0xAD;
+          else if (ch === '—' || ch === '–') code = 0x2D;
+          else if (ch === '•') code = 0x2A;
+          else if (code > 255) code = 0x3F;
+          buf[i] = code;
+        }
+        chunks.push(buf);
+      } else {
+        chunks.push(new Uint8Array(bytes));
+      }
+    };
+
+    const CMD = {
+      INIT: [0x1B, 0x40],
+      CODEPAGE_PC850: [0x1B, 0x74, 0x02],
+      ALIGN_LEFT: [0x1B, 0x61, 0x00],
+      ALIGN_CENTER: [0x1B, 0x61, 0x01],
+      ALIGN_RIGHT: [0x1B, 0x61, 0x02],
+      BOLD_ON: [0x1B, 0x45, 0x01],
+      BOLD_OFF: [0x1B, 0x45, 0x00],
+      FEED_AND_CUT: [0x1B, 0x64, 0x05, 0x1D, 0x56, 0x41, 0x00, 0x1B, 0x40]
+    };
+
+    const sep = '-'.repeat(width) + '\n';
+
+    for (const salida of salidasList) {
+      add(CMD.INIT);
+      add(CMD.CODEPAGE_PC850);
+      add(CMD.ALIGN_CENTER);
+      add(CMD.BOLD_ON);
+      add(padCenter("BESTEDA 2, C.A.", width) + '\n');
+      add(CMD.BOLD_OFF);
+      add(padCenter("RIF: J-40529263-6", width) + '\n');
+      add(padCenter("Calle Principal Casa Nº A-13", width) + '\n');
+      add(padCenter("Urb. Alto de Fenix II - San Juan de los Morros", width) + '\n');
+      add(padCenter("Estado Guárico", width) + '\n');
+      add(padCenter("Tlfs: 0424-313.68.05 / 0424-300.48.02", width) + '\n');
+      add(sep);
+
+      // Título y Número de Documento
+      add(CMD.BOLD_ON);
+      add(padCenter("NOTA DE ENTREGA", width) + '\n');
+      add(padCenter(`Nº ${salida.factura_number || ''}`, width) + '\n');
+      add(CMD.BOLD_OFF);
+      add(sep);
+
+      // Datos del Cliente
+      add(CMD.ALIGN_LEFT);
+      const cleanFecha = String(salida.fecha || '').split('T')[0];
+      add(padRight("FECHA:", 10) + cleanFecha + '\n');
+      if (salida.vendedor_name || salida.vendedorName) {
+        add(padRight("VENDEDOR:", 10) + (salida.vendedor_name || salida.vendedorName) + '\n');
+      }
+      add(padRight("CLIENTE:", 10) + (salida.cliente_name || '') + '\n');
+      add(padRight("C.I./RIF:", 10) + (salida.cedula_rif || '—') + '\n');
+      add(padRight("TELF:", 10) + (salida.telefono || '—') + '\n');
+      add(padRight("DIR:", 10) + (salida.direccion || '—') + '\n');
+      add(sep);
+
+      // Columnas: CAN(4) DESCRIPCIÓN(24) P/U(9) TOTAL(11) -> 48 columnas exactas
+      add(CMD.BOLD_ON);
+      add(padRight("CAN", 4) + padRight("DESCRIPCIÓN", 24) + padLeft("P/U", 9) + padLeft("TOTAL", 11) + '\n');
+      add(CMD.BOLD_OFF);
+      add(sep);
+
+      const items = salida.items || [];
+      let totalUnits = 0;
+      for (const it of items) {
+        const cant = Number(it.cantidad || 0);
+        const pu = Number(it.precio_unitario || it.precioUnitario || 0);
+        const tot = cant * pu;
+        totalUnits += cant;
+
+        const cantStr = padRight(cant, 4);
+        const puStr = padLeft("$" + pu.toFixed(2), 9);
+        const totStr = padLeft("$" + tot.toFixed(2), 11);
+
+        const descLines = wrapWords(it.producto_nombre || it.productoNombre || '', 24);
+        add(cantStr + padRight(descLines[0], 24) + puStr + totStr + '\n');
+        for (let k = 1; k < descLines.length; k++) {
+          add(' '.repeat(4) + padRight(descLines[k], 24) + '\n');
+        }
+      }
+
+      add(sep);
+
+      // Fila de Totales
+      add(CMD.BOLD_ON);
+      const leftTotal = `UND: ${totalUnits}`;
+      const rightTotal = `TOTAL: $${Number(salida.total_factura || 0).toFixed(2)}`;
+      add(padRight(leftTotal, 24) + padLeft(rightTotal, 24) + '\n');
+      add(CMD.BOLD_OFF);
+      add(sep);
+
+      // Cuadro de Pago Móvil y Banco
+      add(CMD.ALIGN_CENTER);
+      add(CMD.BOLD_ON);
+      add(padCenter("— PAGO MÓVIL BDV —", width) + '\n');
+      add(CMD.BOLD_OFF);
+      add(padCenter("• 0102 | 0424-3136805 | C.I. 10.668.263", width) + '\n');
+      add(padCenter("• 0102 | 0424-3004802 | C.I. 28.012.615", width) + '\n');
+      add(sep);
+
+      add(CMD.BOLD_ON);
+      add(padCenter("— DEPÓSITO BANCARIO BDV —", width) + '\n');
+      add(CMD.BOLD_OFF);
+      add(padCenter("• 0102 0467 4501 0162 8166 (JUAN MORA)", width) + '\n');
+      add(padCenter("• 0102 0467 4500 0096 7787 (JORGE FLORES)", width) + '\n');
+      add(sep);
+
+      // Nota Legal Oficial BCV
+      add("  NOTA: Los pagos en Bs. emitidos en fines de\n");
+      add("  semana o feriados se calculan a la tasa\n");
+      add("  oficial BCV fijada para el siguiente día\n");
+      add("  hábil (Art. 25 Ley del IVA).\n");
+      add(sep);
+
+      // Avance y corte individual
+      add(CMD.FEED_AND_CUT);
     }
-    
-    // Unir todos los buffers en un solo Uint8Array
+
     const totalLen = chunks.reduce((acc, c) => acc + c.length, 0);
-    const combined = new Uint8Array(totalLen);
-    let curOffset = 0;
+    const out = new Uint8Array(totalLen);
+    let off = 0;
     for (const c of chunks) {
-      combined.set(c, curOffset);
-      curOffset += c.length;
+      out.set(c, off);
+      off += c.length;
     }
-    
-    // Codificación Base64 segura por bloques
+
     let binary = '';
     const chunkSize = 8192;
     for (let i = 0; i < totalLen; i += chunkSize) {
-      const sub = combined.subarray(i, Math.min(i + chunkSize, totalLen));
+      const sub = out.subarray(i, Math.min(i + chunkSize, totalLen));
       binary += String.fromCharCode.apply(null, sub);
     }
     return btoa(binary);
@@ -860,7 +978,7 @@ export default function SalidasPage() {
     }
   };
 
-  // Imprime múltiples notas con el diseño gráfico elegante (Foto 2) y corte de papel automático en cada una
+  // Imprime múltiples notas con formato ESC/POS elegante, corte individual y sin límite de cantidad
   const printMultiple = async () => {
     const toprint = filteredSalidas.filter(s => selectedIds.has(s.id));
     if (toprint.length === 0) return;
@@ -892,59 +1010,9 @@ export default function SalidasPage() {
         return;
       }
 
-      // En Android: renderizar diseño gráfico (Foto 2) y generar stream ESC/POS con corte individual
-      let h2c = window.html2canvas;
-      if (!h2c) {
-        await new Promise((resolve) => {
-          const script = document.createElement('script');
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-          script.onload = () => { h2c = window.html2canvas; resolve(); };
-          script.onerror = () => resolve();
-          document.head.appendChild(script);
-        });
-      }
-
-      if (h2c) {
-        const canvases = [];
-        for (const salida of toprint) {
-          const printDiv = document.createElement('div');
-          printDiv.style.position = 'fixed';
-          printDiv.style.left = '-9999px';
-          printDiv.style.top = '0';
-          printDiv.style.width = '576px';
-          printDiv.style.minWidth = '576px';
-          printDiv.style.maxWidth = '576px';
-          printDiv.style.background = '#ffffff';
-          printDiv.style.color = '#000000';
-          printDiv.style.padding = '6px 0px';
-          printDiv.style.fontFamily = 'Arial, Helvetica, sans-serif';
-          printDiv.style.boxSizing = 'border-box';
-          printDiv.style.lineHeight = '1.35';
-          printDiv.innerHTML = buildAndroidInnerHTML(salida);
-
-          document.body.appendChild(printDiv);
-          const canvas = await h2c(printDiv, {
-            scale: 1, width: 576, windowWidth: 576,
-            backgroundColor: '#ffffff', useCORS: true, logging: false
-          });
-          if (printDiv.parentNode) document.body.removeChild(printDiv);
-
-          // Binarización de alto contraste (1-bit): texto negro puro y nítido
-          const ctx = canvas.getContext('2d');
-          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const d = imgData.data;
-          for (let i = 0; i < d.length; i += 4) {
-            const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-            const val = lum < 210 ? 0 : 255;
-            d[i] = val; d[i + 1] = val; d[i + 2] = val; d[i + 3] = 255;
-          }
-          ctx.putImageData(imgData, 0, 0);
-          canvases.push(canvas);
-        }
-
-        const base64EscPos = buildEscPosStreamFromCanvases(canvases);
-        sendRawBtUri(`rawbt:base64,${base64EscPos}`);
-      }
+      // En Android: stream ESC/POS nativo ultraligero, formateado con corte entre cada nota
+      const base64EscPos = buildElegantEscPosTextStream(toprint);
+      sendRawBtUri(`rawbt:base64,${base64EscPos}`);
 
     } catch (e) {
       console.error('Error en impresión múltiple:', e);
@@ -967,63 +1035,13 @@ export default function SalidasPage() {
   const printTicket = async () => {
     if (!lastSalida) return;
 
-    // 1. En teléfonos Android, renderizar diseño gráfico (Foto 2) a 576px con corte de papel automático
+    // 1. En teléfonos Android, enviar formato ESC/POS elegante con corte automático
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
     if (isAndroid) {
       try {
-        let h2c = window.html2canvas;
-        if (!h2c) {
-          await new Promise((resolve) => {
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-            script.onload = () => { h2c = window.html2canvas; resolve(); };
-            script.onerror = () => resolve();
-            document.head.appendChild(script);
-          });
-        }
-
-        if (h2c) {
-          const printDiv = document.createElement('div');
-          printDiv.style.position = 'fixed';
-          printDiv.style.left = '-9999px';
-          printDiv.style.top = '0';
-          printDiv.style.width = '576px';
-          printDiv.style.minWidth = '576px';
-          printDiv.style.maxWidth = '576px';
-          printDiv.style.background = '#ffffff';
-          printDiv.style.color = '#000000';
-          printDiv.style.padding = '6px 0px';
-          printDiv.style.fontFamily = 'Arial, Helvetica, sans-serif';
-          printDiv.style.boxSizing = 'border-box';
-          printDiv.style.lineHeight = '1.35';
-          printDiv.innerHTML = buildAndroidInnerHTML(lastSalida);
-
-          document.body.appendChild(printDiv);
-          const canvas = await h2c(printDiv, {
-            scale: 1,
-            width: 576,
-            windowWidth: 576,
-            backgroundColor: '#ffffff',
-            useCORS: true,
-            logging: false
-          });
-          if (printDiv.parentNode) document.body.removeChild(printDiv);
-
-          // Binarización de contraste puro (1-bit): texto negro sólido y nítido
-          const ctx = canvas.getContext('2d');
-          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const d = imgData.data;
-          for (let i = 0; i < d.length; i += 4) {
-            const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-            const val = lum < 210 ? 0 : 255;
-            d[i] = val; d[i + 1] = val; d[i + 2] = val; d[i + 3] = 255;
-          }
-          ctx.putImageData(imgData, 0, 0);
-
-          const base64EscPos = buildEscPosStreamFromCanvases([canvas]);
-          sendRawBtUri(`rawbt:base64,${base64EscPos}`);
-          return;
-        }
+        const base64EscPos = buildElegantEscPosTextStream([lastSalida]);
+        sendRawBtUri(`rawbt:base64,${base64EscPos}`);
+        return;
       } catch (e) {
         console.error('Error enviando a RawBT:', e);
       }
