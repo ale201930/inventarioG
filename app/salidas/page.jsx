@@ -757,11 +757,12 @@ export default function SalidasPage() {
   };
 
   // Construye stream ESC/POS nativo de alta elegancia:
-  // - Tipografía compacta y nítida (sin distorsión ni pixelado)
-  // - Ajuste inteligente de palabras completas en descripción (sin cortar palabras por la mitad)
-  // - Líneas divisorias finas y limpias
-  // - Bloque bancario y Pago Móvil ordenado
-  // - Nota legal oficial BCV al pie
+  // - Encabezado BESTEDA en Doble Tamaño y Negrita
+  // - Título NOTA DE ENTREGA y Nº Documento destacados
+  // - Sección de Cliente/Fecha justificada de extremo a extremo
+  // - Tabla de productos con ajuste inteligente de palabras completas
+  // - Totales en Doble Alto y Negrita
+  // - Marco rectangular cerrado continuo (┌─┐, │, └─┘) para Pagos y Nota Oficial BCV
   // - Corte automático individual entre cada factura
   // - Ultraligero (~1.2 KB por factura): permite imprimir 5, 20 o 50 facturas instantáneamente
   const buildElegantEscPosTextStream = (salidasList, width = 48) => {
@@ -797,6 +798,24 @@ export default function SalidasPage() {
       return ' '.repeat(left) + s + ' '.repeat(right);
     };
 
+    const twoCol = (left, right, w = 48) => {
+      left = String(left || '');
+      right = String(right || '');
+      if ((left.length + right.length) >= w) {
+        const maxR = w - left.length - 1;
+        if (maxR > 10) {
+          const rLines = wrapWords(right, maxR);
+          let res = left + ' ' + padLeft(rLines[0], w - left.length - 1) + '\n';
+          for (let i = 1; i < rLines.length; i++) {
+            res += padLeft(rLines[i], w) + '\n';
+          }
+          return res;
+        }
+      }
+      const spaces = w - left.length - right.length;
+      return left + ' '.repeat(Math.max(1, spaces)) + right + '\n';
+    };
+
     const add = (bytes) => {
       if (typeof bytes === 'string') {
         const buf = new Uint8Array(bytes.length);
@@ -813,8 +832,16 @@ export default function SalidasPage() {
           else if (ch === 'º' || ch === '°') code = 0xA7;
           else if (ch === '¿') code = 0xA8;
           else if (ch === '¡') code = 0xAD;
+          else if (ch === '┌') code = 0xDA;
+          else if (ch === '┐') code = 0xBF;
+          else if (ch === '└') code = 0xC0;
+          else if (ch === '┘') code = 0xD9;
+          else if (ch === '─') code = 0xC4;
+          else if (ch === '│') code = 0xB3;
+          else if (ch === '├') code = 0xC3;
+          else if (ch === '┤') code = 0xB4;
+          else if (ch === '•') code = 0xFA;
           else if (ch === '—' || ch === '–') code = 0x2D;
-          else if (ch === '•') code = 0x2A;
           else if (code > 255) code = 0x3F;
           buf[i] = code;
         }
@@ -832,48 +859,57 @@ export default function SalidasPage() {
       ALIGN_RIGHT: [0x1B, 0x61, 0x02],
       BOLD_ON: [0x1B, 0x45, 0x01],
       BOLD_OFF: [0x1B, 0x45, 0x00],
+      DOUBLE_SIZE: [0x1D, 0x21, 0x11],
+      DOUBLE_HEIGHT: [0x1D, 0x21, 0x01],
+      NORMAL_SIZE: [0x1D, 0x21, 0x00],
       FEED_AND_CUT: [0x1B, 0x64, 0x05, 0x1D, 0x56, 0x41, 0x00, 0x1B, 0x40]
     };
 
     const sep = '-'.repeat(width) + '\n';
+    const innerW = width - 2;
 
     for (const salida of salidasList) {
       add(CMD.INIT);
       add(CMD.CODEPAGE_PC850);
+      
+      // Encabezado Grande y Destacado
       add(CMD.ALIGN_CENTER);
+      add(CMD.DOUBLE_SIZE);
       add(CMD.BOLD_ON);
-      add(padCenter("BESTEDA 2, C.A.", width) + '\n');
-      add(CMD.BOLD_OFF);
+      add(padCenter("BESTEDA 2, C.A.", Math.floor(width / 2)) + '\n');
+      add(CMD.NORMAL_SIZE);
       add(padCenter("RIF: J-40529263-6", width) + '\n');
-      add(padCenter("Calle Principal Casa Nº A-13", width) + '\n');
-      add(padCenter("Urb. Alto de Fenix II - San Juan de los Morros", width) + '\n');
-      add(padCenter("Estado Guárico", width) + '\n');
+      add(CMD.BOLD_OFF);
+      add(padCenter("Calle Principal Casa Nº A-13, Urb. Alto de Fenix II", width) + '\n');
+      add(padCenter("San Juan de los Morros - Estado Guárico", width) + '\n');
       add(padCenter("Tlfs: 0424-313.68.05 / 0424-300.48.02", width) + '\n');
       add(sep);
 
-      // Título y Número de Documento
+      // Título y Número de Factura Destacados
+      add(CMD.DOUBLE_HEIGHT);
       add(CMD.BOLD_ON);
       add(padCenter("NOTA DE ENTREGA", width) + '\n');
       add(padCenter(`Nº ${salida.factura_number || ''}`, width) + '\n');
+      add(CMD.NORMAL_SIZE);
       add(CMD.BOLD_OFF);
       add(sep);
 
-      // Datos del Cliente
+      // Datos de Cliente y Fecha Justificados de extremo a extremo
       add(CMD.ALIGN_LEFT);
       const cleanFecha = String(salida.fecha || '').split('T')[0];
-      add(padRight("FECHA:", 10) + cleanFecha + '\n');
+      add(twoCol("FECHA:", cleanFecha, width));
       if (salida.vendedor_name || salida.vendedorName) {
-        add(padRight("VENDEDOR:", 10) + (salida.vendedor_name || salida.vendedorName) + '\n');
+        add(twoCol("VENDEDOR:", salida.vendedor_name || salida.vendedorName, width));
       }
-      add(padRight("CLIENTE:", 10) + (salida.cliente_name || '') + '\n');
-      add(padRight("C.I./RIF:", 10) + (salida.cedula_rif || '—') + '\n');
-      add(padRight("TELF:", 10) + (salida.telefono || '—') + '\n');
-      add(padRight("DIR:", 10) + (salida.direccion || '—') + '\n');
+      add(twoCol("CLIENTE:", salida.cliente_name || '—', width));
+      add(twoCol("C.I./RIF:", salida.cedula_rif || '—', width));
+      add(twoCol("TELF:", salida.telefono || '—', width));
+      add(twoCol("DIR:", salida.direccion || '—', width));
       add(sep);
 
-      // Columnas: CAN(4) DESCRIPCIÓN(24) P/U(9) TOTAL(11) -> 48 columnas exactas
+      // Columnas: CANT(5) DESCRIPCIÓN(23) P/U(9) TOTAL(11) -> 48 cols exactas
       add(CMD.BOLD_ON);
-      add(padRight("CAN", 4) + padRight("DESCRIPCIÓN", 24) + padLeft("P/U", 9) + padLeft("TOTAL", 11) + '\n');
+      add(padRight("CANT", 5) + padRight("DESCRIPCIÓN", 23) + padLeft("P/U", 9) + padLeft("TOTAL", 11) + '\n');
       add(CMD.BOLD_OFF);
       add(sep);
 
@@ -885,51 +921,46 @@ export default function SalidasPage() {
         const tot = cant * pu;
         totalUnits += cant;
 
-        const cantStr = padRight(cant, 4);
+        const cantStr = padRight(cant, 5);
         const puStr = padLeft("$" + pu.toFixed(2), 9);
         const totStr = padLeft("$" + tot.toFixed(2), 11);
 
-        const descLines = wrapWords(it.producto_nombre || it.productoNombre || '', 24);
-        add(cantStr + padRight(descLines[0], 24) + puStr + totStr + '\n');
+        const descLines = wrapWords(it.producto_nombre || it.productoNombre || '', 23);
+        add(cantStr + padRight(descLines[0], 23) + puStr + totStr + '\n');
         for (let k = 1; k < descLines.length; k++) {
-          add(' '.repeat(4) + padRight(descLines[k], 24) + '\n');
+          add(' '.repeat(5) + padRight(descLines[k], 23) + '\n');
         }
       }
 
       add(sep);
 
-      // Fila de Totales
+      // Fila de Totales en Doble Alto
+      add(CMD.DOUBLE_HEIGHT);
       add(CMD.BOLD_ON);
-      const leftTotal = `UND: ${totalUnits}`;
-      const rightTotal = `TOTAL: $${Number(salida.total_factura || 0).toFixed(2)}`;
-      add(padRight(leftTotal, 24) + padLeft(rightTotal, 24) + '\n');
+      add(twoCol("UND: " + totalUnits, "TOTAL: $" + Number(salida.total_factura || 0).toFixed(2), width));
+      add(CMD.NORMAL_SIZE);
       add(CMD.BOLD_OFF);
       add(sep);
 
-      // Cuadro de Pago Móvil y Banco
-      add(CMD.ALIGN_CENTER);
-      add(CMD.BOLD_ON);
-      add(padCenter("— PAGO MÓVIL BDV —", width) + '\n');
-      add(CMD.BOLD_OFF);
-      add(padCenter("• 0102 | 0424-3136805 | C.I. 10.668.263", width) + '\n');
-      add(padCenter("• 0102 | 0424-3004802 | C.I. 28.012.615", width) + '\n');
-      add(sep);
+      // Recuadro Rectangular Cerrado con Líneas Continuas Sólidas
+      add('┌' + '─'.repeat(innerW) + '┐\n');
+      add('│' + padCenter("— PAGO MÓVIL BDV —", innerW) + '│\n');
+      add('│' + padCenter("• 0102 | 0424-3136805 | C.I. 10.668.263", innerW) + '│\n');
+      add('│' + padCenter("• 0102 | 0424-3004802 | C.I. 28.012.615", innerW) + '│\n');
+      add('├' + '-'.repeat(innerW) + '┤\n');
+      add('│' + padCenter("— DEPÓSITO BANCARIO BDV —", innerW) + '│\n');
+      add('│' + padCenter("• 0102 0467 4501 0162 8166 (JUAN MORA)", innerW) + '│\n');
+      add('│' + padCenter("• 0102 0467 4500 0096 7787 (JORGE FLORES)", innerW) + '│\n');
+      add('├' + '-'.repeat(innerW) + '┤\n');
 
-      add(CMD.BOLD_ON);
-      add(padCenter("— DEPÓSITO BANCARIO BDV —", width) + '\n');
-      add(CMD.BOLD_OFF);
-      add(padCenter("• 0102 0467 4501 0162 8166 (JUAN MORA)", width) + '\n');
-      add(padCenter("• 0102 0467 4500 0096 7787 (JORGE FLORES)", width) + '\n');
-      add(sep);
+      const note = "NOTA: Los pagos en Bs. emitidos en fines de semana o feriados se calculan a la tasa oficial BCV fijada para el siguiente día hábil (Art. 25 Ley del IVA).";
+      const noteLines = wrapWords(note, innerW - 4);
+      for (const nl of noteLines) {
+        add('│' + padCenter(nl, innerW) + '│\n');
+      }
+      add('└' + '─'.repeat(innerW) + '┘\n');
 
-      // Nota Legal Oficial BCV
-      add("  NOTA: Los pagos en Bs. emitidos en fines de\n");
-      add("  semana o feriados se calculan a la tasa\n");
-      add("  oficial BCV fijada para el siguiente día\n");
-      add("  hábil (Art. 25 Ley del IVA).\n");
-      add(sep);
-
-      // Avance y corte individual
+      // Avance y corte individual de papel
       add(CMD.FEED_AND_CUT);
     }
 
