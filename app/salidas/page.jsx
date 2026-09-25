@@ -5,6 +5,31 @@ import AppShell from '@/components/AppShell';
 import ConfirmModal from '@/components/ConfirmModal';
 
 function today() { return new Date().toISOString().split('T')[0]; }
+
+function getWeekRange(offset = 0) {
+  const now = new Date();
+  const day = now.getDay();
+  const diffToMonday = (day === 0 ? -6 : 1 - day) + (offset * 7);
+  
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday);
+  const sunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday + 6);
+
+  const formatIso = (d) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+  return {
+    startStr: formatIso(monday),
+    endStr: formatIso(sunday),
+    label: `${monday.getDate()} ${meses[monday.getMonth()]} - ${sunday.getDate()} ${meses[sunday.getMonth()]}`
+  };
+}
+
 const emptyItem = () => ({ productoId:'', productoNombre:'', precioOpcion:'1', cantidad:1, precioUnitario:0, subtotal:0 });
 
 export default function SalidasPage() {
@@ -16,6 +41,9 @@ export default function SalidasPage() {
   const [searchText, setSearchText] = useState('');
   const [filterFecha, setFilterFecha] = useState('');
   const [selectedVendedorFilter, setSelectedVendedorFilter] = useState('');
+  const [periodoFilter, setPeriodoFilter] = useState('esta_semana'); // 'esta_semana', 'semana_pasada', 'este_mes', 'todas', 'custom'
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [impresionFilter, setImpresionFilter] = useState('todas'); // 'todas', 'pendientes', 'impresas'
   const [statusFilter, setStatusFilter] = useState('todas');
   const [bcvTasa, setBcvTasa] = useState(798.33);
   const [showModal, setShowModal] = useState(false);
@@ -216,14 +244,71 @@ export default function SalidasPage() {
   useEffect(() => { load(); }, []);
   useEffect(() => { fetch('/api/bcv').then(r=>r.json()).then(d => { if(d.success) setBcvTasa(d.data.tasaHoy); }); }, []);
 
-  const totalCount = salidas.length;
-  const pendientesCount = salidas.filter(s => parseFloat(s.saldo_adeudado || 0) > 0.001).length;
-  const saldadasCount = salidas.filter(s => parseFloat(s.saldo_adeudado || 0) <= 0.001).length;
+  const toggleImpresoStatus = async (id, currentImpreso) => {
+    const nextVal = currentImpreso ? 0 : 1;
+    setSalidas(prev => prev.map(s => s.id === id ? { ...s, impreso: nextVal, impreso_at: nextVal ? new Date().toISOString() : null } : s));
+    try {
+      await fetch('/api/salidas', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggle_impreso', id, impreso: nextVal === 1 })
+      });
+    } catch (e) {
+      console.error('Error toggling impreso:', e);
+    }
+  };
 
-  const filteredSalidas = salidas.filter(s => {
-    const q = searchText.toLowerCase();
-    const matchText = !q || (s.cliente_name||'').toLowerCase().includes(q) || (s.factura_number||'').includes(q) || (s.vendedor_name||'').toLowerCase().includes(q);
-    const matchFecha = !filterFecha || s.fecha === filterFecha;
+  const markBatchAsImpreso = async (ids) => {
+    if (!ids || ids.length === 0) return;
+    const idSet = new Set(ids);
+    setSalidas(prev => prev.map(s => idSet.has(s.id) ? { ...s, impreso: 1, impreso_at: new Date().toISOString() } : s));
+    try {
+      await fetch('/api/salidas', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'mark_impreso', ids })
+      });
+    } catch (e) {
+      console.error('Error marking batch impreso:', e);
+    }
+  };
+
+  const currentWeekInfo = getWeekRange(weekOffset);
+
+  // 1. Filtrar por período temporal
+  const salidasEnPeriodo = salidas.filter(s => {
+    const fechaStr = s.fecha ? String(s.fecha).split('T')[0] : '';
+    if (!fechaStr) return true;
+
+    if (periodoFilter === 'esta_semana') {
+      const { startStr, endStr } = getWeekRange(weekOffset);
+      return fechaStr >= startStr && fechaStr <= endStr;
+    }
+    if (periodoFilter === 'semana_pasada') {
+      const { startStr, endStr } = getWeekRange(-1);
+      return fechaStr >= startStr && fechaStr <= endStr;
+    }
+    if (periodoFilter === 'este_mes') {
+      const now = new Date();
+      const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      return fechaStr.startsWith(currentYearMonth);
+    }
+    if (periodoFilter === 'custom' && filterFecha) {
+      return fechaStr === filterFecha;
+    }
+    return true; // 'todas'
+  });
+
+  const totalCount = salidasEnPeriodo.length;
+  const pendientesCount = salidasEnPeriodo.filter(s => parseFloat(s.saldo_adeudado || 0) > 0.001).length;
+  const saldadasCount = salidasEnPeriodo.filter(s => parseFloat(s.saldo_adeudado || 0) <= 0.001).length;
+  const porImprimirCount = salidasEnPeriodo.filter(s => !(s.impreso == 1 || s.impreso === true || s.impreso === '1')).length;
+  const impresasCount = salidasEnPeriodo.filter(s => (s.impreso == 1 || s.impreso === true || s.impreso === '1')).length;
+
+  const filteredSalidas = salidasEnPeriodo.filter(s => {
+    const q = searchText.toLowerCase().trim();
+    const matchText = !q || (s.cliente_name||'').toLowerCase().includes(q) || (s.factura_number||'').toLowerCase().includes(q) || (s.vendedor_name||'').toLowerCase().includes(q);
+    const matchFecha = !filterFecha || (periodoFilter === 'custom' ? true : (s.fecha ? String(s.fecha).split('T')[0] : '') === filterFecha);
     const matchVendedor = !selectedVendedorFilter || (s.vendedor_name || '').toLowerCase() === selectedVendedorFilter.toLowerCase();
     
     const saldo = parseFloat(s.saldo_adeudado || 0);
@@ -233,7 +318,14 @@ export default function SalidasPage() {
         ? saldo > 0.001
         : saldo <= 0.001;
 
-    return matchText && matchFecha && matchVendedor && matchStatus;
+    const isImpreso = Boolean(s.impreso == 1 || s.impreso === true || s.impreso === '1');
+    const matchImpresion = impresionFilter === 'todas'
+      ? true
+      : impresionFilter === 'pendientes'
+        ? !isImpreso
+        : isImpreso;
+
+    return matchText && matchFecha && matchVendedor && matchStatus && matchImpresion;
   });
 
   const selectProduct = (i, prodId) => {
@@ -1042,6 +1134,7 @@ export default function SalidasPage() {
     const toprint = filteredSalidas.filter(s => selectedIds.has(s.id));
     if (toprint.length === 0) return;
     setIsPrintingMultiple(true);
+    markBatchAsImpreso(toprint.map(s => s.id));
 
     try {
       const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
@@ -1093,6 +1186,9 @@ export default function SalidasPage() {
 
   const printTicket = async () => {
     if (!lastSalida) return;
+    if (lastSalida?.id) {
+      markBatchAsImpreso([lastSalida.id]);
+    }
 
     // 1. En teléfonos Android, enviar formato ESC/POS elegante con corte automático
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
@@ -1233,41 +1329,92 @@ export default function SalidasPage() {
         </div>
       </div>
 
-      {/* Tabla Historial */}
+      {/* Tabla Historial y Filtros */}
       <div className="table-container">
-        <div style={{padding:'1rem 1.25rem', background:'#fff', borderBottom:'1px solid var(--border-color)', display:'flex', flexWrap:'wrap', gap:'0.85rem', alignItems:'center', justifyContent:'space-between'}}>
-          {/* Botones Filtro de Estado: Todas / Pendientes / Saldadas */}
-          <div style={{display:'flex', gap:'0.45rem', flexWrap:'wrap', alignItems:'center'}}>
+        {/* Barra 1: Selector de Período Semanal */}
+        <div style={{
+          padding: '0.85rem 1.25rem',
+          background: '#f8fafc',
+          borderBottom: '1px solid var(--border-color)',
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '0.75rem'
+        }}>
+          {/* Navegador y botones de semana */}
+          <div style={{display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap'}}>
+            <span style={{fontSize:'0.78rem', fontWeight:800, color:'#475569', textTransform:'uppercase', marginRight:'0.25rem', display:'flex', alignItems:'center', gap:'0.3rem'}}>
+              <i className="fa-solid fa-calendar-week" style={{color:'#0284c7'}}></i> Período:
+            </span>
+
             <button
               type="button"
               className="btn btn-sm"
               style={{
                 fontWeight: 700,
-                fontSize: '0.82rem',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                padding: '0.45rem 0.85rem',
+                fontSize: '0.8rem',
                 borderRadius: 8,
-                background: statusFilter === 'todas' ? '#0284c7' : '#f8fafc',
-                color: statusFilter === 'todas' ? '#fff' : '#475569',
-                border: `1.5px solid ${statusFilter === 'todas' ? '#0284c7' : '#e2e8f0'}`,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
+                padding: '0.4rem 0.75rem',
+                background: periodoFilter === 'esta_semana' && weekOffset === 0 ? '#0284c7' : '#fff',
+                color: periodoFilter === 'esta_semana' && weekOffset === 0 ? '#fff' : '#334155',
+                border: `1.5px solid ${periodoFilter === 'esta_semana' && weekOffset === 0 ? '#0284c7' : '#cbd5e1'}`,
+                cursor: 'pointer'
               }}
-              onClick={() => setStatusFilter('todas')}
+              onClick={() => { setPeriodoFilter('esta_semana'); setWeekOffset(0); setFilterFecha(''); }}
             >
-              <i className="fa-solid fa-list-ul"></i> Todas
-              <span style={{
-                background: statusFilter === 'todas' ? 'rgba(255,255,255,0.28)' : '#e2e8f0',
-                color: statusFilter === 'todas' ? '#fff' : '#334155',
-                padding: '1px 6px',
-                borderRadius: 10,
-                fontSize: '0.72rem',
-                fontWeight: 800
-              }}>
-                {totalCount}
-              </span>
+              📅 Esta Semana ({getWeekRange(0).label})
+            </button>
+
+            {/* Flechas de navegación semana a semana */}
+            <div style={{display:'inline-flex', borderRadius:8, overflow:'hidden', border:'1.5px solid #cbd5e1', background:'#fff'}}>
+              <button
+                type="button"
+                title="Ver Semana Anterior"
+                style={{border:'none', background:'transparent', padding:'0.4rem 0.65rem', cursor:'pointer', color:'#475569', borderRight:'1px solid #e2e8f0', fontSize:'0.75rem', fontWeight:700}}
+                onClick={() => {
+                  setPeriodoFilter('esta_semana');
+                  setWeekOffset(prev => prev - 1);
+                  setFilterFecha('');
+                }}
+              >
+                <i className="fa-solid fa-chevron-left"></i> Anterior
+              </button>
+              {weekOffset !== 0 && (
+                <span style={{padding:'0.4rem 0.65rem', fontSize:'0.75rem', fontWeight:800, background:'#e0f2fe', color:'#0369a1', display:'flex', alignItems:'center'}}>
+                  {currentWeekInfo.label}
+                </span>
+              )}
+              <button
+                type="button"
+                title="Ver Semana Siguiente"
+                style={{border:'none', background:'transparent', padding:'0.4rem 0.65rem', cursor:'pointer', color:'#475569', fontSize:'0.75rem', fontWeight:700}}
+                onClick={() => {
+                  setPeriodoFilter('esta_semana');
+                  setWeekOffset(prev => prev + 1);
+                  setFilterFecha('');
+                }}
+              >
+                Siguiente <i className="fa-solid fa-chevron-right"></i>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{
+                fontWeight: 700,
+                fontSize: '0.8rem',
+                borderRadius: 8,
+                padding: '0.4rem 0.75rem',
+                background: periodoFilter === 'semana_pasada' ? '#0284c7' : '#fff',
+                color: periodoFilter === 'semana_pasada' ? '#fff' : '#334155',
+                border: `1.5px solid ${periodoFilter === 'semana_pasada' ? '#0284c7' : '#cbd5e1'}`,
+                cursor: 'pointer'
+              }}
+              onClick={() => { setPeriodoFilter('semana_pasada'); setWeekOffset(-1); setFilterFecha(''); }}
+            >
+              Semana Pasada
             </button>
 
             <button
@@ -1275,31 +1422,17 @@ export default function SalidasPage() {
               className="btn btn-sm"
               style={{
                 fontWeight: 700,
-                fontSize: '0.82rem',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                padding: '0.45rem 0.85rem',
+                fontSize: '0.8rem',
                 borderRadius: 8,
-                background: statusFilter === 'pendientes' ? '#dc2626' : '#fff5f5',
-                color: statusFilter === 'pendientes' ? '#fff' : '#b91c1c',
-                border: `1.5px solid ${statusFilter === 'pendientes' ? '#dc2626' : '#fecaca'}`,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
+                padding: '0.4rem 0.75rem',
+                background: periodoFilter === 'este_mes' ? '#0284c7' : '#fff',
+                color: periodoFilter === 'este_mes' ? '#fff' : '#334155',
+                border: `1.5px solid ${periodoFilter === 'este_mes' ? '#0284c7' : '#cbd5e1'}`,
+                cursor: 'pointer'
               }}
-              onClick={() => setStatusFilter('pendientes')}
+              onClick={() => { setPeriodoFilter('este_mes'); setFilterFecha(''); }}
             >
-              <i className="fa-solid fa-clock"></i> Pendientes por Cobrar
-              <span style={{
-                background: statusFilter === 'pendientes' ? 'rgba(255,255,255,0.3)' : '#fee2e2',
-                color: statusFilter === 'pendientes' ? '#fff' : '#991b1b',
-                padding: '1px 6px',
-                borderRadius: 10,
-                fontSize: '0.72rem',
-                fontWeight: 800
-              }}>
-                {pendientesCount}
-              </span>
+              Este Mes
             </button>
 
             <button
@@ -1307,39 +1440,150 @@ export default function SalidasPage() {
               className="btn btn-sm"
               style={{
                 fontWeight: 700,
-                fontSize: '0.82rem',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                padding: '0.45rem 0.85rem',
+                fontSize: '0.8rem',
                 borderRadius: 8,
-                background: statusFilter === 'saldadas' ? '#16a34a' : '#f0fdf4',
-                color: statusFilter === 'saldadas' ? '#fff' : '#15803d',
-                border: `1.5px solid ${statusFilter === 'saldadas' ? '#16a34a' : '#bbf7d0'}`,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
+                padding: '0.4rem 0.75rem',
+                background: periodoFilter === 'todas' ? '#0f172a' : '#fff',
+                color: periodoFilter === 'todas' ? '#fff' : '#475569',
+                border: `1.5px solid ${periodoFilter === 'todas' ? '#0f172a' : '#cbd5e1'}`,
+                cursor: 'pointer'
               }}
-              onClick={() => setStatusFilter('saldadas')}
+              onClick={() => { setPeriodoFilter('todas'); setFilterFecha(''); }}
             >
-              <i className="fa-solid fa-circle-check"></i> Saldadas / Pagadas
-              <span style={{
-                background: statusFilter === 'saldadas' ? 'rgba(255,255,255,0.3)' : '#dcfce7',
-                color: statusFilter === 'saldadas' ? '#fff' : '#166534',
-                padding: '1px 6px',
-                borderRadius: 10,
-                fontSize: '0.72rem',
-                fontWeight: 800
-              }}>
-                {saldadasCount}
-              </span>
+              Todo el Historial
             </button>
           </div>
 
-          <div style={{display:'flex', gap:'0.6rem', flexWrap:'wrap', alignItems:'center'}}>
+          <div style={{fontSize:'0.8rem', color:'#64748b', fontWeight:600}}>
+            Viendo: <strong style={{color:'#0f172a'}}>{totalCount}</strong> venta(s) en este período
+          </div>
+        </div>
+
+        {/* Barra 2: Filtros de Cobro, Impresión, Búsqueda y Acciones */}
+        <div style={{padding:'0.9rem 1.25rem', background:'#fff', borderBottom:'1px solid var(--border-color)', display:'flex', flexWrap:'wrap', gap:'0.85rem', alignItems:'center', justifyContent:'space-between'}}>
+          
+          {/* Grupo de Filtros de Cobro e Impresión */}
+          <div style={{display:'flex', gap:'0.5rem', flexWrap:'wrap', alignItems:'center'}}>
+            {/* Pestañas de Cobro */}
+            <div style={{display:'flex', gap:'0.25rem', background:'#f1f5f9', padding:'3px', borderRadius:8}}>
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                  padding: '0.35rem 0.7rem',
+                  borderRadius: 6,
+                  background: statusFilter === 'todas' ? '#0284c7' : 'transparent',
+                  color: statusFilter === 'todas' ? '#fff' : '#475569',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setStatusFilter('todas')}
+              >
+                Todas ({totalCount})
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                  padding: '0.35rem 0.7rem',
+                  borderRadius: 6,
+                  background: statusFilter === 'pendientes' ? '#dc2626' : 'transparent',
+                  color: statusFilter === 'pendientes' ? '#fff' : '#b91c1c',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setStatusFilter('pendientes')}
+              >
+                <i className="fa-solid fa-clock"></i> Por Cobrar ({pendientesCount})
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                  padding: '0.35rem 0.7rem',
+                  borderRadius: 6,
+                  background: statusFilter === 'saldadas' ? '#16a34a' : 'transparent',
+                  color: statusFilter === 'saldadas' ? '#fff' : '#15803d',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setStatusFilter('saldadas')}
+              >
+                <i className="fa-solid fa-circle-check"></i> Pagadas ({saldadasCount})
+              </button>
+            </div>
+
+            {/* Pestañas de Impresión */}
+            <div style={{display:'flex', gap:'0.25rem', background:'#f8fafc', padding:'3px', borderRadius:8, border:'1px solid #e2e8f0'}}>
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                  padding: '0.35rem 0.65rem',
+                  borderRadius: 6,
+                  background: impresionFilter === 'todas' ? '#334155' : 'transparent',
+                  color: impresionFilter === 'todas' ? '#fff' : '#64748b',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setImpresionFilter('todas')}
+              >
+                <i className="fa-solid fa-print"></i> Todos Tickets
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                  padding: '0.35rem 0.65rem',
+                  borderRadius: 6,
+                  background: impresionFilter === 'pendientes' ? '#d97706' : 'transparent',
+                  color: impresionFilter === 'pendientes' ? '#fff' : '#b45309',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setImpresionFilter('pendientes')}
+                title="Ver sólo las facturas que no han sido impresas"
+              >
+                <i className="fa-solid fa-hourglass-half"></i> Por Imprimir ({porImprimirCount})
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                  padding: '0.35rem 0.65rem',
+                  borderRadius: 6,
+                  background: impresionFilter === 'impresas' ? '#059669' : 'transparent',
+                  color: impresionFilter === 'impresas' ? '#fff' : '#047857',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setImpresionFilter('impresas')}
+                title="Ver facturas ya impresas"
+              >
+                <i className="fa-solid fa-check-double"></i> Impresas ({impresasCount})
+              </button>
+            </div>
+          </div>
+
+          {/* Acciones de Lote y Filtros de Búsqueda */}
+          <div style={{display:'flex', gap:'0.5rem', flexWrap:'wrap', alignItems:'center'}}>
+            {/* Botón Imprimir Seleccionadas */}
             {selectedIds.size > 0 && (
               <button
                 className="btn btn-primary btn-sm"
-                style={{background:'#0284c7', color:'#fff', fontWeight:700, display:'flex', alignItems:'center', gap:'0.4rem'}}
+                style={{background:'#0284c7', color:'#fff', fontWeight:700, display:'flex', alignItems:'center', gap:'0.4rem', boxShadow:'0 2px 4px rgba(2,132,199,0.2)'}}
                 onClick={printMultiple}
                 disabled={isPrintingMultiple}
                 title={`Imprimir ${selectedIds.size} nota(s) seleccionada(s)`}
@@ -1350,14 +1594,31 @@ export default function SalidasPage() {
                   </>
                 ) : (
                   <>
-                    <i className="fa-solid fa-print"></i> Imprimir seleccionadas ({selectedIds.size})
+                    <i className="fa-solid fa-print"></i> Imprimir ({selectedIds.size})
                   </>
                 )}
               </button>
             )}
+
+            {/* Botón Rápido: Seleccionar todas las no impresas */}
+            {porImprimirCount > 0 && selectedIds.size === 0 && (
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{background:'#fef3c7', color:'#92400e', border:'1.5px solid #fde68a', fontWeight:700, fontSize:'0.8rem', display:'flex', alignItems:'center', gap:'0.35rem'}}
+                onClick={() => {
+                  const noImpresasIds = filteredSalidas.filter(s => !(s.impreso == 1 || s.impreso === true || s.impreso === '1')).map(s => s.id);
+                  setSelectedIds(new Set(noImpresasIds));
+                }}
+                title="Seleccionar todas las que faltan por imprimir en esta vista"
+              >
+                <i className="fa-solid fa-check-to-slot"></i> Seleccionar Por Imprimir ({porImprimirCount})
+              </button>
+            )}
+
             <select
               className="form-control"
-              style={{maxWidth: 180, minHeight: 36, fontSize: '0.85rem', fontWeight: 600, borderColor: selectedVendedorFilter ? '#0284c7' : undefined}}
+              style={{maxWidth: 170, minHeight: 36, fontSize: '0.82rem', fontWeight: 600, borderColor: selectedVendedorFilter ? '#0284c7' : undefined}}
               value={selectedVendedorFilter}
               onChange={e => setSelectedVendedorFilter(e.target.value)}
               title="Filtrar por Vendedor"
@@ -1367,13 +1628,13 @@ export default function SalidasPage() {
                 <option key={idx} value={vend}>{vend}</option>
               ))}
             </select>
-            <input type="date" className="form-control" style={{minHeight:36, width:'auto', fontSize:'0.85rem'}} value={filterFecha} onChange={e=>setFilterFecha(e.target.value)} />
-            <button className="btn btn-secondary btn-sm" onClick={()=>{ setFilterFecha(''); setSelectedVendedorFilter(''); setStatusFilter('todas'); setSearchText(''); }} title="Limpiar filtros"><i className="fa-solid fa-xmark"></i></button>
-            <input type="text" className="form-control" placeholder="🔍 Buscar cliente, Nº factura, vendedor..." style={{maxWidth:220, minHeight:36, fontSize:'0.85rem'}} value={searchText} onChange={e=>setSearchText(e.target.value)} />
+            <input type="date" className="form-control" style={{minHeight:36, width:'auto', fontSize:'0.82rem'}} value={filterFecha} onChange={e=>{ setFilterFecha(e.target.value); if(e.target.value) setPeriodoFilter('custom'); }} title="Filtrar por fecha específica" />
+            <button className="btn btn-secondary btn-sm" onClick={()=>{ setFilterFecha(''); setSelectedVendedorFilter(''); setStatusFilter('todas'); setImpresionFilter('todas'); setPeriodoFilter('esta_semana'); setWeekOffset(0); setSearchText(''); }} title="Restablecer filtros a la semana actual"><i className="fa-solid fa-xmark"></i></button>
+            <input type="text" className="form-control" placeholder="🔍 Buscar cliente, factura..." style={{maxWidth:200, minHeight:36, fontSize:'0.82rem'}} value={searchText} onChange={e=>setSearchText(e.target.value)} />
           </div>
         </div>
 
-        {/* Resumen informativo cuando se activa el filtro Pendientes */}
+        {/* Resumen informativo cuando se activa el filtro Pendientes por Cobrar */}
         {statusFilter === 'pendientes' && (
           <div style={{background: '#fff1f2', borderBottom: '1px solid #fecdd3', padding: '0.65rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.85rem', color: '#9f1239'}}>
             <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
@@ -1417,93 +1678,134 @@ export default function SalidasPage() {
                   }}
                 />
               </th>
-              <th>Tipo</th><th>Nº Documento</th><th>Fecha</th><th>Vendedor</th><th>Cliente</th>
-              <th>Total ($)</th><th>Total (Bs.)</th><th>Saldo Pendiente</th><th>Acciones</th>
+              <th>Tipo</th>
+              <th>Nº Documento</th>
+              <th>Fecha</th>
+              <th>Vendedor</th>
+              <th>Cliente</th>
+              <th>Total ($)</th>
+              <th>Total (Bs.)</th>
+              <th>Saldo Pendiente</th>
+              <th style={{textAlign:'center'}}>Estado Impresión</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {filteredSalidas.length === 0 ? (
-              <tr><td colSpan={10} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
-                {searchText || filterFecha || selectedVendedorFilter ? 'Sin resultados para los filtros' : 'Sin ventas registradas'}
+              <tr><td colSpan={11} style={{textAlign:'center', padding:'2.5rem', color:'var(--text-muted)'}}>
+                {searchText || filterFecha || selectedVendedorFilter || impresionFilter !== 'todas' || statusFilter !== 'todas'
+                  ? 'Sin resultados para los filtros seleccionados'
+                  : 'Sin ventas registradas en este período'}
               </td></tr>
-            ) : filteredSalidas.map(s => (
-              <tr key={s.id} style={selectedIds.has(s.id) ? {background:'#f0f9ff'} : {}}>
-                <td style={{textAlign:'center', verticalAlign:'middle'}}>
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(s.id)}
-                    onChange={e => {
-                      setSelectedIds(prev => {
-                        const next = new Set(prev);
-                        if (e.target.checked) next.add(s.id);
-                        else next.delete(s.id);
-                        return next;
-                      });
-                    }}
-                  />
-                </td>
-                <td><span className="badge badge-primary" style={{fontSize:'0.7rem'}}>NOTA DE ENTREGA</span></td>
-                <td style={{fontWeight:600}}>Nº {s.factura_number}</td>
-                <td>{s.fecha ? String(s.fecha).split('T')[0] : '—'}</td>
-                <td>
-                  <div style={{fontWeight:600, fontSize:'0.85rem', color:'#334155'}}>{s.vendedor_name || '—'}</div>
-                </td>
-                <td>
-                  <div style={{fontWeight:600, fontSize:'0.88rem'}}>{s.cliente_name}</div>
-                  {s.cedula_rif && <div style={{fontSize:'0.72rem', color:'var(--text-muted)'}}>{s.cedula_rif}</div>}
-                </td>
-                <td style={{fontWeight:700}}>${Number(s.total_factura||0).toFixed(2)}</td>
-                <td style={{color:'#64748b', fontSize:'0.85rem'}}>Bs. {Number((s.total_factura||0)*bcvTasa).toLocaleString('es-VE',{minimumFractionDigits:2})}</td>
-                <td>
-                  <span className={`badge ${Number(s.saldo_adeudado)>0?'badge-warning':'badge-success'}`}>
-                    ${Number(s.saldo_adeudado||0).toFixed(2)}
-                  </span>
-                </td>
-                <td>
-                  <div style={{display:'flex', gap:'0.4rem'}}>
-                    <button className="btn btn-secondary btn-sm" title="Editar Nota de Entrega / Despacho"
-                      onClick={()=>openEditModal(s)} style={{color:'#0284c7', borderColor:'#bae6fd', background:'#f0f9ff'}}>
-                      <i className="fa-solid fa-pen-to-square"></i>
+            ) : filteredSalidas.map(s => {
+              const isImpreso = Boolean(s.impreso == 1 || s.impreso === true || s.impreso === '1');
+              return (
+                <tr key={s.id} style={selectedIds.has(s.id) ? {background:'#f0f9ff'} : {}}>
+                  <td style={{textAlign:'center', verticalAlign:'middle'}}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(s.id)}
+                      onChange={e => {
+                        setSelectedIds(prev => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(s.id);
+                          else next.delete(s.id);
+                          return next;
+                        });
+                      }}
+                    />
+                  </td>
+                  <td><span className="badge badge-primary" style={{fontSize:'0.7rem'}}>NOTA DE ENTREGA</span></td>
+                  <td style={{fontWeight:600}}>Nº {s.factura_number}</td>
+                  <td>{s.fecha ? String(s.fecha).split('T')[0] : '—'}</td>
+                  <td>
+                    <div style={{fontWeight:600, fontSize:'0.85rem', color:'#334155'}}>{s.vendedor_name || '—'}</div>
+                  </td>
+                  <td>
+                    <div style={{fontWeight:600, fontSize:'0.88rem'}}>{s.cliente_name}</div>
+                    {s.cedula_rif && <div style={{fontSize:'0.72rem', color:'var(--text-muted)'}}>{s.cedula_rif}</div>}
+                  </td>
+                  <td style={{fontWeight:700}}>${Number(s.total_factura||0).toFixed(2)}</td>
+                  <td style={{color:'#64748b', fontSize:'0.85rem'}}>Bs. {Number((s.total_factura||0)*bcvTasa).toLocaleString('es-VE',{minimumFractionDigits:2})}</td>
+                  <td>
+                    <span className={`badge ${Number(s.saldo_adeudado)>0?'badge-warning':'badge-success'}`}>
+                      ${Number(s.saldo_adeudado||0).toFixed(2)}
+                    </span>
+                  </td>
+                  <td style={{textAlign:'center'}}>
+                    <button
+                      type="button"
+                      onClick={() => toggleImpresoStatus(s.id, isImpreso)}
+                      style={{
+                        background: isImpreso ? '#ecfdf5' : '#fffbeb',
+                        color: isImpreso ? '#047857' : '#b45309',
+                        border: `1.5px solid ${isImpreso ? '#a7f3d0' : '#fde68a'}`,
+                        borderRadius: '20px',
+                        padding: '4px 10px',
+                        fontSize: '0.74rem',
+                        fontWeight: 700,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                      }}
+                      title={isImpreso 
+                        ? `Impresa${s.impreso_at ? ' el ' + new Date(s.impreso_at).toLocaleDateString('es-VE') : ''}. Haz clic para marcar como Pendiente.`
+                        : 'Falta por imprimir ticket. Haz clic para marcar como Impresa.'
+                      }
+                    >
+                      <i className={`fa-solid ${isImpreso ? 'fa-circle-check' : 'fa-hourglass-half'}`}></i>
+                      {isImpreso ? 'Impresa' : 'Por Imprimir'}
                     </button>
-                    <button className="btn btn-secondary btn-sm" title="Imprimir Ticket (7.6 cm / 80mm)" onClick={()=>{ setLastSalida(s); setShowTicketModal(true); }}>
-                      <i className="fa-solid fa-print"></i>
-                    </button>
-                    <button className="btn btn-secondary btn-sm" style={{background:'#e0f2fe', color:'#0284c7', borderColor:'#bae6fd'}} title="Ver Estado de Cuenta del Cliente" onClick={()=>{ setSelectedCliente(s.cliente_name); loadEstadoCuenta(s.cliente_name); setShowEstadoModal(true); }}>
-                      <i className="fa-solid fa-file-invoice-dollar"></i>
-                    </button>
-                    {Number(s.saldo_adeudado)>0 && (
-                      <>
-                        <button className="btn btn-sm" style={{background:'#ecfdf5', color:'#059669', borderColor:'#a7f3d0'}} title="Saldar Factura Completa (1 Clic)"
-                          onClick={()=>handleQuickPagarTodo(s)}>
-                          <i className="fa-solid fa-circle-check"></i>
-                        </button>
-                        <button className="btn btn-secondary btn-sm" title="Registrar abono parcial / personalizado"
-                          onClick={()=>{
-                            const saldo = parseFloat(s.saldo_adeudado || 0);
-                            setAbonoForm({
-                              salidaId: s.id,
-                              clienteName: s.cliente_name,
-                              facturaNumber: s.factura_number,
-                              totalFactura: parseFloat(s.total_factura || 0),
-                              saldoAdeudado: saldo,
-                              montoUSD: '',
-                              montoVES: '',
-                              referencia: '',
-                              fecha: today()
-                            });
-                            setShowAbonoModal(true);
-                          }}>
-                          <i className="fa-solid fa-dollar-sign"></i>
-                        </button>
-                      </>
-                    )}
-                    <button className="btn btn-danger btn-sm" onClick={()=>handleDelete(s.id)} title="Eliminar">
-                      <i className="fa-solid fa-trash"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td>
+                    <div style={{display:'flex', gap:'0.4rem'}}>
+                      <button className="btn btn-secondary btn-sm" title="Editar Nota de Entrega / Despacho"
+                        onClick={()=>openEditModal(s)} style={{color:'#0284c7', borderColor:'#bae6fd', background:'#f0f9ff'}}>
+                        <i className="fa-solid fa-pen-to-square"></i>
+                      </button>
+                      <button className="btn btn-secondary btn-sm" title="Imprimir Ticket (7.6 cm / 80mm)" onClick={()=>{ setLastSalida(s); setShowTicketModal(true); }}>
+                        <i className="fa-solid fa-print"></i>
+                      </button>
+                      <button className="btn btn-secondary btn-sm" style={{background:'#e0f2fe', color:'#0284c7', borderColor:'#bae6fd'}} title="Ver Estado de Cuenta del Cliente" onClick={()=>{ setSelectedCliente(s.cliente_name); loadEstadoCuenta(s.cliente_name); setShowEstadoModal(true); }}>
+                        <i className="fa-solid fa-file-invoice-dollar"></i>
+                      </button>
+                      {Number(s.saldo_adeudado)>0 && (
+                        <>
+                          <button className="btn btn-sm" style={{background:'#ecfdf5', color:'#059669', borderColor:'#a7f3d0'}} title="Saldar Factura Completa (1 Clic)"
+                            onClick={()=>handleQuickPagarTodo(s)}>
+                            <i className="fa-solid fa-circle-check"></i>
+                          </button>
+                          <button className="btn btn-secondary btn-sm" title="Registrar abono parcial / personalizado"
+                            onClick={()=>{
+                              const saldo = parseFloat(s.saldo_adeudado || 0);
+                              setAbonoForm({
+                                salidaId: s.id,
+                                clienteName: s.cliente_name,
+                                facturaNumber: s.factura_number,
+                                totalFactura: parseFloat(s.total_factura || 0),
+                                saldoAdeudado: saldo,
+                                montoUSD: '',
+                                montoVES: '',
+                                referencia: '',
+                                fecha: today()
+                              });
+                              setShowAbonoModal(true);
+                            }}>
+                            <i className="fa-solid fa-dollar-sign"></i>
+                          </button>
+                        </>
+                      )}
+                      <button className="btn btn-danger btn-sm" onClick={()=>handleDelete(s.id)} title="Eliminar">
+                        <i className="fa-solid fa-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

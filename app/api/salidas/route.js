@@ -11,8 +11,21 @@ async function recalcSaldo(conn, salidaId) {
   await conn.execute('UPDATE salidas SET saldo_adeudado = ? WHERE id = ?', [Math.max(0, total - pagado), salidaId]);
 }
 
+let columnsChecked = false;
+async function ensureImpresoColumns() {
+  if (columnsChecked) return;
+  try {
+    await query(`ALTER TABLE salidas ADD COLUMN impreso TINYINT(1) NOT NULL DEFAULT 0`);
+  } catch (e) {}
+  try {
+    await query(`ALTER TABLE salidas ADD COLUMN impreso_at TIMESTAMP NULL DEFAULT NULL`);
+  } catch (e) {}
+  columnsChecked = true;
+}
+
 export async function GET(request) {
   try {
+    await ensureImpresoColumns();
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
     const id = searchParams.get('id');
@@ -376,5 +389,39 @@ export async function DELETE(request) {
     return NextResponse.json({ success: false, error: e.message }, { status: 500 });
   } finally {
     conn.release();
+  }
+}
+
+export async function PATCH(request) {
+  try {
+    await ensureImpresoColumns();
+    const body = await request.json();
+    const { action, id, ids, impreso } = body;
+
+    if (action === 'toggle_impreso' && id) {
+      let newVal = impreso !== undefined ? (impreso ? 1 : 0) : null;
+      if (newVal === null) {
+        const rows = await query('SELECT impreso FROM salidas WHERE id = ?', [id]);
+        newVal = rows[0]?.impreso ? 0 : 1;
+      }
+      await query(
+        'UPDATE salidas SET impreso = ?, impreso_at = ? WHERE id = ?',
+        [newVal, newVal === 1 ? new Date() : null, id]
+      );
+      return NextResponse.json({ success: true, impreso: newVal });
+    }
+
+    if (action === 'mark_impreso' && Array.isArray(ids) && ids.length > 0) {
+      const placeholders = ids.map(() => '?').join(',');
+      await query(
+        `UPDATE salidas SET impreso = 1, impreso_at = NOW() WHERE id IN (${placeholders})`,
+        ids
+      );
+      return NextResponse.json({ success: true, marked: ids.length });
+    }
+
+    return NextResponse.json({ success: false, error: 'Acción no reconocida o parámetros faltantes.' }, { status: 400 });
+  } catch (e) {
+    return NextResponse.json({ success: false, error: e.message }, { status: 500 });
   }
 }

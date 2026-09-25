@@ -86,6 +86,8 @@ CREATE TABLE IF NOT EXISTS `salidas` (
     `total_factura` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     `saldo_adeudado` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     `fecha` DATE NOT NULL,
+    `impreso` TINYINT(1) NOT NULL DEFAULT 0,
+    `impreso_at` TIMESTAMP NULL DEFAULT NULL,
     `observaciones` TEXT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
