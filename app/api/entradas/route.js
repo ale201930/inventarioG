@@ -298,12 +298,33 @@ export async function DELETE(request) {
     await conn.beginTransaction();
     const [items] = await conn.execute('SELECT * FROM entradas_items WHERE entrada_id = ?', [id]);
     for (const item of items) {
-      await conn.execute('UPDATE inventario SET cantidad = GREATEST(0, cantidad - ?) WHERE id = ?', [item.cantidad, item.producto_id]);
+      if (item.producto_id) {
+        await conn.execute('UPDATE inventario SET cantidad = GREATEST(0, cantidad - ?) WHERE id = ?', [item.cantidad, item.producto_id]);
+      }
     }
     await conn.execute('DELETE FROM entradas_items WHERE entrada_id = ?', [id]);
     await conn.execute('DELETE FROM entradas WHERE id = ?', [id]);
+
+    // Verificar si algún producto quedó en 0 y no tiene otras compras ni ventas registradas
+    for (const item of items) {
+      if (item.producto_id) {
+        const [prodRows] = await conn.execute('SELECT cantidad FROM inventario WHERE id = ?', [item.producto_id]);
+        if (prodRows && prodRows.length > 0 && prodRows[0].cantidad <= 0) {
+          const [otherEntradas] = await conn.execute('SELECT COUNT(*) as count FROM entradas_items WHERE producto_id = ?', [item.producto_id]);
+          const [otherSalidas] = await conn.execute('SELECT COUNT(*) as count FROM salidas_items WHERE producto_id = ?', [item.producto_id]);
+          
+          const hasOtherEntradas = (otherEntradas[0]?.count || 0) > 0;
+          const hasOtherSalidas = (otherSalidas[0]?.count || 0) > 0;
+
+          if (!hasOtherEntradas && !hasOtherSalidas) {
+            await conn.execute('DELETE FROM inventario WHERE id = ?', [item.producto_id]);
+          }
+        }
+      }
+    }
+
     await conn.commit();
-    return NextResponse.json({ success: true, message: 'Compra eliminada y stock ajustado.' });
+    return NextResponse.json({ success: true, message: 'Compra eliminada, stock revertido y productos sin movimientos limpiados.' });
   } catch (e) {
     await conn.rollback();
     return NextResponse.json({ success: false, error: e.message }, { status: 500 });
