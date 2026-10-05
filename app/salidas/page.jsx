@@ -459,9 +459,29 @@ export default function SalidasPage() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+
+      setConfirmDialog({
+        isOpen: true,
+        title: '✅ Imagen Guardada con Éxito',
+        message: (
+          <div>
+            <p style={{marginBottom:'0.5rem', color:'#1e293b', fontWeight:600}}>
+              La imagen de la <strong>Nota de Entrega Nº {num}</strong> se ha guardado en tu galería / descargas.
+            </p>
+            <p style={{margin:0, color:'#166534', fontSize:'0.85rem'}}>
+              📲 Ya puedes abrir WhatsApp y enviársela al cliente que desees.
+            </p>
+          </div>
+        ),
+        confirmText: 'Entendido',
+        variant: 'success',
+        icon: 'fa-circle-check',
+        onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+        onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+      });
     } catch (e) {
       console.error(e);
-      alert('Error descargando imagen del ticket');
+      alert('Error guardando imagen del ticket');
     } finally {
       setSharingImage(false);
     }
@@ -2457,23 +2477,13 @@ export default function SalidasPage() {
                 className="btn"
                 disabled={sharingImage}
                 style={{fontSize:'0.85rem', padding:'0.65rem 0.5rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem', background:'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', color:'#fff', borderRadius:8, border:'none', cursor:'pointer'}}
-                onClick={handleShareTicketWhatsApp}
+                onClick={handleDownloadTicketImage}
               >
                 {sharingImage ? (
-                  <><i className="fa-solid fa-spinner fa-spin"></i> Generando...</>
+                  <><i className="fa-solid fa-spinner fa-spin"></i> Guardando...</>
                 ) : (
-                  <><i className="fa-brands fa-whatsapp" style={{fontSize:'1.05rem'}}></i> Compartir / WhatsApp</>
+                  <><i className="fa-solid fa-image" style={{fontSize:'1.05rem'}}></i> Guardar Imagen</>
                 )}
-              </button>
-            </div>
-            <div style={{textAlign:'center', marginTop:'0.4rem'}}>
-              <button
-                type="button"
-                onClick={handleDownloadTicketImage}
-                disabled={sharingImage}
-                style={{background:'none', border:'none', color:'#475569', fontSize:'0.75rem', fontWeight:600, cursor:'pointer', textDecoration:'underline'}}
-              >
-                <i className="fa-solid fa-download" style={{marginRight:4}}></i> O descargar archivo de imagen (PNG)
               </button>
             </div>
           </div>
