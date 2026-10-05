@@ -16,6 +16,14 @@ export default function EntradasPage() {
   const [showModal, setShowModal] = useState(false);
   const [showAbonoModal, setShowAbonoModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [showEstadoProveedorModal, setShowEstadoProveedorModal] = useState(false);
+  const [proveedores, setProveedores] = useState([]);
+  const [selectedProveedor, setSelectedProveedor] = useState('');
+  const [estadoCuentaProveedor, setEstadoCuentaProveedor] = useState(null);
+  const [filtroEstadoProveedor, setFiltroEstadoProveedor] = useState('todas');
+  const [loadingEstado, setLoadingEstado] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
   const [bcvTasa, setBcvTasa] = useState(798.33);
   const [currentEntradaId, setCurrentEntradaId] = useState(null);
   const [editingEntradaId, setEditingEntradaId] = useState(null);
@@ -43,7 +51,17 @@ export default function EntradasPage() {
     tasaBCV:798.33, totalUSD:0, totalVES:0, observaciones:'',
     items:[emptyItem()]
   });
-  const [abonoForm, setAbonoForm] = useState({ entradaId:'', montoUSD:0, montoVES:0, referencia:'', fecha:today() });
+  const [abonoForm, setAbonoForm] = useState({
+    entradaId: '',
+    proveedorName: '',
+    facturaNumber: '',
+    totalFactura: 0,
+    saldoAdeudado: 0,
+    montoUSD: 0,
+    montoVES: 0,
+    referencia: '',
+    fecha: today()
+  });
 
   const [inventarioList, setInventarioList] = useState([]);
   const load = () => {
@@ -52,6 +70,10 @@ export default function EntradasPage() {
       .then(r => r.json())
       .then(d => { if (d.success) setEntradas(d.data); })
       .finally(() => setLoading(false));
+    fetch('/api/entradas?action=proveedores')
+      .then(r => r.json())
+      .then(d => { if (d.success && Array.isArray(d.data)) setProveedores(d.data); })
+      .catch(e => console.error(e));
     fetch('/api/inventario')
       .then(r => r.json())
       .then(d => { if (d.success && Array.isArray(d.data)) setInventarioList(d.data); })
@@ -69,7 +91,7 @@ export default function EntradasPage() {
 
   // Bloquear scroll de fondo cuando cualquier modal esté abierto
   useEffect(() => {
-    const isModalOpen = showModal || showAbonoModal || showPreviewModal;
+    const isModalOpen = showModal || showAbonoModal || showPreviewModal || showEstadoProveedorModal;
     if (typeof document !== 'undefined') {
       if (isModalOpen) {
         document.body.style.overflow = 'hidden';
@@ -85,7 +107,7 @@ export default function EntradasPage() {
         document.documentElement.style.overflow = '';
       }
     };
-  }, [showModal, showAbonoModal, showPreviewModal]);
+  }, [showModal, showAbonoModal, showPreviewModal, showEstadoProveedorModal]);
 
   const filteredEntradas = entradas.filter(e => {
     const q = searchText.toLowerCase();
@@ -315,6 +337,179 @@ export default function EntradasPage() {
     });
   };
 
+  const openAbonoModal = (entrada) => {
+    const saldo = parseFloat(entrada.saldo_adeudado || 0);
+    const tasa = parseFloat(entrada.tasa_bcv || bcvTasa || 798.33);
+    setAbonoForm({
+      entradaId: entrada.id,
+      proveedorName: entrada.proveedor_name || 'Proveedor',
+      facturaNumber: entrada.factura_number || '—',
+      totalFactura: parseFloat(entrada.total_factura || 0),
+      saldoAdeudado: saldo,
+      montoUSD: saldo.toFixed(2),
+      montoVES: (saldo * tasa).toFixed(2),
+      referencia: '',
+      fecha: today()
+    });
+    setShowAbonoModal(true);
+  };
+
+  const loadEstadoCuentaProveedor = async (provKey) => {
+    if (!provKey) {
+      setEstadoCuentaProveedor(null);
+      return;
+    }
+    const found = proveedores.find(p => (p.proveedor_rif ? `RIF:${p.proveedor_rif}` : `NAME:${p.proveedor_name}`) === provKey);
+    const name = found ? found.proveedor_name : provKey;
+    const rif = found ? (found.proveedor_rif || '') : '';
+    setLoadingEstado(true);
+    try {
+      const res = await fetch(`/api/entradas?action=estado_cuenta&proveedor=${encodeURIComponent(name)}&rif=${encodeURIComponent(rif)}`);
+      const d = await res.json();
+      if (d.success) {
+        setEstadoCuentaProveedor(d);
+      } else {
+        setConfirmDialog({
+          isOpen: true,
+          title: 'Error',
+          message: d.error || 'Error cargando estado de cuenta del proveedor.',
+          confirmText: 'Entendido',
+          variant: 'danger',
+          onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+          onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+        });
+      }
+    } catch {
+      setConfirmDialog({
+        isOpen: true,
+        title: 'Error de Conexión',
+        message: 'No se pudo conectar para cargar el estado de cuenta del proveedor.',
+        confirmText: 'Entendido',
+        variant: 'danger',
+        onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+        onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+      });
+    } finally {
+      setLoadingEstado(false);
+    }
+  };
+
+  const handleExportProveedorPDF = () => {
+    const docEl = document.getElementById('estadoCuentaProveedorDocument');
+    if (!docEl) { alert('Selecciona un proveedor primero.'); return; }
+    const proveedorName = estadoCuentaProveedor?.proveedor?.name || 'Proveedor';
+    const cleanName = proveedorName.replace(/[^a-zA-Z0-9]/g, '_');
+
+    const generatePdfNow = () => {
+      setGeneratingPdf(true);
+      const opt = {
+        margin: [6, 6, 6, 6],
+        filename: `Estado_de_Cuenta_Proveedor_${cleanName}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          scrollY: 0,
+          scrollX: 0,
+          width: 750,
+          windowWidth: 750,
+          onclone: (clonedDoc) => {
+            const el = clonedDoc.getElementById('estadoCuentaProveedorDocument');
+            if (el) {
+              let p = el.parentElement;
+              while (p) {
+                p.style.overflow = 'visible';
+                p.style.maxHeight = 'none';
+                p.style.height = 'auto';
+                p.style.width = '750px';
+                p.style.maxWidth = 'none';
+                p = p.parentElement;
+              }
+              if (clonedDoc.body) {
+                clonedDoc.body.style.width = '750px';
+                clonedDoc.body.style.minWidth = '750px';
+                clonedDoc.body.style.overflow = 'visible';
+              }
+              el.style.width = '750px';
+              el.style.minWidth = '750px';
+              el.style.maxWidth = '750px';
+              el.style.margin = '0 auto';
+              el.style.padding = '12px';
+              el.style.boxSizing = 'border-box';
+            }
+          }
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      window.html2pdf().set(opt).from(docEl).save().then(() => {
+        setGeneratingPdf(false);
+      }).catch(err => {
+        console.error('Error generando PDF:', err);
+        setGeneratingPdf(false);
+        handlePrintDoc();
+      });
+    };
+
+    if (typeof window !== 'undefined' && window.html2pdf) {
+      generatePdfNow();
+    } else if (typeof window !== 'undefined') {
+      setGeneratingPdf(true);
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      script.onload = () => {
+        if (window.html2pdf) {
+          generatePdfNow();
+        } else {
+          setGeneratingPdf(false);
+          handlePrintDoc();
+        }
+      };
+      script.onerror = () => {
+        setGeneratingPdf(false);
+        handlePrintDoc();
+      };
+      document.head.appendChild(script);
+    } else {
+      handlePrintDoc();
+    }
+  };
+
+  const handlePrintDoc = () => {
+    const docEl = document.getElementById('estadoCuentaProveedorDocument');
+    if (!docEl) { alert('Selecciona un proveedor primero.'); return; }
+    const win = window.open('', '_blank', 'width=850,height=900');
+    if (!win) {
+      alert('Permite las ventanas emergentes (popups) para imprimir.');
+      return;
+    }
+    win.document.write(`
+      <html>
+        <head>
+          <title>Estado de Cuenta Proveedor</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; color: #1e293b; background: #fff; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; text-align: left; }
+            th { background: #f1f5f9; font-weight: bold; }
+            .badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+            @media print {
+              body { margin: 0; }
+              @page { margin: 10mm; }
+            }
+          </style>
+        </head>
+        <body>
+          ${docEl.innerHTML}
+          <script>
+            window.onload = function() { window.print(); window.close(); }
+          </script>
+        </body>
+      </html>
+    `);
+    win.document.close();
+  };
+
   const handleAbonoSave = async (e) => {
     e.preventDefault();
     const res = await fetch('/api/abonos-entradas', {
@@ -326,6 +521,9 @@ export default function EntradasPage() {
     if (d.success) {
       setShowAbonoModal(false);
       load();
+      if (showEstadoProveedorModal && selectedProveedor) {
+        loadEstadoCuentaProveedor(selectedProveedor);
+      }
     } else {
       setConfirmDialog({
         isOpen: true,
@@ -828,6 +1026,10 @@ export default function EntradasPage() {
     }));
   };
 
+  const totalComprasUSD = entradas.reduce((s, e) => s + parseFloat(e.total_factura || 0), 0);
+  const totalSaldoPendienteUSD = entradas.reduce((s, e) => s + parseFloat(e.saldo_adeudado || 0), 0);
+  const totalPagadoUSD = Math.max(0, totalComprasUSD - totalSaldoPendienteUSD);
+
   return (
     <>
       {/* Tesseract.js OCR */}
@@ -839,10 +1041,75 @@ export default function EntradasPage() {
             <i className="fa-solid fa-truck-loading" style={{ color: '#0284c7' }}></i> Entradas / Compras a Proveedores
           </h1>
           <p className="page-subtitle" style={{ color: '#475569', fontSize: '0.92rem', fontWeight: 500, margin: 0 }}>
-            Carga de facturas/notas de entrega, escaneo OCR automático, control dual ($ / Bs.) e incremento de inventario
+            Carga de facturas/notas de entrega, escaneo OCR automático, control dual ($ / Bs.) y cuentas por pagar
           </p>
         </div>
-        <button className="btn btn-primary" onClick={openNewModal}><i className="fa-solid fa-plus"></i> Registrar Nueva Compra</button>
+        <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <button 
+            type="button"
+            className="btn btn-secondary" 
+            style={{ fontWeight: 700, borderColor: '#0284c7', color: '#0284c7', background: '#f0f9ff' }}
+            onClick={() => {
+              setShowEstadoProveedorModal(true);
+              if (proveedores.length > 0 && !selectedProveedor) {
+                const firstKey = proveedores[0].proveedor_rif ? `RIF:${proveedores[0].proveedor_rif}` : `NAME:${proveedores[0].proveedor_name}`;
+                setSelectedProveedor(firstKey);
+                loadEstadoCuentaProveedor(firstKey);
+              }
+            }}
+          >
+            <i className="fa-solid fa-file-invoice-dollar"></i> 📊 Cuentas por Pagar (Proveedores)
+          </button>
+          <button className="btn btn-primary" onClick={openNewModal}>
+            <i className="fa-solid fa-plus"></i> Registrar Nueva Compra
+          </button>
+        </div>
+      </div>
+
+      {/* Tarjetas KPI de Cuentas por Pagar Proveedores */}
+      <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#e0f2fe', color: '#0284c7' }}>
+            <i className="fa-solid fa-cart-shopping"></i>
+          </div>
+          <div>
+            <div className="stat-value">${totalComprasUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div className="stat-label">Total Compras Facturadas</div>
+            <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginTop: '2px' }}>
+              ≈ Bs. {(totalComprasUSD * bcvTasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#dcfce7', color: '#16a34a' }}>
+            <i className="fa-solid fa-circle-check"></i>
+          </div>
+          <div>
+            <div className="stat-value" style={{ color: '#16a34a' }}>
+              ${totalPagadoUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="stat-label">Total Pagado / Abonado</div>
+            <div style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600, marginTop: '2px' }}>
+              ≈ Bs. {(totalPagadoUSD * bcvTasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#fee2e2', color: '#dc2626' }}>
+            <i className="fa-solid fa-hand-holding-dollar"></i>
+          </div>
+          <div>
+            <div className="stat-value" style={{ color: '#dc2626' }}>
+              ${totalSaldoPendienteUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="stat-label">Cuentas por Pagar (Deuda Pendiente)</div>
+            <div style={{ fontSize: '0.75rem', color: '#dc2626', fontWeight: 600, marginTop: '2px' }}>
+              ≈ Bs. {(totalSaldoPendienteUSD * bcvTasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Tabla Historial */}
@@ -891,8 +1158,8 @@ export default function EntradasPage() {
                       <i className="fa-solid fa-pen-to-square"></i>
                     </button>
                     {Number(e.saldo_adeudado)>0 && (
-                      <button className="btn btn-secondary btn-sm" title="Registrar abono"
-                        onClick={()=>{ setAbonoForm({...abonoForm, entradaId:e.id}); setShowAbonoModal(true); }}>
+                      <button className="btn btn-secondary btn-sm" title="Registrar abono a proveedor"
+                        onClick={()=>openAbonoModal(e)}>
                         <i className="fa-solid fa-dollar-sign"></i>
                       </button>
                     )}
@@ -1179,39 +1446,372 @@ export default function EntradasPage() {
         </div>
       )}
 
-      {/* Modal Abono */}
+      {/* Modal Abono a Proveedor Mejorado */}
       {showAbonoModal && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="modal-content" style={{ maxWidth: 520 }}>
             <div className="modal-header">
-              <h2>Registrar Abono a Proveedor</h2>
+              <div>
+                <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <i className="fa-solid fa-hand-holding-dollar" style={{ color: '#0284c7' }}></i> Registrar Abono a Proveedor
+                </h2>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600, margin: 0 }}>
+                  {abonoForm.proveedorName}
+                </p>
+              </div>
               <button type="button" className="modal-close" onClick={()=>setShowAbonoModal(false)}>&times;</button>
             </div>
+
+            {/* Tarjeta Informativa de Deuda y Botón de Pago Total */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '0.85rem 1rem', marginBottom: '1.1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem', marginBottom: '0.65rem' }}>
+                <div>
+                  <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Documento</span>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>Factura / Nota Nº {abonoForm.facturaNumber || '—'}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Total Factura</span>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#334155' }}>${Number(abonoForm.totalFactura || 0).toFixed(2)} USD</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '0.7rem 0.9rem', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <div>
+                  <span style={{ fontSize: '0.7rem', color: '#dc2626', fontWeight: 800, textTransform: 'uppercase', display: 'block' }}>Saldo Pendiente por Pagar</span>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#b91c1c', lineHeight: 1.1 }}>
+                    ${Number(abonoForm.saldoAdeudado || 0).toFixed(2)} <span style={{ fontSize: '0.85rem' }}>USD</span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#dc2626', marginTop: '2px' }}>
+                    ≈ Bs. {(Number(abonoForm.saldoAdeudado || 0) * bcvTasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  style={{ background: '#16a34a', color: '#fff', border: 'none', fontWeight: 700, padding: '0.55rem 0.85rem', borderRadius: 6, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 2px 5px rgba(22,163,74,0.25)', cursor: 'pointer' }}
+                  title="Autocompletar el monto total adeudado"
+                  onClick={() => {
+                    const saldo = parseFloat(abonoForm.saldoAdeudado || 0);
+                    const ves = (saldo * bcvTasa).toFixed(2);
+                    setAbonoForm(f => ({ ...f, montoUSD: saldo.toFixed(2), montoVES: ves, referencia: f.referencia || 'Liquidación Total' }));
+                  }}
+                >
+                  <i className="fa-solid fa-bolt"></i> Pagar Saldo Total
+                </button>
+              </div>
+            </div>
+
             <form onSubmit={handleAbonoSave}>
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem'}}>
-                <div className="form-group">
-                  <label className="form-label">Monto en USD ($)</label>
-                  <input type="number" step="0.01" className="form-control" placeholder="0.00" required value={abonoForm.montoUSD} onChange={e=>setAbonoForm(f=>({...f,montoUSD:e.target.value,montoVES:(parseFloat(e.target.value||0)*bcvTasa).toFixed(2)}))} />
+              <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', padding: '0.5rem 0.75rem', borderRadius: 6, marginBottom: '1rem', fontSize: '0.8rem', color: '#0369a1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span><i className="fa-solid fa-coins"></i> Tasa BCV de Conversión:</span>
+                <strong style={{ color: '#0284c7', fontSize: '0.9rem' }}>Bs. {bcvTasa.toFixed(2)} / $</strong>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '0.5rem' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 700 }}>Monto a Abonar en USD ($)</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    className="form-control" 
+                    placeholder="0.00" 
+                    required 
+                    style={{ fontSize: '1rem', fontWeight: 700, color: '#166534' }}
+                    value={abonoForm.montoUSD} 
+                    onChange={e => setAbonoForm(f => ({ ...f, montoUSD: e.target.value, montoVES: (parseFloat(e.target.value || 0) * bcvTasa).toFixed(2) }))} 
+                  />
+                  <small style={{ fontSize: '0.72rem', color: '#0284c7', fontWeight: 600, display: 'block', marginTop: 3 }}>
+                    = Bs. {(parseFloat(abonoForm.montoUSD || 0) * bcvTasa).toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                  </small>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Monto en BS (VES)</label>
-                  <input type="number" step="0.01" className="form-control" placeholder="0.00" value={abonoForm.montoVES} onChange={e=>setAbonoForm(f=>({...f,montoVES:e.target.value}))} />
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 700 }}>Monto a Abonar en BS (VES)</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    className="form-control" 
+                    placeholder="0.00" 
+                    style={{ fontSize: '1rem', fontWeight: 700, color: '#0284c7' }}
+                    value={abonoForm.montoVES} 
+                    onChange={e => setAbonoForm(f => ({ ...f, montoVES: e.target.value, montoUSD: (parseFloat(e.target.value || 0) / bcvTasa).toFixed(2) }))} 
+                  />
+                  <small style={{ fontSize: '0.72rem', color: '#166534', fontWeight: 600, display: 'block', marginTop: 3 }}>
+                    = ${(parseFloat(abonoForm.montoVES || 0) / bcvTasa).toFixed(2)} USD
+                  </small>
                 </div>
               </div>
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem'}}>
-                <div className="form-group">
-                  <label className="form-label">Fecha de Pago</label>
-                  <input type="date" className="form-control" required value={abonoForm.fecha} onChange={e=>setAbonoForm(f=>({...f,fecha:e.target.value}))} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginTop: '0.85rem' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem' }}>Fecha de Pago</label>
+                  <input type="date" className="form-control" required style={{ fontSize: '0.85rem' }} value={abonoForm.fecha} onChange={e=>setAbonoForm(f=>({...f,fecha:e.target.value}))} />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Nº Referencia / Pago Móvil</label>
-                  <input type="text" className="form-control" placeholder="Ej: 948302" value={abonoForm.referencia} onChange={e=>setAbonoForm(f=>({...f,referencia:e.target.value}))} />
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem' }}>Nº Referencia / Transferencia</label>
+                  <input type="text" className="form-control" placeholder="Ej: Transf. Banesco / Pago Móvil" style={{ fontSize: '0.85rem' }} value={abonoForm.referencia} onChange={e=>setAbonoForm(f=>({...f,referencia:e.target.value}))} />
                 </div>
               </div>
-              <div style={{marginTop:'1.5rem'}}>
-                <button type="submit" className="btn btn-primary" style={{width:'100%'}}>Procesar Abono a Proveedor</button>
+              <div style={{ marginTop: '1.25rem' }}>
+                <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '0.7rem', fontSize: '0.95rem', fontWeight: 700 }}>
+                  <i className="fa-solid fa-check"></i> Procesar Abono a Proveedor
+                </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Estado de Cuenta de Proveedor (Cuentas por Pagar) */}
+      {showEstadoProveedorModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: 880, width: '95%', padding: '1.5rem' }}>
+            <div className="modal-header">
+              <div>
+                <h2>
+                  <i className="fa-solid fa-file-invoice-dollar" style={{ color: '#0284c7' }}></i> Cuentas por Pagar / Estado de Cuenta Proveedor
+                </h2>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                  Control de compras facturadas, historial de pagos/abonos realizados y saldo deudor pendiente
+                </p>
+              </div>
+              <button type="button" className="modal-close" onClick={()=>setShowEstadoProveedorModal(false)}>&times;</button>
+            </div>
+
+            {/* Selector de Proveedor y Filtros */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '0.85rem', borderRadius: 8, marginBottom: '1rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+                  Seleccionar o Buscar Proveedor:
+                </label>
+                <select 
+                  className="form-control" 
+                  style={{ fontSize: '0.9rem' }} 
+                  value={selectedProveedor} 
+                  onChange={e => { setSelectedProveedor(e.target.value); loadEstadoCuentaProveedor(e.target.value); }}
+                >
+                  <option value="">-- Cargar Lista de Proveedores ({proveedores.length}) --</option>
+                  {proveedores.map((p, i) => {
+                    const key = p.proveedor_rif ? `RIF:${p.proveedor_rif}` : `NAME:${p.proveedor_name}`;
+                    return (
+                      <option key={i} value={key}>
+                        {p.proveedor_name} {p.proveedor_rif ? `(${p.proveedor_rif})` : ''} — Deuda: ${Number(p.saldo_pendiente_usd || 0).toFixed(2)}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              <div style={{ minWidth: 200 }}>
+                <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+                  Filtrar Documentos:
+                </label>
+                <select 
+                  className="form-control" 
+                  style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0284c7' }} 
+                  value={filtroEstadoProveedor} 
+                  onChange={e => setFiltroEstadoProveedor(e.target.value)}
+                >
+                  <option value="todas">📋 Todas (Ver todo el historial)</option>
+                  <option value="pendientes">🔴 Solo Pendientes (Por pagar)</option>
+                  <option value="pagadas">🟢 Solo Pagadas (Historial al día)</option>
+                </select>
+              </div>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                style={{ marginTop: '1.2rem', minHeight: 42 }} 
+                onClick={() => loadEstadoCuentaProveedor(selectedProveedor)} 
+                disabled={loadingEstado}
+              >
+                {loadingEstado ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-arrows-rotate"></i>} Actualizar
+              </button>
+            </div>
+
+            {estadoCuentaProveedor && (() => {
+              const entradasProv = (estadoCuentaProveedor.entradas || []).filter(e => {
+                const saldo = parseFloat(e.saldo_adeudado || 0);
+                if (filtroEstadoProveedor === 'pendientes') return saldo > 0.001;
+                if (filtroEstadoProveedor === 'pagadas') return saldo <= 0.001;
+                return true;
+              });
+
+              const abonosProv = estadoCuentaProveedor.abonos || [];
+              const prov = estadoCuentaProveedor.proveedor || {};
+              const tasa = Number(estadoCuentaProveedor.totales?.tasa_bcv || bcvTasa || 798.33);
+
+              const calcTotalComprasUSD = entradasProv.reduce((a, b) => a + (parseFloat(b.total_factura) || 0), 0);
+              const calcSaldoUSD = entradasProv.reduce((a, b) => a + (parseFloat(b.saldo_adeudado) || 0), 0);
+              const calcAbonadoUSD = Math.max(0, calcTotalComprasUSD - calcSaldoUSD);
+
+              const calcTotalComprasVES = calcTotalComprasUSD * tasa;
+              const calcAbonadoVES = calcAbonadoUSD * tasa;
+              const calcSaldoVES = calcSaldoUSD * tasa;
+
+              const formatBs = (num) => Number(num || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+              return (
+                <div>
+                  {/* Vista Previa Imprimible / Exportable */}
+                  <div style={{ maxHeight: '58vh', overflowY: 'auto', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 8, padding: '1rem' }}>
+                    <div id="estadoCuentaProveedorDocument" style={{ fontFamily: 'Arial, Helvetica, sans-serif', color: '#0f172a', padding: '0.5rem', background: '#fff' }}>
+                      {/* Encabezado Empresa */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #0f172a', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+                        <div>
+                          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>BESTEDA 2, C.A.</h2>
+                          <p style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', margin: '2px 0 0 0' }}>RIF: J-40529263-6</p>
+                          <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '2px 0 0 0' }}>San Juan de los Morros - Estado Guárico | Tlfs: 0424-313.68.05</p>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ background: '#0284c7', color: '#fff', padding: '4px 10px', borderRadius: '4px', fontWeight: 800, fontSize: '0.85rem', letterSpacing: '0.5px' }}>
+                            ESTADO DE CUENTA DE PROVEEDOR
+                          </span>
+                          <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '6px' }}>
+                            Fecha Emisión: {new Date().toLocaleDateString('es-VE')}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Ficha Proveedor */}
+                      <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0.75rem 1rem', marginBottom: '1rem', display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '0.5rem', fontSize: '0.85rem' }}>
+                        <div>
+                          <div><span style={{ color: '#64748b', fontWeight: 600 }}>PROVEEDOR:</span> <strong>{prov.name || selectedProveedor}</strong></div>
+                          <div><span style={{ color: '#64748b', fontWeight: 600 }}>RIF:</span> <strong>{prov.rif || 'N/A'}</strong></div>
+                        </div>
+                        <div>
+                          <div><span style={{ color: '#64748b', fontWeight: 600 }}>TELÉFONO:</span> <strong>{prov.telefono || 'N/A'}</strong></div>
+                          <div><span style={{ color: '#64748b', fontWeight: 600 }}>DIRECCIÓN:</span> <strong>{prov.direccion || 'N/A'}</strong></div>
+                        </div>
+                      </div>
+
+                      {/* 3 KPI Cards Resumen */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                        <div style={{ background: '#f1f5f9', padding: '0.75rem', borderRadius: '6px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Total Compras</span>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>${calcTotalComprasUSD.toFixed(2)}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Bs. {formatBs(calcTotalComprasVES)}</div>
+                        </div>
+                        <div style={{ background: '#f0fdf4', padding: '0.75rem', borderRadius: '6px', textAlign: 'center', border: '1px solid #bbf7d0' }}>
+                          <span style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 700, textTransform: 'uppercase' }}>Total Pagado / Abonado</span>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#15803d' }}>${calcAbonadoUSD.toFixed(2)}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#166534' }}>Bs. {formatBs(calcAbonadoVES)}</div>
+                        </div>
+                        <div style={{ background: calcSaldoUSD > 0 ? '#fef2f2' : '#f0fdf4', padding: '0.75rem', borderRadius: '6px', textAlign: 'center', border: `2px solid ${calcSaldoUSD > 0 ? '#ef4444' : '#16a34a'}` }}>
+                          <span style={{ fontSize: '0.75rem', color: calcSaldoUSD > 0 ? '#dc2626' : '#16a34a', fontWeight: 800, textTransform: 'uppercase' }}>
+                            {calcSaldoUSD > 0 ? '🔴 SALDO POR PAGAR' : '✅ AL DÍA (SIN DEUDAS)'}
+                          </span>
+                          <div style={{ fontSize: '1.3rem', fontWeight: 800, color: calcSaldoUSD > 0 ? '#dc2626' : '#16a34a' }}>${calcSaldoUSD.toFixed(2)} USD</div>
+                          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: calcSaldoUSD > 0 ? '#dc2626' : '#16a34a' }}>Bs. {formatBs(calcSaldoVES)}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>Tasa BCV Ref: Bs. {tasa.toFixed(2)}/$</div>
+                        </div>
+                      </div>
+
+                      {/* Tabla 1: Historial Compras / Entradas */}
+                      <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.4rem', textTransform: 'uppercase', display: 'flex', alignItems: 'center' }}>
+                        <i className="fa-solid fa-list" style={{ marginRight: 6 }}></i> Detalle de Facturas y Notas de Entrega
+                        {filtroEstadoProveedor === 'pendientes' && <span style={{ marginLeft: 8, fontSize: '0.72rem', color: '#dc2626', fontWeight: 700 }}>(Solo Pendientes)</span>}
+                        {filtroEstadoProveedor === 'pagadas' && <span style={{ marginLeft: 8, fontSize: '0.72rem', color: '#16a34a', fontWeight: 700 }}>(Solo Pagadas)</span>}
+                      </h4>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1.25rem', background: '#fff', minWidth: 0 }}>
+                        <thead>
+                          <tr style={{ background: '#f0f9ff', fontSize: '0.75rem', color: '#475569', textTransform: 'uppercase', borderBottom: '1px solid #cbd5e1' }}>
+                            <th style={{ padding: '6px 8px', textAlign: 'left' }}>Fecha</th>
+                            <th style={{ padding: '6px 8px', textAlign: 'left' }}>Documento</th>
+                            <th style={{ padding: '6px 8px', textAlign: 'right' }}>Total USD</th>
+                            <th style={{ padding: '6px 8px', textAlign: 'right' }}>Pagado USD</th>
+                            <th style={{ padding: '6px 8px', textAlign: 'right' }}>Saldo Pend.</th>
+                            <th style={{ padding: '6px 8px', textAlign: 'center' }}>Estado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {entradasProv.length === 0 ? (
+                            <tr><td colSpan={6} style={{ textAlign: 'center', padding: '1rem', color: '#94a3b8' }}>No se encontraron compras con el filtro seleccionado.</td></tr>
+                          ) : entradasProv.map(s => {
+                            const tot = parseFloat(s.total_factura || 0);
+                            const saldo = parseFloat(s.saldo_adeudado || 0);
+                            const abonado = Math.max(0, tot - saldo);
+                            const isPend = saldo > 0.001;
+                            return (
+                              <tr key={s.id} style={{ borderBottom: '1px solid #e2e8f0', fontSize: '0.82rem' }}>
+                                <td style={{ padding: '6px 8px' }}>{s.fecha ? String(s.fecha).split('T')[0] : ''}</td>
+                                <td style={{ padding: '6px 8px', fontWeight: 700 }}>{s.tipo_documento || 'NOTA'} Nº {s.factura_number}</td>
+                                <td style={{ padding: '6px 8px', textAlign: 'right' }}>${tot.toFixed(2)}</td>
+                                <td style={{ padding: '6px 8px', textAlign: 'right', color: '#15803d' }}>${abonado.toFixed(2)}</td>
+                                <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700, color: isPend ? '#b91c1c' : '#15803d' }}>${saldo.toFixed(2)}</td>
+                                <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                                  <span style={{ color: isPend ? '#b91c1c' : '#15803d', fontWeight: 700 }}>{isPend ? 'Pendiente' : 'Pagado'}</span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+
+                      {/* Tabla 2: Historial Abonos */}
+                      <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.4rem', textTransform: 'uppercase', display: 'flex', alignItems: 'center' }}>
+                        <i className="fa-solid fa-receipt" style={{ marginRight: 6 }}></i> Historial de Abonos / Pagos Realizados al Proveedor
+                      </h4>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', minWidth: 0 }}>
+                        <thead>
+                          <tr style={{ background: '#f0f9ff', fontSize: '0.75rem', color: '#475569', textTransform: 'uppercase', borderBottom: '1px solid #cbd5e1' }}>
+                            <th style={{ padding: '6px 8px', textAlign: 'left' }}>Fecha Pago</th>
+                            <th style={{ padding: '6px 8px', textAlign: 'left' }}>Doc. Factura</th>
+                            <th style={{ padding: '6px 8px', textAlign: 'left' }}>Referencia / Método</th>
+                            <th style={{ padding: '6px 8px', textAlign: 'right' }}>Monto USD</th>
+                            <th style={{ padding: '6px 8px', textAlign: 'right' }}>Monto Bs.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {abonosProv.length === 0 ? (
+                            <tr><td colSpan={5} style={{ textAlign: 'center', padding: '1rem', color: '#94a3b8' }}>Sin abonos o pagos registrados para este proveedor.</td></tr>
+                          ) : abonosProv.map(a => (
+                            <tr key={a.id} style={{ borderBottom: '1px solid #e2e8f0', fontSize: '0.82rem' }}>
+                              <td style={{ padding: '6px 8px' }}>{a.fecha ? String(a.fecha).split('T')[0] : ''}</td>
+                              <td style={{ padding: '6px 8px', fontWeight: 600 }}>Nº {a.factura_number || '—'}</td>
+                              <td style={{ padding: '6px 8px', color: '#475569' }}>{a.referencia || 'Pago Directo'}</td>
+                              <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700, color: '#15803d' }}>${Number(a.monto_usd || 0).toFixed(2)}</td>
+                              <td style={{ padding: '6px 8px', textAlign: 'right', color: '#64748b' }}>Bs. {formatBs(a.monto_ves)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Botones de Acción */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.25rem', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                      Saldo Pendiente: <strong style={{ color: calcSaldoUSD > 0 ? '#dc2626' : '#16a34a' }}>${calcSaldoUSD.toFixed(2)} USD</strong> (Bs. {formatBs(calcSaldoVES)})
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.6rem' }}>
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary" 
+                        onClick={handlePrintDoc}
+                      >
+                        <i className="fa-solid fa-print"></i> Imprimir
+                      </button>
+                      <button 
+                        type="button" 
+                        className="btn btn-primary" 
+                        style={{ background: '#0284c7', borderColor: '#0284c7' }} 
+                        onClick={handleExportProveedorPDF} 
+                        disabled={generatingPdf}
+                      >
+                        {generatingPdf ? (
+                          <><i className="fa-solid fa-spinner fa-spin"></i> Generando PDF...</>
+                        ) : (
+                          <><i className="fa-solid fa-file-pdf"></i> Descargar PDF</>
+                        )}
+                      </button>
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary" 
+                        onClick={() => setShowEstadoProveedorModal(false)}
+                      >
+                        Cerrar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

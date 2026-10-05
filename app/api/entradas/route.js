@@ -9,7 +9,106 @@ function randId(prefix) {
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
+    const action = searchParams.get('action');
     const id = searchParams.get('id');
+
+    if (action === 'proveedores') {
+      const rows = await query(`
+        SELECT id, proveedor_name, proveedor_rif, proveedor_telefono, proveedor_direccion,
+               total_factura, saldo_adeudado, created_at, tasa_bcv
+        FROM entradas
+        WHERE proveedor_name IS NOT NULL AND TRIM(proveedor_name) != ''
+        ORDER BY created_at DESC
+      `);
+
+      const provMap = new Map();
+      for (const r of rows) {
+        const pName = (r.proveedor_name || '').trim();
+        const pRif = (r.proveedor_rif || '').trim();
+        if (!pName) continue;
+        const key = pRif ? `RIF:${pRif.toLowerCase()}` : `NAME:${pName.toLowerCase()}`;
+        if (!provMap.has(key)) {
+          provMap.set(key, {
+            proveedor_name: pName,
+            proveedor_rif: pRif,
+            proveedor_telefono: (r.proveedor_telefono || '').trim(),
+            proveedor_direccion: (r.proveedor_direccion || '').trim(),
+            total_notas: 0,
+            total_compras_usd: 0,
+            saldo_pendiente_usd: 0
+          });
+        }
+        const entry = provMap.get(key);
+        entry.total_notas += 1;
+        entry.total_compras_usd += parseFloat(r.total_factura || 0);
+        entry.saldo_pendiente_usd += parseFloat(r.saldo_adeudado || 0);
+        if (!entry.proveedor_telefono && r.proveedor_telefono) entry.proveedor_telefono = r.proveedor_telefono.trim();
+        if (!entry.proveedor_direccion && r.proveedor_direccion) entry.proveedor_direccion = r.proveedor_direccion.trim();
+      }
+
+      const provList = Array.from(provMap.values()).sort((a, b) =>
+        a.proveedor_name.localeCompare(b.proveedor_name, 'es', { sensitivity: 'base' })
+      );
+      return NextResponse.json({ success: true, data: provList });
+    }
+
+    if (action === 'estado_cuenta') {
+      const proveedorParam = (searchParams.get('proveedor') || '').trim();
+      const rifParam = (searchParams.get('rif') || '').trim();
+
+      let entradas = [];
+      if (rifParam) {
+        entradas = await query(
+          `SELECT * FROM entradas WHERE LOWER(TRIM(proveedor_rif)) = LOWER(TRIM(?)) ORDER BY fecha DESC`,
+          [rifParam]
+        );
+      } else if (proveedorParam) {
+        entradas = await query(
+          `SELECT * FROM entradas WHERE LOWER(TRIM(proveedor_name)) = LOWER(TRIM(?)) ORDER BY fecha DESC`,
+          [proveedorParam]
+        );
+      }
+
+      let tasaBCV = 798.33;
+      try { const t = await query('SELECT tasa_hoy FROM tasa_bcv ORDER BY id DESC LIMIT 1'); tasaBCV = parseFloat(t[0]?.tasa_hoy ?? 798.33); } catch {}
+
+      let abonosProveedor = [];
+      if (entradas.length > 0) {
+        const eIds = entradas.map(e => e.id);
+        const placeholders = eIds.map(() => '?').join(',');
+        abonosProveedor = await query(
+          `SELECT a.*, e.factura_number, e.proveedor_rif, e.proveedor_name FROM abonos_entradas a 
+           INNER JOIN entradas e ON a.entrada_id = e.id
+           WHERE a.entrada_id IN (${placeholders}) ORDER BY a.fecha DESC`,
+          eIds
+        ).catch(() => []);
+      }
+
+      const totCompras = entradas.reduce((s, r) => s + parseFloat(r.total_factura||0), 0);
+      const totSaldo = entradas.reduce((s, r) => s + parseFloat(r.saldo_adeudado||0), 0);
+      const proveedorInfo = entradas[0] ? {
+        name: entradas[0].proveedor_name,
+        rif: entradas[0].proveedor_rif || rifParam || '',
+        telefono: entradas[0].proveedor_telefono || '',
+        direccion: entradas[0].proveedor_direccion || ''
+      } : { name: proveedorParam, rif: rifParam };
+
+      return NextResponse.json({
+        success: true,
+        proveedor: proveedorInfo,
+        entradas,
+        abonos: abonosProveedor,
+        totales: {
+          total_compras_usd: totCompras,
+          total_compras_ves: totCompras * tasaBCV,
+          total_saldo_usd: totSaldo,
+          total_saldo_ves: totSaldo * tasaBCV,
+          total_abonado_usd: Math.max(0, totCompras - totSaldo),
+          total_abonado_ves: Math.max(0, totCompras - totSaldo) * tasaBCV,
+          tasa_bcv: tasaBCV
+        }
+      });
+    }
 
     if (id) {
       const rows = await query('SELECT * FROM entradas WHERE id = ?', [id]);
