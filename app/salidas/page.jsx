@@ -407,11 +407,19 @@ export default function SalidasPage() {
       const fileName = `Nota_Entrega_${num}_Besteda.png`;
       const file = new File([res.blob], fileName, { type: 'image/png' });
 
+      // Copiar también al portapapeles si está disponible
+      try {
+        if (navigator.clipboard && window.ClipboardItem) {
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': res.blob })
+          ]);
+        }
+      } catch (_) {}
+
+      // Enviar exclusivamente la imagen a WhatsApp (sin texto para que WhatsApp abra en modo Foto)
       if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
-            title: `Nota de Entrega Nº ${num} · Besteda 2, C.A.`,
-            text: `Nota de Entrega Nº ${num} - Besteda 2, C.A. Total: $${Number(lastSalida.total_factura || totalFactura || 0).toFixed(2)} USD`,
             files: [file]
           });
           return;
@@ -420,25 +428,17 @@ export default function SalidasPage() {
         }
       }
 
-      // Fallback: descargar imagen y abrir WhatsApp
+      // Fallback para PC: descargar imagen
       const a = document.createElement('a');
       a.href = res.dataUrl;
       a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-
-      const cleanPhone = (lastSalida.telefono || '').replace(/[^0-9]/g, '');
-      const waText = encodeURIComponent(`Hola ${lastSalida.cliente_name || ''}, te compartimos tu Nota de Entrega Nº ${num} de Besteda 2, C.A. por un total de $${Number(lastSalida.total_factura || totalFactura || 0).toFixed(2)} USD.`);
-      const waUrl = cleanPhone.length >= 10
-        ? `https://wa.me/${cleanPhone.startsWith('58') ? cleanPhone : '58' + cleanPhone.replace(/^0+/, '')}?text=${waText}`
-        : `https://wa.me/?text=${waText}`;
-
-      window.open(waUrl, '_blank');
     } catch (e) {
       if (e.name !== 'AbortError') {
         console.error('Error sharing ticket:', e);
-        alert('No se pudo compartir la imagen. Intenta descargándola directamente.');
+        alert('No se pudo compartir la imagen. Intenta descargándola con el botón de abajo.');
       }
     } finally {
       setSharingImage(false);
