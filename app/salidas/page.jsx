@@ -71,6 +71,7 @@ export default function SalidasPage() {
   const [docNumero, setDocNumero] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('todas');
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [sharingImage, setSharingImage] = useState(false);
   const [loadingEstado, setLoadingEstado] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [isPrintingMultiple, setIsPrintingMultiple] = useState(false);
@@ -334,6 +335,110 @@ export default function SalidasPage() {
     win.document.close();
     win.focus();
     setTimeout(() => { win.print(); }, 400);
+  };
+
+  const generateTicketImageBlob = async () => {
+    const ticketEl = document.getElementById('ticketPrintableArea');
+    if (!ticketEl) return null;
+
+    if (typeof window !== 'undefined' && !window.html2canvas) {
+      await new Promise((resolve) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+        script.onload = resolve;
+        script.onerror = resolve;
+        document.head.appendChild(script);
+      });
+    }
+    if (typeof window === 'undefined' || !window.html2canvas) return null;
+
+    const canvas = await window.html2canvas(ticketEl, {
+      scale: 3,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+      scrollY: 0,
+      scrollX: 0,
+      onclone: (clonedDoc) => {
+        const el = clonedDoc.getElementById('ticketPrintableArea');
+        if (el) {
+          el.style.maxHeight = 'none';
+          el.style.height = 'auto';
+          el.style.overflow = 'visible';
+          el.style.width = '380px';
+          el.style.maxWidth = '380px';
+          el.style.padding = '14px 10px';
+          el.style.border = '1px solid #000';
+          el.style.boxSizing = 'border-box';
+        }
+      }
+    });
+
+    return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  };
+
+  const handleShareTicketWhatsApp = async () => {
+    if (!lastSalida) return;
+    setSharingImage(true);
+    try {
+      const blob = await generateTicketImageBlob();
+      if (!blob) throw new Error('No se pudo generar la imagen del ticket');
+
+      const num = lastSalida.factura_number || 'S-N';
+      const fileName = `Nota_Entrega_${num}_Besteda.png`;
+      const file = new File([blob], fileName, { type: 'image/png' });
+
+      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: `Nota de Entrega Nº ${num} · Besteda 2, C.A.`,
+          text: `Hola ${lastSalida.cliente_name || ''}, adjuntamos tu Nota de Entrega Nº ${num} de Besteda 2, C.A. por un total de $${Number(lastSalida.total_factura || totalFactura || 0).toFixed(2)} USD.`,
+          files: [file]
+        });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        const cleanPhone = (lastSalida.telefono || '').replace(/[^0-9]/g, '');
+        const waText = encodeURIComponent(`Hola ${lastSalida.cliente_name || ''}, te compartimos tu Nota de Entrega Nº ${num} de Besteda 2, C.A. por un total de $${Number(lastSalida.total_factura || totalFactura || 0).toFixed(2)} USD.`);
+        const waUrl = cleanPhone.length >= 10
+          ? `https://wa.me/${cleanPhone.startsWith('58') ? cleanPhone : '58' + cleanPhone.replace(/^0+/, '')}?text=${waText}`
+          : `https://wa.me/?text=${waText}`;
+
+        window.open(waUrl, '_blank');
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        console.error('Error sharing ticket:', e);
+      }
+    } finally {
+      setSharingImage(false);
+    }
+  };
+
+  const handleDownloadTicketImage = async () => {
+    if (!lastSalida) return;
+    setSharingImage(true);
+    try {
+      const blob = await generateTicketImageBlob();
+      if (!blob) throw new Error('No se pudo generar la imagen');
+      const num = lastSalida.factura_number || 'S-N';
+      const fileName = `Nota_Entrega_${num}_Besteda.png`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert('Error descargando imagen del ticket');
+    } finally {
+      setSharingImage(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -2311,14 +2416,38 @@ export default function SalidasPage() {
               );
             })()}
 
-            <div style={{display:'flex', gap:'0.75rem', marginTop:'0.75rem', flexShrink:0}}>
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.65rem', marginTop:'0.75rem', flexShrink:0}}>
               <button
                 type="button"
                 className="btn btn-primary"
-                style={{width:'100%', fontSize:'0.95rem', padding:'0.75rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem', background:'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', borderRadius:10}}
+                style={{fontSize:'0.85rem', padding:'0.65rem 0.5rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem', background:'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', borderRadius:8, border:'none'}}
                 onClick={printTicket}
               >
-                <i className="fa-solid fa-print" style={{fontSize:'1.1rem'}}></i> Enviar a Impresora Térmica (7.6 cm)
+                <i className="fa-solid fa-print"></i> Imprimir Ticket
+              </button>
+
+              <button
+                type="button"
+                className="btn"
+                disabled={sharingImage}
+                style={{fontSize:'0.85rem', padding:'0.65rem 0.5rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem', background:'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', color:'#fff', borderRadius:8, border:'none', cursor:'pointer'}}
+                onClick={handleShareTicketWhatsApp}
+              >
+                {sharingImage ? (
+                  <><i className="fa-solid fa-spinner fa-spin"></i> Generando...</>
+                ) : (
+                  <><i className="fa-brands fa-whatsapp" style={{fontSize:'1.05rem'}}></i> Compartir / WhatsApp</>
+                )}
+              </button>
+            </div>
+            <div style={{textAlign:'center', marginTop:'0.4rem'}}>
+              <button
+                type="button"
+                onClick={handleDownloadTicketImage}
+                disabled={sharingImage}
+                style={{background:'none', border:'none', color:'#475569', fontSize:'0.75rem', fontWeight:600, cursor:'pointer', textDecoration:'underline'}}
+              >
+                <i className="fa-solid fa-download" style={{marginRight:4}}></i> O descargar archivo de imagen (PNG)
               </button>
             </div>
           </div>
