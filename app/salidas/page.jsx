@@ -476,6 +476,64 @@ export default function SalidasPage() {
   const totalUnidades = form.items.reduce((s,it)=>s+parseInt(it.cantidad||0),0);
 
   const handleSave = async (printTicket, skipDuplicateCheck = false) => {
+    if (!form.clienteName || !form.clienteName.trim()) {
+      setConfirmDialog({
+        isOpen: true,
+        title: '⚠️ Nombre de Cliente Requerido',
+        message: 'Por favor ingresa el nombre del cliente para registrar la factura.',
+        confirmText: 'Entendido',
+        cancelText: 'Cerrar',
+        variant: 'warning',
+        icon: 'fa-user',
+        onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+        onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+      });
+      return;
+    }
+
+    if (docTipo !== 'NONE') {
+      const cleanNum = (docNumero || '').trim().replace(/[^0-9]/g, '');
+      if (!cleanNum || cleanNum.length < 5) {
+        setConfirmDialog({
+          isOpen: true,
+          title: '⚠️ Cédula / RIF Incompleto',
+          message: (
+            <div>
+              <p style={{marginBottom:'0.5rem', color:'#334155'}}>
+                Has seleccionado el tipo de documento <strong>"{docTipo}-"</strong> pero el número está incompleto o en blanco.
+              </p>
+              <p style={{margin:0, color:'#0284c7', fontWeight:700, fontSize:'0.88rem'}}>
+                👉 Por favor escribe el número de cédula o RIF completo (mínimo 5 dígitos), o cambia el selector a <strong>"Sin Doc."</strong> si el cliente no tiene documento.
+              </p>
+            </div>
+          ),
+          confirmText: 'Entendido',
+          cancelText: 'Cerrar',
+          variant: 'warning',
+          icon: 'fa-id-card',
+          onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+          onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+        });
+        return;
+      }
+    }
+
+    const validItems = form.items.filter(it=>it.productoId&&parseInt(it.cantidad||0)>0);
+    if (validItems.length === 0) {
+      setConfirmDialog({
+        isOpen: true,
+        title: '⚠️ Sin Productos',
+        message: 'Debes agregar al menos un producto con cantidad mayor a cero a la factura.',
+        confirmText: 'Entendido',
+        cancelText: 'Cerrar',
+        variant: 'warning',
+        icon: 'fa-box-open',
+        onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+        onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+      });
+      return;
+    }
+
     if (!skipDuplicateCheck && form.facturaNumber) {
       const numTrim = form.facturaNumber.toString().trim().toLowerCase();
       const docExiste = salidas.find(s => s.id !== editingSalidaId && (s.factura_number || '').toString().trim().toLowerCase() === numTrim);
