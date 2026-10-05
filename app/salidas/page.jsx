@@ -196,22 +196,60 @@ export default function SalidasPage() {
     const clienteName = estadoCuenta?.cliente?.name || 'Cliente';
     const cleanName = clienteName.replace(/[^a-zA-Z0-9]/g, '_');
 
-    if (typeof window !== 'undefined' && window.html2pdf) {
+    const generatePdfNow = () => {
       setGeneratingPdf(true);
       const opt = {
         margin: [8, 8, 8, 8],
         filename: `Estado_de_Cuenta_${cleanName}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          scrollY: 0,
+          scrollX: 0,
+          windowWidth: 850,
+          onclone: (clonedDoc) => {
+            const el = clonedDoc.getElementById('estadoCuentaDocument');
+            if (el) {
+              el.style.width = '800px';
+              el.style.maxWidth = '800px';
+              el.style.margin = '0 auto';
+              el.style.padding = '10px';
+              el.style.boxSizing = 'border-box';
+            }
+          }
+        },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
       window.html2pdf().set(opt).from(docEl).save().then(() => {
         setGeneratingPdf(false);
       }).catch(err => {
-        console.error(err);
+        console.error('Error generando PDF:', err);
         setGeneratingPdf(false);
         handlePrintDoc();
       });
+    };
+
+    if (typeof window !== 'undefined' && window.html2pdf) {
+      generatePdfNow();
+    } else if (typeof window !== 'undefined') {
+      setGeneratingPdf(true);
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      script.onload = () => {
+        if (window.html2pdf) {
+          generatePdfNow();
+        } else {
+          setGeneratingPdf(false);
+          handlePrintDoc();
+        }
+      };
+      script.onerror = () => {
+        setGeneratingPdf(false);
+        handlePrintDoc();
+      };
+      document.head.appendChild(script);
     } else {
       handlePrintDoc();
     }
