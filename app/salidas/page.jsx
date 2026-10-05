@@ -30,6 +30,17 @@ function getWeekRange(offset = 0) {
   };
 }
 
+function parseDocInfo(str) {
+  if (!str) return { tipo: 'V', numero: '' };
+  const s = String(str).trim().toUpperCase();
+  if (!/[0-9]/.test(s)) return { tipo: 'NONE', numero: '' };
+  if (s.startsWith('V-') || s.startsWith('V')) return { tipo: 'V', numero: s.replace(/^V-?/, '').replace(/[^0-9]/g, '') };
+  if (s.startsWith('E-') || s.startsWith('E')) return { tipo: 'E', numero: s.replace(/^E-?/, '').replace(/[^0-9]/g, '') };
+  if (s.startsWith('J-') || s.startsWith('J')) return { tipo: 'J', numero: s.replace(/^J-?/, '').replace(/[^0-9]/g, '') };
+  if (s.startsWith('G-') || s.startsWith('G')) return { tipo: 'G', numero: s.replace(/^G-?/, '').replace(/[^0-9]/g, '') };
+  return { tipo: 'V', numero: s.replace(/[^0-9]/g, '') };
+}
+
 const emptyItem = () => ({ productoId:'', productoNombre:'', precioOpcion:'1', cantidad:1, precioUnitario:0, subtotal:0 });
 
 export default function SalidasPage() {
@@ -56,6 +67,8 @@ export default function SalidasPage() {
   const [estadoCuenta, setEstadoCuenta] = useState(null);
   const [selectedClienteKey, setSelectedClienteKey] = useState('');
   const [selectedCliente, setSelectedCliente] = useState('');
+  const [docTipo, setDocTipo] = useState('V');
+  const [docNumero, setDocNumero] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('todas');
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [loadingEstado, setLoadingEstado] = useState(false);
@@ -119,9 +132,16 @@ export default function SalidasPage() {
 
   const handleSelectClienteFrecuente = (key) => {
     setSelectedClienteKey(key);
-    if (!key) return;
-    const found = clientes.find(c => (c.cedula_rif ? `CI:${c.cedula_rif}` : `NAME:${c.cliente_name}`) === key);
+    if (!key) {
+      setDocTipo('V');
+      setDocNumero('');
+      return;
+    }
+    const found = clientes.find(c => (c.cedula_rif ? `DOC:${c.cedula_rif}` : `NAME:${c.cliente_name}`) === key);
     if (found) {
+      const parsed = parseDocInfo(found.cedula_rif);
+      setDocTipo(parsed.tipo);
+      setDocNumero(parsed.numero);
       setForm(f => ({
         ...f,
         clienteName: found.cliente_name || '',
@@ -132,20 +152,41 @@ export default function SalidasPage() {
     }
   };
 
-  const handleCedulaChange = (val) => {
-    setForm(f => ({ ...f, cedulaRif: val }));
-    const clean = val.trim().toLowerCase();
-    if (clean.length >= 3) {
-      const match = clientes.find(c => (c.cedula_rif || '').trim().toLowerCase() === clean);
+  const handleDocTipoChange = (tipo) => {
+    setDocTipo(tipo);
+    if (tipo === 'NONE') {
+      setDocNumero('');
+      setForm(f => ({ ...f, cedulaRif: '' }));
+    } else {
+      const formatted = docNumero.trim() ? `${tipo}-${docNumero.trim()}` : '';
+      setForm(f => ({ ...f, cedulaRif: formatted }));
+    }
+  };
+
+  const handleDocNumeroChange = (rawNum) => {
+    const cleanNum = rawNum.replace(/[^0-9]/g, '');
+    setDocNumero(cleanNum);
+    if (docTipo === 'NONE') {
+      setForm(f => ({ ...f, cedulaRif: '' }));
+      return;
+    }
+    const formatted = cleanNum ? `${docTipo}-${cleanNum}` : '';
+    setForm(f => ({ ...f, cedulaRif: formatted }));
+
+    if (cleanNum.length >= 4) {
+      const match = clientes.find(c => {
+        const parsed = parseDocInfo(c.cedula_rif);
+        return parsed.tipo === docTipo && parsed.numero === cleanNum;
+      });
       if (match && !form.clienteName) {
         setForm(f => ({
           ...f,
-          cedulaRif: val,
           clienteName: match.cliente_name || '',
           telefono: match.telefono || '',
-          direccion: match.direccion || ''
+          direccion: match.direccion || '',
+          cedulaRif: match.cedula_rif || formatted
         }));
-        setSelectedClienteKey(match.cedula_rif ? `CI:${match.cedula_rif}` : `NAME:${match.cliente_name}`);
+        setSelectedClienteKey(match.cedula_rif ? `DOC:${match.cedula_rif}` : `NAME:${match.cliente_name}`);
       }
     }
   };
@@ -155,7 +196,7 @@ export default function SalidasPage() {
       setEstadoCuenta(null);
       return;
     }
-    const found = clientes.find(c => (c.cedula_rif ? `CI:${c.cedula_rif}` : `NAME:${c.cliente_name}`) === clientKey);
+    const found = clientes.find(c => (c.cedula_rif ? `DOC:${c.cedula_rif}` : `NAME:${c.cliente_name}`) === clientKey);
     const name = found ? found.cliente_name : clientKey;
     const cedula = found ? (found.cedula_rif || '') : '';
     setLoadingEstado(true);
@@ -678,6 +719,8 @@ export default function SalidasPage() {
       .catch(() => {});
 
     setSelectedClienteKey('');
+    setDocTipo('V');
+    setDocNumero('');
     setForm({
       clienteName: '', cedulaRif: '', telefono: '', fecha: today(), direccion: '',
       vendedorName: '', facturaNumber: nextNum, observaciones: '',
@@ -688,7 +731,10 @@ export default function SalidasPage() {
 
   const openEditModal = (salida) => {
     setEditingSalidaId(salida.id);
-    setSelectedClienteKey('');
+    const parsed = parseDocInfo(salida.cedula_rif);
+    setDocTipo(parsed.tipo);
+    setDocNumero(parsed.numero);
+    setSelectedClienteKey(salida.cedula_rif ? `DOC:${salida.cedula_rif}` : `NAME:${salida.cliente_name}`);
 
     // Refrescar lista de clientes y vendedores
     fetch('/api/salidas?action=clientes')
@@ -1899,7 +1945,7 @@ export default function SalidasPage() {
               >
                 <option value="">-- Seleccionar cliente frecuente ({clientes.length}) o escribir datos abajo --</option>
                 {clientes.map((c, idx) => {
-                  const key = c.cedula_rif ? `CI:${c.cedula_rif}` : `NAME:${c.cliente_name}`;
+                  const key = c.cedula_rif ? `DOC:${c.cedula_rif}` : `NAME:${c.cliente_name}`;
                   return (
                     <option key={idx} value={key}>
                       {c.cliente_name} {c.cedula_rif ? `— CI/RIF: ${c.cedula_rif}` : ''} {c.telefono ? `(${c.telefono})` : ''}
@@ -1955,8 +2001,37 @@ export default function SalidasPage() {
                 <input type="text" className="form-control" required style={{fontSize:'0.85rem'}} placeholder="Nombre del cliente" value={form.clienteName} onChange={e=>setForm(f=>({...f,clienteName:e.target.value}))} />
               </div>
               <div className="form-group" style={{margin:0}}>
-                <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700, color:'#0284c7'}}>C.I. / RIF (Identificador Único) *</label>
-                <input type="text" className="form-control" style={{fontSize:'0.85rem', fontWeight:600, borderColor:'#93c5fd'}} placeholder="C.I. / RIF" value={form.cedulaRif} onChange={e=>handleCedulaChange(e.target.value)} />
+                <label className="form-label" style={{fontSize:'0.8rem', fontWeight:700, color:'#0284c7'}}>
+                  <i className="fa-solid fa-id-card" style={{marginRight:4}}></i> Documento (C.I. / RIF)
+                </label>
+                <div style={{display:'flex', gap:'4px'}}>
+                  <select
+                    className="form-control"
+                    style={{width:'95px', minWidth:'95px', fontSize:'0.82rem', padding:'4px 6px', fontWeight:700, borderColor:'#93c5fd', background:'#f0f9ff'}}
+                    value={docTipo}
+                    onChange={e => handleDocTipoChange(e.target.value)}
+                  >
+                    <option value="V">V- (Cédula)</option>
+                    <option value="E">E- (Extranjero)</option>
+                    <option value="J">J- (RIF)</option>
+                    <option value="G">G- (Gobierno)</option>
+                    <option value="NONE">Sin Doc.</option>
+                  </select>
+                  {docTipo !== 'NONE' ? (
+                    <input
+                      type="text"
+                      className="form-control"
+                      style={{fontSize:'0.85rem', fontWeight:600, borderColor:'#93c5fd'}}
+                      placeholder="Número (ej. 12345678)"
+                      value={docNumero}
+                      onChange={e => handleDocNumeroChange(e.target.value)}
+                    />
+                  ) : (
+                    <div style={{flex:1, display:'flex', alignItems:'center', padding:'0 8px', background:'#f1f5f9', borderRadius:6, fontSize:'0.75rem', color:'#64748b', fontStyle:'italic'}}>
+                      Sin documento
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Teléfono</label>
@@ -2301,7 +2376,7 @@ export default function SalidasPage() {
                 <select className="form-control" style={{fontSize:'0.9rem'}} value={selectedCliente} onChange={e=>{ setSelectedCliente(e.target.value); loadEstadoCuenta(e.target.value); }}>
                   <option value="">-- Cargar Lista de Clientes ({clientes.length}) --</option>
                   {clientes.map((c,i) => {
-                    const key = c.cedula_rif ? `CI:${c.cedula_rif}` : `NAME:${c.cliente_name}`;
+                    const key = c.cedula_rif ? `DOC:${c.cedula_rif}` : `NAME:${c.cliente_name}`;
                     return (
                       <option key={i} value={key}>
                         {c.cliente_name} {c.cedula_rif ? `(C.I: ${c.cedula_rif})` : '(Sin Cédula)'} — Saldo: ${Number(c.saldo_pendiente_usd||0).toFixed(2)}

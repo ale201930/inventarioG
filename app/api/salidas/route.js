@@ -2,6 +2,13 @@
 import { NextResponse } from 'next/server';
 import { query, getPool } from '@/lib/db';
 
+function cleanCedula(val) {
+  if (!val) return '';
+  const s = String(val).trim();
+  if (!/[0-9]/.test(s)) return '';
+  return s;
+}
+
 async function recalcSaldo(conn, salidaId) {
   const [r] = await conn.execute('SELECT total_factura FROM salidas WHERE id = ?', [salidaId]);
   if (!r[0]) return;
@@ -60,11 +67,11 @@ export async function GET(request) {
       const clientMap = new Map();
       for (const r of rows) {
         const cName = (r.cliente_name || '').trim();
-        const cCedula = (r.cedula_rif || '').trim();
+        const cCedula = cleanCedula(r.cedula_rif);
         if (!cName && !cCedula) continue;
         
-        // Clave única basada en Cédula si existe, o en Nombre si no tiene cédula
-        const key = cCedula ? `CI:${cCedula.toLowerCase()}` : `NAME:${cName.toLowerCase()}`;
+        // Clave única: si tiene C.I./RIF con números válidos, se usa la Cédula/RIF; de lo contrario, el Nombre único
+        const key = cCedula ? `DOC:${cCedula.toLowerCase()}` : `NAME:${cName.toLowerCase()}`;
         
         if (!clientMap.has(key)) {
           clientMap.set(key, {
@@ -96,7 +103,7 @@ export async function GET(request) {
 
     if (action === 'estado_cuenta') {
       const clienteParam = (searchParams.get('cliente') || '').trim();
-      const cedulaParam = (searchParams.get('cedula') || '').trim();
+      const cedulaParam = cleanCedula(searchParams.get('cedula'));
 
       let salidas = [];
       if (cedulaParam) {
@@ -106,7 +113,7 @@ export async function GET(request) {
         );
       } else if (clienteParam) {
         salidas = await query(
-          `SELECT * FROM salidas WHERE (cedula_rif IS NULL OR TRIM(cedula_rif) = '') AND LOWER(TRIM(cliente_name)) = LOWER(TRIM(?)) ORDER BY fecha DESC`,
+          `SELECT * FROM salidas WHERE LOWER(TRIM(cliente_name)) = LOWER(TRIM(?)) ORDER BY fecha DESC`,
           [clienteParam]
         );
       }
@@ -130,7 +137,7 @@ export async function GET(request) {
       const totSaldo = salidas.reduce((s, r) => s + parseFloat(r.saldo_adeudado||0), 0);
       const clienteInfo = salidas[0] ? {
         name: salidas[0].cliente_name,
-        cedula_rif: salidas[0].cedula_rif || cedulaParam || '',
+        cedula_rif: cleanCedula(salidas[0].cedula_rif) || cedulaParam || '',
         telefono: salidas[0].telefono || '',
         direccion: salidas[0].direccion || ''
       } : { name: clienteParam, cedula_rif: cedulaParam };
@@ -217,7 +224,7 @@ export async function POST(request) {
     await conn.execute(
       `INSERT INTO salidas (id, tipo_documento, cliente_name, cedula_rif, telefono, direccion, vendedor_name, factura_number, total_unidades, total_factura, saldo_adeudado, fecha, observaciones)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [id, 'NOTA DE ENTREGA', input.clienteName.trim(), input.cedulaRif||'', input.telefono||'', input.direccion||'',
+      [id, 'NOTA DE ENTREGA', input.clienteName.trim(), cleanCedula(input.cedulaRif), input.telefono||'', input.direccion||'',
        vendedor, facturaNumber, totalUnidades, totalFactura, totalFactura, fecha, input.observaciones||'']
     );
 
@@ -336,7 +343,7 @@ export async function PUT(request) {
        WHERE id = ?`,
       [
         input.clienteName.trim(),
-        input.cedulaRif || '',
+        cleanCedula(input.cedulaRif),
         input.telefono || '',
         input.direccion || '',
         vendedor,
