@@ -344,7 +344,7 @@ export default function SalidasPage() {
     if (typeof window !== 'undefined' && !window.html2canvas) {
       await new Promise((resolve) => {
         const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
         script.onload = resolve;
         script.onerror = resolve;
         document.head.appendChild(script);
@@ -353,8 +353,9 @@ export default function SalidasPage() {
     if (typeof window === 'undefined' || !window.html2canvas) return null;
 
     const canvas = await window.html2canvas(ticketEl, {
-      scale: 3,
+      scale: 2.5,
       useCORS: true,
+      allowTaint: true,
       logging: false,
       backgroundColor: '#ffffff',
       scrollY: 0,
@@ -362,57 +363,82 @@ export default function SalidasPage() {
       onclone: (clonedDoc) => {
         const el = clonedDoc.getElementById('ticketPrintableArea');
         if (el) {
+          let p = el.parentElement;
+          while (p) {
+            p.style.overflow = 'visible';
+            p.style.maxHeight = 'none';
+            p.style.height = 'auto';
+            p = p.parentElement;
+          }
           el.style.maxHeight = 'none';
           el.style.height = 'auto';
           el.style.overflow = 'visible';
-          el.style.width = '380px';
-          el.style.maxWidth = '380px';
-          el.style.padding = '14px 10px';
+          el.style.width = '360px';
+          el.style.maxWidth = '360px';
+          el.style.padding = '12px 8px';
           el.style.border = '1px solid #000';
           el.style.boxSizing = 'border-box';
+          el.style.background = '#ffffff';
         }
       }
     });
 
-    return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    const dataUrl = canvas.toDataURL('image/png');
+    const arr = dataUrl.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    const blob = new Blob([u8arr], { type: mime });
+    return { blob, dataUrl };
   };
 
   const handleShareTicketWhatsApp = async () => {
     if (!lastSalida) return;
     setSharingImage(true);
     try {
-      const blob = await generateTicketImageBlob();
-      if (!blob) throw new Error('No se pudo generar la imagen del ticket');
+      const res = await generateTicketImageBlob();
+      if (!res || !res.blob) throw new Error('No se pudo generar la imagen del ticket');
 
       const num = lastSalida.factura_number || 'S-N';
       const fileName = `Nota_Entrega_${num}_Besteda.png`;
-      const file = new File([blob], fileName, { type: 'image/png' });
+      const file = new File([res.blob], fileName, { type: 'image/png' });
 
       if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: `Nota de Entrega Nº ${num} · Besteda 2, C.A.`,
-          text: `Hola ${lastSalida.cliente_name || ''}, adjuntamos tu Nota de Entrega Nº ${num} de Besteda 2, C.A. por un total de $${Number(lastSalida.total_factura || totalFactura || 0).toFixed(2)} USD.`,
-          files: [file]
-        });
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        a.click();
-        URL.revokeObjectURL(url);
-
-        const cleanPhone = (lastSalida.telefono || '').replace(/[^0-9]/g, '');
-        const waText = encodeURIComponent(`Hola ${lastSalida.cliente_name || ''}, te compartimos tu Nota de Entrega Nº ${num} de Besteda 2, C.A. por un total de $${Number(lastSalida.total_factura || totalFactura || 0).toFixed(2)} USD.`);
-        const waUrl = cleanPhone.length >= 10
-          ? `https://wa.me/${cleanPhone.startsWith('58') ? cleanPhone : '58' + cleanPhone.replace(/^0+/, '')}?text=${waText}`
-          : `https://wa.me/?text=${waText}`;
-
-        window.open(waUrl, '_blank');
+        try {
+          await navigator.share({
+            title: `Nota de Entrega Nº ${num} · Besteda 2, C.A.`,
+            text: `Nota de Entrega Nº ${num} - Besteda 2, C.A. Total: $${Number(lastSalida.total_factura || totalFactura || 0).toFixed(2)} USD`,
+            files: [file]
+          });
+          return;
+        } catch (shareErr) {
+          if (shareErr.name === 'AbortError') return;
+        }
       }
+
+      // Fallback: descargar imagen y abrir WhatsApp
+      const a = document.createElement('a');
+      a.href = res.dataUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      const cleanPhone = (lastSalida.telefono || '').replace(/[^0-9]/g, '');
+      const waText = encodeURIComponent(`Hola ${lastSalida.cliente_name || ''}, te compartimos tu Nota de Entrega Nº ${num} de Besteda 2, C.A. por un total de $${Number(lastSalida.total_factura || totalFactura || 0).toFixed(2)} USD.`);
+      const waUrl = cleanPhone.length >= 10
+        ? `https://wa.me/${cleanPhone.startsWith('58') ? cleanPhone : '58' + cleanPhone.replace(/^0+/, '')}?text=${waText}`
+        : `https://wa.me/?text=${waText}`;
+
+      window.open(waUrl, '_blank');
     } catch (e) {
       if (e.name !== 'AbortError') {
         console.error('Error sharing ticket:', e);
+        alert('No se pudo compartir la imagen. Intenta descargándola directamente.');
       }
     } finally {
       setSharingImage(false);
@@ -423,16 +449,16 @@ export default function SalidasPage() {
     if (!lastSalida) return;
     setSharingImage(true);
     try {
-      const blob = await generateTicketImageBlob();
-      if (!blob) throw new Error('No se pudo generar la imagen');
+      const res = await generateTicketImageBlob();
+      if (!res || !res.dataUrl) throw new Error('No se pudo generar la imagen');
       const num = lastSalida.factura_number || 'S-N';
       const fileName = `Nota_Entrega_${num}_Besteda.png`;
-      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
+      a.href = res.dataUrl;
       a.download = fileName;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (e) {
       console.error(e);
       alert('Error descargando imagen del ticket');
