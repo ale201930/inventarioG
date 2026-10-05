@@ -199,7 +199,7 @@ export default function SalidasPage() {
     const generatePdfNow = () => {
       setGeneratingPdf(true);
       const opt = {
-        margin: [8, 8, 8, 8],
+        margin: [6, 6, 6, 6],
         filename: `Estado_de_Cuenta_${cleanName}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: {
@@ -208,14 +208,30 @@ export default function SalidasPage() {
           logging: false,
           scrollY: 0,
           scrollX: 0,
-          windowWidth: 850,
+          width: 750,
+          windowWidth: 750,
           onclone: (clonedDoc) => {
             const el = clonedDoc.getElementById('estadoCuentaDocument');
             if (el) {
-              el.style.width = '800px';
-              el.style.maxWidth = '800px';
+              let p = el.parentElement;
+              while (p) {
+                p.style.overflow = 'visible';
+                p.style.maxHeight = 'none';
+                p.style.height = 'auto';
+                p.style.width = '750px';
+                p.style.maxWidth = 'none';
+                p = p.parentElement;
+              }
+              if (clonedDoc.body) {
+                clonedDoc.body.style.width = '750px';
+                clonedDoc.body.style.minWidth = '750px';
+                clonedDoc.body.style.overflow = 'visible';
+              }
+              el.style.width = '750px';
+              el.style.minWidth = '750px';
+              el.style.maxWidth = '750px';
               el.style.margin = '0 auto';
-              el.style.padding = '10px';
+              el.style.padding = '12px';
               el.style.boxSizing = 'border-box';
             }
           }
