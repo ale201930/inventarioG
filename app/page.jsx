@@ -59,14 +59,14 @@ export default function DashboardPage() {
           </div>
         </Link>
 
-        <Link href="/salidas" className="card metric-card clickable-metric" title="Ver Historial de Ventas">
-          <div className="metric-icon-box primary"><i className="fa-solid fa-chart-line"></i></div>
+        <Link href="/salidas" className="card metric-card clickable-metric" title="Ver Notas de Entrega y Facturación">
+          <div className="metric-icon-box primary"><i className="fa-solid fa-file-invoice"></i></div>
           <div className="metric-info">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-              <h3>Total Ventas</h3>
+              <h3>Notas Emitidas</h3>
               <i className="fa-solid fa-arrow-up-right-from-square metric-arrow" />
             </div>
-            <div className="value">{metrics ? fmt(metrics.totalVentas) : '$0.00'}</div>
+            <div className="value">{metrics ? `${metrics.totalSalidas || 0} notas` : '0 notas'}</div>
           </div>
         </Link>
 

@@ -5,7 +5,7 @@ import { query } from '@/lib/db';
 export async function GET() {
   try {
     const [cobrar, pagar, costoVendidos, inv, recentE, recentS, tasaRow] = await Promise.all([
-      query('SELECT SUM(saldo_adeudado) AS total_cobrar, SUM(total_factura) AS total_ventas FROM salidas'),
+      query('SELECT COUNT(*) AS total_salidas, SUM(saldo_adeudado) AS total_cobrar, SUM(total_factura) AS total_ventas FROM salidas'),
       query('SELECT SUM(saldo_adeudado) AS total_pagar, SUM(total_factura) AS total_compras FROM entradas'),
       query(`SELECT SUM(si.cantidad * IF(si.costo_unitario > 0, si.costo_unitario, IFNULL(inv.costo_unitario, 0))) AS total_costos
              FROM salidas_items si LEFT JOIN inventario inv ON si.producto_id = inv.id`),
@@ -18,6 +18,7 @@ export async function GET() {
     const tasaBCV = parseFloat(tasaRow[0]?.tasa_hoy ?? 798.33);
     const totalCobrar = parseFloat(cobrar[0]?.total_cobrar ?? 0);
     const totalVentas = parseFloat(cobrar[0]?.total_ventas ?? 0);
+    const totalSalidas = parseInt(cobrar[0]?.total_salidas ?? 0);
     const totalPagar = parseFloat(pagar[0]?.total_pagar ?? 0);
     const totalCompras = parseFloat(pagar[0]?.total_compras ?? 0);
     const totalCostosVendidos = parseFloat(costoVendidos[0]?.total_costos ?? 0);
@@ -30,7 +31,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       metrics: {
-        tasaBCV, totalVentas, totalVentasVES: Math.round(totalVentas * tasaBCV * 100) / 100,
+        tasaBCV, totalSalidas, totalVentas, totalVentasVES: Math.round(totalVentas * tasaBCV * 100) / 100,
         totalCompras, totalComprasVES: Math.round(totalCompras * tasaBCV * 100) / 100,
         totalCostosVendidos, totalCostosVendidosVES: Math.round(totalCostosVendidos * tasaBCV * 100) / 100,
         gananciaBruta, gananciaBrutaVES: Math.round(gananciaBruta * tasaBCV * 100) / 100,
