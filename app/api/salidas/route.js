@@ -101,6 +101,59 @@ export async function GET(request) {
       return NextResponse.json({ success: true, data: clientList });
     }
 
+    if (action === 'precios_cliente') {
+      const clienteParam = (searchParams.get('cliente') || '').trim();
+      const cedulaParam = (searchParams.get('cedula') || '').trim();
+      const cleanCed = cleanCedula(cedulaParam);
+
+      if (!clienteParam && !cleanCed) {
+        return NextResponse.json({ success: true, data: {} });
+      }
+
+      let whereClause = '';
+      let params = [];
+
+      if (cleanCed && clienteParam) {
+        whereClause = `(s.cedula_rif = ? OR s.cedula_rif LIKE ? OR LOWER(TRIM(s.cliente_name)) = LOWER(TRIM(?)))`;
+        params = [cedulaParam, `%${cleanCed}%`, clienteParam];
+      } else if (cleanCed) {
+        whereClause = `(s.cedula_rif = ? OR s.cedula_rif LIKE ?)`;
+        params = [cedulaParam, `%${cleanCed}%`];
+      } else {
+        whereClause = `LOWER(TRIM(s.cliente_name)) = LOWER(TRIM(?))`;
+        params = [clienteParam];
+      }
+
+      const rows = await query(
+        `SELECT si.producto_id, si.producto_nombre, si.precio_unitario, s.fecha, s.factura_number, s.created_at
+         FROM salidas_items si
+         JOIN salidas s ON si.salida_id = s.id
+         WHERE ${whereClause}
+         ORDER BY s.fecha DESC, s.created_at DESC`,
+        params
+      );
+
+      const lastPrices = {};
+      for (const r of rows) {
+        const prodId = r.producto_id;
+        const prodNameKey = (r.producto_nombre || '').toLowerCase().trim();
+        const priceInfo = {
+          precioUnitario: parseFloat(r.precio_unitario || 0),
+          fecha: r.fecha ? String(r.fecha).split('T')[0] : '',
+          facturaNumber: r.factura_number || ''
+        };
+
+        if (prodId && !lastPrices[prodId]) {
+          lastPrices[prodId] = priceInfo;
+        }
+        if (prodNameKey && !lastPrices[prodNameKey]) {
+          lastPrices[prodNameKey] = priceInfo;
+        }
+      }
+
+      return NextResponse.json({ success: true, data: lastPrices });
+    }
+
     if (action === 'estado_cuenta') {
       const clienteParam = (searchParams.get('cliente') || '').trim();
       const cedulaParam = cleanCedula(searchParams.get('cedula'));

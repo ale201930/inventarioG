@@ -48,6 +48,7 @@ export default function SalidasPage() {
   const [productos, setProductos] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [vendedores, setVendedores] = useState([]);
+  const [clienteLastPrices, setClienteLastPrices] = useState({});
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [filterFecha, setFilterFecha] = useState('');
@@ -131,11 +132,44 @@ export default function SalidasPage() {
     }).finally(() => setLoading(false));
   };
 
+  const fetchClienteLastPrices = async (cName, cDoc) => {
+    const cleanName = (cName || '').trim();
+    const cleanDoc = (cDoc || '').trim();
+    if (!cleanName && !cleanDoc) {
+      setClienteLastPrices({});
+      return;
+    }
+    try {
+      const res = await fetch(`/api/salidas?action=precios_cliente&cliente=${encodeURIComponent(cleanName)}&cedula=${encodeURIComponent(cleanDoc)}`);
+      const d = await res.json();
+      if (d.success && d.data) {
+        setClienteLastPrices(d.data);
+      } else {
+        setClienteLastPrices({});
+      }
+    } catch {
+      setClienteLastPrices({});
+    }
+  };
+
+  useEffect(() => {
+    if (!showModal) return;
+    const timer = setTimeout(() => {
+      if (form.clienteName || form.cedulaRif) {
+        fetchClienteLastPrices(form.clienteName, form.cedulaRif);
+      } else {
+        setClienteLastPrices({});
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [form.clienteName, form.cedulaRif, showModal]);
+
   const handleSelectClienteFrecuente = (key) => {
     setSelectedClienteKey(key);
     if (!key) {
       setDocTipo('V');
       setDocNumero('');
+      setClienteLastPrices({});
       return;
     }
     const found = clientes.find(c => (c.cedula_rif ? `DOC:${c.cedula_rif}` : `NAME:${c.cliente_name}`) === key);
@@ -150,6 +184,7 @@ export default function SalidasPage() {
         telefono: found.telefono || '',
         direccion: found.direccion || ''
       }));
+      fetchClienteLastPrices(found.cliente_name, found.cedula_rif);
     }
   };
 
@@ -575,22 +610,37 @@ export default function SalidasPage() {
   });
 
   const selectProduct = (i, prodId) => {
-    const prod = productos.find(p=>p.id===prodId);
+    const prod = productos.find(p => p.id === prodId);
     if (!prod) return;
-    const opcion = form.items[i]?.precioOpcion || '1';
-    let precio = 0;
-    if (opcion === '1') precio = parseFloat(prod.precio_venta1) || 0;
-    else if (opcion === '2') precio = parseFloat(prod.precio_venta2) || 0;
-    else if (opcion === '3') precio = parseFloat(prod.precio_venta3) || 0;
-    else if (opcion === '4') precio = parseFloat(prod.precio_venta4) || 0;
-    else if (opcion === 'custom') precio = form.items[i]?.precioUnitario || '';
     
-    const cant = parseInt(form.items[i]?.cantidad||1);
+    // Buscar si este cliente tiene un último precio registrado para este producto
+    const lp = clienteLastPrices[prod.id] || clienteLastPrices[(prod.nombre || '').toLowerCase().trim()];
+    let opcion = form.items[i]?.precioOpcion || '1';
+    let precio = 0;
+
+    if (lp && parseFloat(lp.precioUnitario || 0) > 0) {
+      precio = parseFloat(lp.precioUnitario);
+      if (Math.abs(parseFloat(prod.precio_venta1 || 0) - precio) < 0.001) opcion = '1';
+      else if (Math.abs(parseFloat(prod.precio_venta2 || 0) - precio) < 0.001) opcion = '2';
+      else if (Math.abs(parseFloat(prod.precio_venta3 || 0) - precio) < 0.001) opcion = '3';
+      else if (Math.abs(parseFloat(prod.precio_venta4 || 0) - precio) < 0.001) opcion = '4';
+      else opcion = 'custom';
+    } else {
+      if (opcion === '1') precio = parseFloat(prod.precio_venta1) || 0;
+      else if (opcion === '2') precio = parseFloat(prod.precio_venta2) || 0;
+      else if (opcion === '3') precio = parseFloat(prod.precio_venta3) || 0;
+      else if (opcion === '4') precio = parseFloat(prod.precio_venta4) || 0;
+      else if (opcion === 'custom') precio = form.items[i]?.precioUnitario || '';
+      else precio = parseFloat(prod.precio_venta1) || 0;
+    }
+    
+    const cant = parseInt(form.items[i]?.cantidad || 1);
     updateItem(i, {
       productoId: prod.id,
       productoNombre: prod.nombre,
+      precioOpcion: opcion,
       precioUnitario: precio,
-      subtotal: opcion === 'custom' ? (parseFloat(precio||0) * cant) : (cant * precio)
+      subtotal: (parseFloat(precio || 0) * cant)
     });
   };
 
@@ -2423,6 +2473,44 @@ export default function SalidasPage() {
                         ${Number(item.subtotal||0).toFixed(2)}
                       </div>
                     </div>
+
+                    {/* Badge informativo de último precio cobrado a este cliente */}
+                    {(() => {
+                      const lp = item.productoId ? (clienteLastPrices[item.productoId] || clienteLastPrices[(item.productoNombre||'').toLowerCase().trim()]) : null;
+                      if (lp && parseFloat(lp.precioUnitario || 0) > 0) {
+                        const isCurrent = Math.abs(parseFloat(item.precioUnitario || 0) - parseFloat(lp.precioUnitario)) < 0.001;
+                        return (
+                          <div style={{gridColumn:'1 / -1', marginTop:3, display:'flex', alignItems:'center', justifyContent:'space-between', background:'#f0fdf4', border:'1px solid #bbf7d0', padding:'3px 8px', borderRadius:6, fontSize:'0.74rem', color:'#166534', flexWrap:'wrap', gap:'4px'}}>
+                            <div style={{display:'flex', alignItems:'center', gap:'5px', fontWeight:600}}>
+                              <i className="fa-solid fa-clock-rotate-left" style={{color:'#16a34a'}}></i>
+                              <span>Último precio a este cliente: <strong>${Number(lp.precioUnitario).toFixed(2)}</strong></span>
+                              {lp.fecha && <span style={{color:'#64748b', fontSize:'0.7rem'}}>({lp.fecha})</span>}
+                            </div>
+                            {!isCurrent && (
+                              <button
+                                type="button"
+                                style={{background:'none', border:'none', color:'#0284c7', textDecoration:'underline', cursor:'pointer', fontSize:'0.72rem', fontWeight:700, padding:0}}
+                                onClick={() => {
+                                  const prod = productos.find(p => p.id === item.productoId);
+                                  let opt = 'custom';
+                                  const pUnit = parseFloat(lp.precioUnitario);
+                                  if (prod) {
+                                    if (Math.abs(parseFloat(prod.precio_venta1 || 0) - pUnit) < 0.001) opt = '1';
+                                    else if (Math.abs(parseFloat(prod.precio_venta2 || 0) - pUnit) < 0.001) opt = '2';
+                                    else if (Math.abs(parseFloat(prod.precio_venta3 || 0) - pUnit) < 0.001) opt = '3';
+                                    else if (Math.abs(parseFloat(prod.precio_venta4 || 0) - pUnit) < 0.001) opt = '4';
+                                  }
+                                  updateItem(i, { precioOpcion: opt, precioUnitario: pUnit, subtotal: parseInt(item.cantidad || 1) * pUnit });
+                                }}
+                              >
+                                Aplicar ${Number(lp.precioUnitario).toFixed(2)}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 </div>
               ))}
