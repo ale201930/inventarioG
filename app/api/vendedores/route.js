@@ -47,9 +47,17 @@ export async function DELETE(request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    if (!id) return NextResponse.json({ success: false, error: 'ID de vendedor requerido.' }, { status: 400 });
+    const nombre = searchParams.get('nombre');
+    if (!id && !nombre) {
+      return NextResponse.json({ success: false, error: 'ID o Nombre de vendedor requerido.' }, { status: 400 });
+    }
 
-    await query('DELETE FROM vendedores WHERE id = ?', [id]);
+    if (id) {
+      await query('DELETE FROM vendedores WHERE id = ?', [id]);
+    } else if (nombre) {
+      await query('DELETE FROM vendedores WHERE LOWER(nombre) = LOWER(?)', [nombre]);
+    }
+
     return NextResponse.json({ success: true, message: 'Vendedor eliminado.' });
   } catch (e) {
     return NextResponse.json({ success: false, error: e.message }, { status: 500 });

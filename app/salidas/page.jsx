@@ -992,6 +992,66 @@ export default function SalidasPage() {
     setShowModal(true);
   };
 
+  const handleDeleteVendedor = (vend) => {
+    if (!vend) return;
+    setConfirmDialog({
+      isOpen: true,
+      title: '¿Eliminar Vendedor?',
+      message: (
+        <div>
+          <p style={{ marginBottom: '0.5rem', color: '#334155' }}>
+            ¿Estás seguro de que deseas eliminar al vendedor <strong>"{vend.nombre}"</strong> de la lista guardada?
+          </p>
+          <p style={{ margin: 0, color: '#64748b', fontSize: '0.82rem' }}>
+            ℹ️ Las notas y facturas anteriores que ya tengan este vendedor conservarán su nombre intacto.
+          </p>
+        </div>
+      ),
+      confirmText: 'Sí, Eliminar',
+      cancelText: 'Cancelar',
+      variant: 'danger',
+      icon: 'fa-trash-can',
+      onConfirm: async () => {
+        setConfirmDialog(d => ({ ...d, loading: true }));
+        try {
+          const res = await fetch(`/api/vendedores?id=${encodeURIComponent(vend.id || '')}&nombre=${encodeURIComponent(vend.nombre || '')}`, {
+            method: 'DELETE'
+          });
+          const d = await res.json();
+          if (d.success) {
+            setVendedores(prev => prev.filter(v => v.id !== vend.id && v.nombre.toLowerCase() !== vend.nombre.toLowerCase()));
+            if (form.vendedorName && form.vendedorName.toLowerCase() === vend.nombre.toLowerCase()) {
+              setForm(f => ({ ...f, vendedorName: '' }));
+            }
+            setConfirmDialog(cd => ({ ...cd, isOpen: false, loading: false }));
+          } else {
+            setConfirmDialog({
+              isOpen: true,
+              title: 'Error al Eliminar',
+              message: d.error || 'No se pudo eliminar el vendedor.',
+              confirmText: 'Entendido',
+              cancelText: 'Cerrar',
+              variant: 'danger',
+              onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+              onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+            });
+          }
+        } catch (err) {
+          setConfirmDialog({
+            isOpen: true,
+            title: 'Error de Conexión',
+            message: err.message || 'Error al comunicarse con el servidor.',
+            confirmText: 'Entendido',
+            cancelText: 'Cerrar',
+            variant: 'danger',
+            onConfirm: () => setConfirmDialog(cd => ({ ...cd, isOpen: false })),
+            onCancel: () => setConfirmDialog(cd => ({ ...cd, isOpen: false }))
+          });
+        }
+      }
+    });
+  };
+
   // Genera el HTML del cuerpo de una nota (reutilizado por printTicket y printMultiple)
   const buildNotaHTML = (salida) => {
     const items = salida.items || [];
@@ -2166,15 +2226,45 @@ export default function SalidasPage() {
 
             {/* Selector de Vendedor Guardado / Nuevo */}
             <div style={{marginBottom:'0.85rem', background:'#f8fafc', padding:'0.75rem 0.9rem', borderRadius:10, border:'1.5px solid #cbd5e1'}}>
-              <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.4rem'}}>
+              <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.4rem', flexWrap:'wrap', gap:'0.4rem'}}>
                 <label style={{fontSize:'0.82rem', fontWeight:800, color:'#334155', margin:0, display:'flex', alignItems:'center', gap:'0.4rem'}}>
                   <i className="fa-solid fa-user-tie" style={{color:'#0284c7'}}></i> Vendedor Asignado:
                 </label>
-                {form.vendedorName && (
-                  <button type="button" style={{background:'#f1f5f9', border:'1px solid #cbd5e1', color:'#475569', fontSize:'0.75rem', cursor:'pointer', fontWeight:700, padding:'2px 8px', borderRadius:6}} onClick={() => setForm(f => ({ ...f, vendedorName:'' }))}>
-                    + Limpiar / Escribir Nuevo
-                  </button>
-                )}
+                <div style={{display:'flex', gap:'6px', alignItems:'center'}}>
+                  {(() => {
+                    const vendMatch = vendedores.find(v => (v.nombre || '').trim().toLowerCase() === (form.vendedorName || '').trim().toLowerCase());
+                    if (vendMatch) {
+                      return (
+                        <button
+                          type="button"
+                          style={{
+                            background: '#fee2e2',
+                            border: '1px solid #fca5a5',
+                            color: '#dc2626',
+                            fontSize: '0.75rem',
+                            cursor: 'pointer',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: 6,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          onClick={() => handleDeleteVendedor(vendMatch)}
+                          title={`Eliminar "${vendMatch.nombre}" de la lista`}
+                        >
+                          <i className="fa-solid fa-trash-can"></i> Eliminar Vendedor
+                        </button>
+                      );
+                    }
+                    return null;
+                  })()}
+                  {form.vendedorName && (
+                    <button type="button" style={{background:'#f1f5f9', border:'1px solid #cbd5e1', color:'#475569', fontSize:'0.75rem', cursor:'pointer', fontWeight:700, padding:'2px 8px', borderRadius:6}} onClick={() => setForm(f => ({ ...f, vendedorName:'' }))}>
+                      + Limpiar / Nuevo
+                    </button>
+                  )}
+                </div>
               </div>
               <div style={{display:'grid', gridTemplateColumns: vendedores.length > 0 ? '1fr 1fr' : '1fr', gap:'0.5rem'}}>
                 {vendedores.length > 0 && (
