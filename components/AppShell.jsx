@@ -8,10 +8,56 @@ export default function AppShell({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [bcvTasa, setBcvTasa] = useState(798.33);
+  const [bcvTasa, setBcvTasa] = useState(873.87);
   const [bcvFuente, setBcvFuente] = useState('BCV');
+  const [loadingBcv, setLoadingBcv] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
+
+  const fetchBcv = async (force = false) => {
+    try {
+      if (force) setLoadingBcv(true);
+      const res = await fetch(`/api/bcv${force ? '?force=true' : ''}`);
+      const d = await res.json();
+      if (d.success && d.data?.tasaHoy) {
+        setBcvTasa(d.data.tasaHoy);
+        setBcvFuente(d.data.fuente || 'BCV');
+      }
+    } catch (e) {
+      console.error('Error al cargar tasa BCV:', e);
+    } finally {
+      if (force) setLoadingBcv(false);
+    }
+  };
+
+  const handleEditTasaManual = async () => {
+    const input = window.prompt('Ingrese la nueva tasa BCV en Bs. por USD:', bcvTasa);
+    if (!input) return;
+    const num = parseFloat(input.replace(',', '.'));
+    if (isNaN(num) || num <= 0) {
+      alert('Por favor ingrese un número válido.');
+      return;
+    }
+    try {
+      setLoadingBcv(true);
+      const res = await fetch('/api/bcv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tasaHoy: num, fuente: 'BCV (Manual)' })
+      });
+      const d = await res.json();
+      if (d.success) {
+        setBcvTasa(d.data.tasaHoy);
+        setBcvFuente(d.data.fuente || 'BCV (Manual)');
+      } else {
+        alert(d.error || 'No se pudo guardar la tasa.');
+      }
+    } catch (e) {
+      alert('Error de conexión al actualizar la tasa.');
+    } finally {
+      setLoadingBcv(false);
+    }
+  };
 
   // Bloquear scroll de fondo cuando el menú lateral móvil esté abierto
   useEffect(() => {
@@ -68,15 +114,7 @@ export default function AppShell({ children }) {
 
   // Fetch BCV rate once when shell mounts
   useEffect(() => {
-    fetch('/api/bcv')
-      .then(r => r.json())
-      .then(d => {
-        if (d.success && d.data.tasaHoy) {
-          setBcvTasa(d.data.tasaHoy);
-          setBcvFuente(d.data.fuente || 'BCV');
-        }
-      })
-      .catch(() => {});
+    fetchBcv(false);
   }, []);
 
   // Determine active route
@@ -162,16 +200,40 @@ export default function AppShell({ children }) {
 
           {/* BCV Widget */}
           <div id="bcvWidgetSidebar" className="bcv-sidebar-box">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span style={{ fontWeight: 700, color: '#0284c7', fontSize: '0.82rem' }}>ve Tasa BCV</span>
-              <a href="https://www.bcv.org.ve" target="_blank" rel="noopener" style={{ color: '#0284c7', fontSize: '0.75rem' }}>
-                <i className="fa-solid fa-arrow-up-right-from-square" />
-              </a>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontWeight: 700, color: '#0284c7', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <i className="fa-solid fa-coins" /> Tasa BCV
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => fetchBcv(true)}
+                  disabled={loadingBcv}
+                  title="Sincronizar tasa oficial en vivo"
+                  style={{ background: 'none', border: 'none', color: '#0284c7', cursor: 'pointer', padding: 0, fontSize: '0.82rem' }}
+                >
+                  <i className={`fa-solid fa-arrows-rotate ${loadingBcv ? 'fa-spin' : ''}`} />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEditTasaManual}
+                  title="Editar tasa manualmente"
+                  style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 0, fontSize: '0.78rem' }}
+                >
+                  <i className="fa-solid fa-pen" />
+                </button>
+                <a href="https://www.bcv.org.ve" target="_blank" rel="noopener" title="Ver sitio oficial BCV" style={{ color: '#0284c7', fontSize: '0.75rem' }}>
+                  <i className="fa-solid fa-arrow-up-right-from-square" />
+                </a>
+              </div>
             </div>
             <div style={{ fontWeight: 800, fontSize: '1.2rem', color: '#0f172a' }}>
-              Bs. {Number(bcvTasa).toLocaleString('es-VE', { minimumFractionDigits: 2 })} <span style={{ fontWeight: 500, fontSize: '0.75rem', color: '#64748b' }}>/ USD</span>
+              Bs. {Number(bcvTasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontWeight: 500, fontSize: '0.75rem', color: '#64748b' }}>/ USD</span>
             </div>
-            <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 2 }}>Fuente: {bcvFuente}</div>
+            <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Fuente: {bcvFuente}</span>
+              {loadingBcv && <span style={{ color: '#0284c7', fontWeight: 700 }}>Actualizando...</span>}
+            </div>
           </div>
 
           <div style={{ marginTop: '1.25rem', paddingBottom: '3rem' }}>
