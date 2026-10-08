@@ -6,7 +6,7 @@ import ConfirmModal from '@/components/ConfirmModal';
 function today() { return new Date().toISOString().split('T')[0]; }
 function todayPlus7() { const d = new Date(); d.setDate(d.getDate()+7); return d.toISOString().split('T')[0]; }
 
-const emptyItem = () => ({ codigo:'', nombre:'', cantidad:1, costoUSD:0, totalUSD:0, totalVES:0 });
+const emptyItem = () => ({ productoId: '', codigo: '', nombre: '', cantidad: 1, costoUSD: 0, totalUSD: 0, totalVES: 0, isCustom: false });
 
 export default function EntradasPage() {
   const [entradas, setEntradas] = useState([]);
@@ -19,6 +19,7 @@ export default function EntradasPage() {
   const [showEstadoProveedorModal, setShowEstadoProveedorModal] = useState(false);
   const [proveedores, setProveedores] = useState([]);
   const [selectedProveedor, setSelectedProveedor] = useState('');
+  const [selectedProveedorKey, setSelectedProveedorKey] = useState('');
   const [estadoCuentaProveedor, setEstadoCuentaProveedor] = useState(null);
   const [filtroEstadoProveedor, setFiltroEstadoProveedor] = useState('todas');
   const [loadingEstado, setLoadingEstado] = useState(false);
@@ -89,6 +90,75 @@ export default function EntradasPage() {
     });
   }, []);
 
+  const handleSelectProveedorFrecuente = (key) => {
+    setSelectedProveedorKey(key);
+    if (!key) return;
+    const found = proveedores.find(p => (p.proveedor_rif ? `RIF:${(p.proveedor_rif||'').trim().toLowerCase()}` : `NAME:${(p.proveedor_name||'').trim().toLowerCase()}`) === key);
+    if (found) {
+      setForm(f => ({
+        ...f,
+        proveedorName: found.proveedor_name || '',
+        proveedorRif: found.proveedor_rif || '',
+        proveedorTelf: found.proveedor_telefono || '',
+        proveedorDir: found.proveedor_direccion || ''
+      }));
+    }
+  };
+
+  const selectProduct = (i, val) => {
+    const items = [...form.items];
+    const tasa = parseFloat(form.tasaBCV || bcvTasa || 798.33);
+    const cant = parseFloat(items[i].cantidad || 1);
+
+    if (val === '__NEW__') {
+      items[i] = {
+        ...items[i],
+        productoId: '',
+        isCustom: true
+      };
+      setForm(f => ({ ...f, items }));
+      return;
+    }
+
+    if (!val) {
+      items[i] = {
+        ...items[i],
+        productoId: '',
+        codigo: '',
+        nombre: '',
+        isCustom: false
+      };
+      setForm(f => ({ ...f, items }));
+      return;
+    }
+
+    const p = inventarioList.find(x => String(x.id) === String(val));
+    if (p) {
+      const costo = parseFloat(p.costo_unitario || 0);
+      const currentUnit = parseFloat(items[i].costoUSD || 0);
+      const chosenCosto = currentUnit > 0 ? currentUnit : costo;
+      const totUSD = (cant * chosenCosto).toFixed(2);
+      items[i] = {
+        ...items[i],
+        productoId: p.id,
+        codigo: p.codigo_producto || '',
+        nombre: p.nombre || '',
+        costoUSD: chosenCosto,
+        totalUSD: totUSD,
+        totalVES: (parseFloat(totUSD) * tasa).toFixed(2),
+        isCustom: false
+      };
+    }
+
+    const totalUSD = items.reduce((s, it) => s + parseFloat(it.totalUSD || 0), 0);
+    setForm(f => ({
+      ...f,
+      items,
+      totalUSD: totalUSD.toFixed(2),
+      totalVES: (totalUSD * tasa).toFixed(2)
+    }));
+  };
+
   // Bloquear scroll de fondo cuando cualquier modal esté abierto
   useEffect(() => {
     const isModalOpen = showModal || showAbonoModal || showPreviewModal || showEstadoProveedorModal;
@@ -147,6 +217,7 @@ export default function EntradasPage() {
 
   const resetModalForm = () => {
     setEditingEntradaId(null);
+    setSelectedProveedorKey('');
     setForm({
       proveedorName: '',
       proveedorRif: '',
@@ -175,6 +246,9 @@ export default function EntradasPage() {
 
   const openEditModal = (entrada) => {
     setEditingEntradaId(entrada.id);
+    const provKey = entrada.proveedor_rif ? `RIF:${(entrada.proveedor_rif||'').trim().toLowerCase()}` : (entrada.proveedor_name ? `NAME:${(entrada.proveedor_name||'').trim().toLowerCase()}` : '');
+    setSelectedProveedorKey(provKey);
+
     const items = (entrada.items && entrada.items.length > 0)
       ? entrada.items.map(it => {
           const cant = parseFloat(it.cantidad || 0);
@@ -183,12 +257,14 @@ export default function EntradasPage() {
           const tasa = parseFloat(entrada.tasa_bcv || bcvTasa || 798.33);
           const totalVES = (parseFloat(totalUSD) * tasa).toFixed(2);
           return {
+            productoId: it.producto_id || '',
             codigo: it.codigo_producto || '',
             nombre: it.producto_nombre || '',
             cantidad: cant,
             costoUSD: costoUSD,
             totalUSD: totalUSD,
-            totalVES: totalVES
+            totalVES: totalVES,
+            isCustom: !it.producto_id && !!it.producto_nombre
           };
         })
       : [emptyItem()];
@@ -262,6 +338,7 @@ export default function EntradasPage() {
         tasaBCV: parseFloat(form.tasaBCV), totalUSD: parseFloat(form.totalUSD), totalVES: parseFloat(form.totalVES),
         observaciones: form.observaciones,
         items: form.items.map(it => ({
+          productoId: it.productoId || '',
           codigoProducto: it.codigo,
           productoNombre: it.nombre,
           cantidad: parseInt(it.cantidad||0),
@@ -1239,9 +1316,51 @@ export default function EntradasPage() {
             </div>
           )}
 
-          {/* Formulario */}
-          <div style={{background:'#f8fafc', border:'1px solid #e2e8f0', padding:'0.85rem 1rem', borderRadius:10, marginBottom:'1rem'}}>
-            <h4 style={{fontSize:'0.85rem', fontWeight:700, color:'var(--text-secondary)', marginBottom:'0.6rem', textTransform:'uppercase'}}><i className="fa-solid fa-building"></i> Datos del Proveedor</h4>
+          {/* Formulario Datos del Proveedor con Selector Frecuente */}
+          <div style={{background:'#f8fafc', border:'1.5px solid #cbd5e1', padding:'0.85rem 1rem', borderRadius:10, marginBottom:'1rem'}}>
+            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.6rem', flexWrap:'wrap', gap:'0.4rem'}}>
+              <h4 style={{fontSize:'0.85rem', fontWeight:700, color:'var(--text-secondary)', margin:0, textTransform:'uppercase'}}>
+                <i className="fa-solid fa-building" style={{color:'#0284c7'}}></i> Datos del Proveedor (Empresa que despacha)
+              </h4>
+              {(form.proveedorName || form.proveedorRif) && (
+                <button
+                  type="button"
+                  style={{background:'#e0f2fe', border:'1px solid #7dd3fc', color:'#0284c7', fontSize:'0.75rem', cursor:'pointer', fontWeight:700, padding:'2px 8px', borderRadius:6}}
+                  onClick={() => {
+                    setSelectedProveedorKey('');
+                    setForm(f => ({ ...f, proveedorName:'', proveedorRif:'', proveedorTelf:'', proveedorDir:'' }));
+                  }}
+                >
+                  + Nuevo / Limpiar
+                </button>
+              )}
+            </div>
+
+            {/* Selector de Proveedor Registrado */}
+            {proveedores.length > 0 && (
+              <div style={{marginBottom:'0.75rem', background:'#f0f9ff', padding:'0.6rem 0.75rem', borderRadius:8, border:'1px solid #bae6fd'}}>
+                <label style={{fontSize:'0.78rem', fontWeight:800, color:'#0369a1', display:'block', marginBottom:4}}>
+                  <i className="fa-solid fa-address-book"></i> Seleccionar Proveedor Registrado:
+                </label>
+                <select
+                  className="form-control"
+                  style={{fontSize:'0.85rem', minHeight:38, background:'#fff', borderColor:'#93c5fd', color:'#0f172a', fontWeight:600}}
+                  value={selectedProveedorKey}
+                  onChange={e => handleSelectProveedorFrecuente(e.target.value)}
+                >
+                  <option value="">-- Seleccionar proveedor registrado ({proveedores.length}) o escribir abajo --</option>
+                  {proveedores.map((p, idx) => {
+                    const key = p.proveedor_rif ? `RIF:${(p.proveedor_rif||'').trim().toLowerCase()}` : `NAME:${(p.proveedor_name||'').trim().toLowerCase()}`;
+                    return (
+                      <option key={idx} value={key}>
+                        {p.proveedor_name} {p.proveedor_rif ? `— RIF: ${p.proveedor_rif}` : ''} {p.proveedor_telefono ? `(Telf: ${p.proveedor_telefono})` : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
+
             <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:'0.75rem', marginBottom:'0.5rem'}}>
               <div className="form-group" style={{margin:0}}>
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Nombre o Razón Social *</label>
@@ -1255,6 +1374,10 @@ export default function EntradasPage() {
                 <label className="form-label" style={{fontSize:'0.8rem'}}>Teléfono</label>
                 <input type="text" className="form-control" placeholder="Teléfono" style={{fontSize:'0.88rem'}} value={form.proveedorTelf} onChange={e=>setForm(f=>({...f,proveedorTelf:e.target.value}))} />
               </div>
+            </div>
+            <div className="form-group" style={{margin:'0.5rem 0 0 0'}}>
+              <label className="form-label" style={{fontSize:'0.8rem'}}>Dirección</label>
+              <input type="text" className="form-control" placeholder="Dirección del proveedor" style={{fontSize:'0.85rem'}} value={form.proveedorDir} onChange={e=>setForm(f=>({...f,proveedorDir:e.target.value}))} />
             </div>
           </div>
 
@@ -1288,42 +1411,147 @@ export default function EntradasPage() {
             </div>
           </div>
 
-          {/* Renglones de la Factura — layout adaptado a móvil */}
-          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.5rem'}}>
-            <h3 style={{fontSize:'0.95rem', fontWeight:700}}><i className="fa-solid fa-boxes-stacked"></i> Renglones de la Factura / Nota de Entrega</h3>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setForm(f=>({...f, items:[...f.items, emptyItem()]}))}>+ Agregar Renglón</button>
+          {/* Renglones de la Factura — Selección de Inventario o Carga Manual */}
+          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.5rem', flexWrap:'wrap', gap:'0.4rem'}}>
+            <h3 style={{fontSize:'0.95rem', fontWeight:700, margin:0}}>
+              <i className="fa-solid fa-boxes-stacked" style={{color:'#0284c7'}}></i> Renglones de la Compra / Entrada
+            </h3>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setForm(f=>({...f, items:[...f.items, emptyItem()]}))}>
+              <i className="fa-solid fa-plus"></i> Agregar Renglón
+            </button>
           </div>
 
-          <div style={{border:'1px solid #cbd5e1', borderRadius:10, background:'#f8fafc', padding:'0.5rem', marginBottom:'1rem', maxHeight:360, overflowY:'auto'}}>
+          <div style={{border:'1px solid #cbd5e1', borderRadius:10, background:'#f8fafc', padding:'0.5rem', marginBottom:'1rem', maxHeight:380, overflowY:'auto'}}>
             {form.items.length === 0 ? (
               <div style={{padding:'1.2rem', textAlign:'center', color:'#64748b', fontSize:'0.85rem'}}>No hay renglones. Haz clic en <strong>+ Agregar Renglón</strong> o escanea una factura.</div>
-            ) : form.items.map((item, i) => (
-              <div key={i} style={{background:'#ffffff', border:'1px solid #e2e8f0', borderRadius:10, padding:'0.65rem 0.75rem', marginBottom:'0.6rem', boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
-                {/* Fila 1: Código + Descripción + Eliminar */}
-                <div style={{display:'flex', gap:'0.4rem', alignItems:'center', marginBottom:'0.5rem'}}>
-                  <input type="text" className="form-control" style={{width:80, fontSize:'0.8rem', padding:'0.35rem 0.45rem', minHeight:38, flexShrink:0}} placeholder="Código" value={item.codigo} onChange={e=>updateItem(i,'codigo',e.target.value)} />
-                  <input type="text" className="form-control" style={{flex:1, fontSize:'0.85rem', padding:'0.35rem 0.5rem', minHeight:38}} placeholder="Descripción del producto" required value={item.nombre} onChange={e=>updateItem(i,'nombre',e.target.value)} />
-                  <button type="button" className="btn btn-danger btn-sm" style={{width:38, height:38, minHeight:38, minWidth:38, padding:0, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}} onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))} title="Eliminar renglón">
-                    <i className="fa-solid fa-trash" style={{fontSize:'0.85rem'}}></i>
-                  </button>
+            ) : form.items.map((item, i) => {
+              const matchedProd = item.productoId ? inventarioList.find(p => String(p.id) === String(item.productoId)) : null;
+              return (
+                <div key={i} style={{background:'#ffffff', border:'1px solid #e2e8f0', borderRadius:10, padding:'0.65rem 0.75rem', marginBottom:'0.6rem', boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                  {/* Fila 1: Selector de Producto del Inventario o Carga Manual */}
+                  {!item.isCustom ? (
+                    <div style={{display:'flex', gap:'0.4rem', alignItems:'center', marginBottom:'0.5rem'}}>
+                      <div style={{flex:1, position:'relative'}}>
+                        <select
+                          className="form-control"
+                          style={{
+                            fontSize:'0.85rem',
+                            padding:'0.35rem 0.5rem',
+                            minHeight:38,
+                            fontWeight: item.productoId ? 700 : 500,
+                            borderColor: item.productoId ? '#38bdf8' : '#cbd5e1',
+                            background: item.productoId ? '#f0f9ff' : '#fff'
+                          }}
+                          value={item.productoId || ''}
+                          onChange={e => selectProduct(i, e.target.value)}
+                        >
+                          <option value="">-- Seleccionar producto del catálogo ({inventarioList.length}) --</option>
+                          <option value="__NEW__">➕ Escribir Producto Nuevo (No existe en catálogo)...</option>
+                          {inventarioList.map(p => (
+                            <option key={p.id} value={p.id}>
+                              {p.nombre} {p.codigo_producto ? `(Cód: ${p.codigo_producto})` : ''} — Stock: {p.cantidad} | Costo: ${Number(p.costo_unitario||0).toFixed(2)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        style={{height:38, minHeight:38, padding:'0 8px', borderRadius:8, fontSize:'0.75rem', fontWeight:700, flexShrink:0, color:'#475569'}}
+                        onClick={() => {
+                          const items = [...form.items];
+                          items[i] = { ...items[i], isCustom: true };
+                          setForm(f => ({ ...f, items }));
+                        }}
+                        title="Cambiar a modo texto libre / nuevo"
+                      >
+                        ✏️ Manual
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm"
+                        style={{width:38, height:38, minHeight:38, minWidth:38, padding:0, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}
+                        onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}
+                        title="Eliminar renglón"
+                      >
+                        <i className="fa-solid fa-trash" style={{fontSize:'0.85rem'}}></i>
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{display:'flex', gap:'0.4rem', alignItems:'center', marginBottom:'0.5rem'}}>
+                      <input
+                        type="text"
+                        className="form-control"
+                        style={{width:85, fontSize:'0.8rem', padding:'0.35rem 0.45rem', minHeight:38, flexShrink:0}}
+                        placeholder="Código"
+                        value={item.codigo}
+                        onChange={e=>updateItem(i,'codigo',e.target.value)}
+                      />
+                      <input
+                        type="text"
+                        className="form-control"
+                        style={{flex:1, fontSize:'0.85rem', padding:'0.35rem 0.5rem', minHeight:38}}
+                        placeholder="Descripción / Nombre del producto nuevo"
+                        required
+                        value={item.nombre}
+                        onChange={e=>updateItem(i,'nombre',e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        style={{height:38, minHeight:38, padding:'0 8px', borderRadius:8, fontSize:'0.75rem', fontWeight:700, flexShrink:0, color:'#0284c7', background:'#e0f2fe', borderColor:'#7dd3fc'}}
+                        onClick={() => {
+                          const items = [...form.items];
+                          items[i] = { ...items[i], isCustom: false };
+                          setForm(f => ({ ...f, items }));
+                        }}
+                        title="Elegir de la lista de inventario existente"
+                      >
+                        📦 Del Catálogo
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm"
+                        style={{width:38, height:38, minHeight:38, minWidth:38, padding:0, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}
+                        onClick={()=>setForm(f=>({...f, items:f.items.filter((_,j)=>j!==i)}))}
+                        title="Eliminar renglón"
+                      >
+                        <i className="fa-solid fa-trash" style={{fontSize:'0.85rem'}}></i>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Badge de información del producto seleccionado */}
+                  {matchedProd && (
+                    <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:6, padding:'3px 8px', fontSize:'0.75rem', color:'#166534', marginBottom:'0.45rem', flexWrap:'wrap', gap:'4px'}}>
+                      <div style={{display:'flex', alignItems:'center', gap:'5px', fontWeight:600}}>
+                        <i className="fa-solid fa-circle-check" style={{color:'#16a34a'}}></i>
+                        <span>Producto: <strong>{matchedProd.nombre}</strong> (Cód: {matchedProd.codigo_producto || 'S/C'})</span>
+                      </div>
+                      <div>
+                        Stock actual: <strong style={{color:'#0f172a'}}>{matchedProd.cantidad}</strong> | Costo catálogo: <strong>${Number(matchedProd.costo_unitario||0).toFixed(2)}</strong>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Fila 2: Cantidad | Costo Unitario $ | Total Renglón $ */}
+                  <div style={{display:'grid', gridTemplateColumns:'85px 1fr 1.3fr', gap:'0.5rem', alignItems:'center', background:'#f8fafc', padding:'0.4rem 0.6rem', borderRadius:8, border:'1px solid #f1f5f9'}}>
+                    <div>
+                      <span style={{fontSize:'0.7rem', fontWeight:600, color:'#64748b', display:'block', marginBottom:2}}>Cant:</span>
+                      <input type="number" className="form-control" style={{fontSize:'0.88rem', padding:'0.25rem 0.4rem', minHeight:34, textAlign:'center', fontWeight:700}} min="1" placeholder="Cant." value={item.cantidad} onChange={e=>updateItem(i,'cantidad',e.target.value)} />
+                    </div>
+                    <div>
+                      <span style={{fontSize:'0.7rem', fontWeight:600, color:'#64748b', display:'block', marginBottom:2}}>Costo Unit $:</span>
+                      <input type="number" step="0.01" className="form-control" style={{fontSize:'0.88rem', padding:'0.25rem 0.4rem', minHeight:34, fontWeight:600}} placeholder="0.00" value={item.costoUSD} onChange={e=>updateItem(i,'costoUSD',e.target.value)} title="Precio unitario USD $" />
+                    </div>
+                    <div>
+                      <span style={{fontSize:'0.7rem', fontWeight:700, color:'#0284c7', display:'block', marginBottom:2}}>Total $:</span>
+                      <input type="number" step="0.01" className="form-control" style={{fontSize:'0.95rem', padding:'0.25rem 0.5rem', minHeight:34, fontWeight:800, color:'#0284c7', borderColor:'#38bdf8', background:'#f0f9ff'}} placeholder="0.00" value={item.totalUSD} onChange={e=>updateItem(i,'totalUSD',e.target.value)} title="Total renglón USD $" />
+                    </div>
+                  </div>
                 </div>
-                {/* Fila 2: Cantidad | Costo Unitario $ | Total Renglón $ */}
-                <div style={{display:'grid', gridTemplateColumns:'85px 1fr 1.3fr', gap:'0.5rem', alignItems:'center', background:'#f8fafc', padding:'0.4rem 0.6rem', borderRadius:8, border:'1px solid #f1f5f9'}}>
-                  <div>
-                    <span style={{fontSize:'0.7rem', fontWeight:600, color:'#64748b', display:'block', marginBottom:2}}>Cant:</span>
-                    <input type="number" className="form-control" style={{fontSize:'0.88rem', padding:'0.25rem 0.4rem', minHeight:34, textAlign:'center', fontWeight:600}} min="1" placeholder="Cant." value={item.cantidad} onChange={e=>updateItem(i,'cantidad',e.target.value)} />
-                  </div>
-                  <div>
-                    <span style={{fontSize:'0.7rem', fontWeight:600, color:'#64748b', display:'block', marginBottom:2}}>Costo Unit $:</span>
-                    <input type="number" step="0.01" className="form-control" style={{fontSize:'0.88rem', padding:'0.25rem 0.4rem', minHeight:34, fontWeight:600}} placeholder="0.00" value={item.costoUSD} onChange={e=>updateItem(i,'costoUSD',e.target.value)} title="Precio unitario USD $" />
-                  </div>
-                  <div>
-                    <span style={{fontSize:'0.7rem', fontWeight:700, color:'#0284c7', display:'block', marginBottom:2}}>Total $:</span>
-                    <input type="number" step="0.01" className="form-control" style={{fontSize:'0.95rem', padding:'0.25rem 0.5rem', minHeight:34, fontWeight:800, color:'#0284c7', borderColor:'#38bdf8', background:'#f0f9ff'}} placeholder="0.00" value={item.totalUSD} onChange={e=>updateItem(i,'totalUSD',e.target.value)} title="Total renglón USD $" />
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Totales adaptados a móvil */}

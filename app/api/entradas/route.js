@@ -188,16 +188,20 @@ export async function POST(request) {
       if (!prodNombre || cant <= 0) continue;
 
       // Find existing product
-      let prodId = null;
-      if (codigo) {
+      let prodId = (item.productoId || item.producto_id || '').trim() || null;
+      if (prodId) {
+        const r = await conn.execute('SELECT id, nombre, codigo_producto FROM inventario WHERE id = ? LIMIT 1', [prodId]);
+        if (!r[0][0]) prodId = null;
+      }
+      if (!prodId && codigo) {
         const r = await conn.execute(
-          'SELECT * FROM inventario WHERE LOWER(TRIM(codigo_producto)) = LOWER(TRIM(?)) OR id = ? LIMIT 1',
+          'SELECT id FROM inventario WHERE LOWER(TRIM(codigo_producto)) = LOWER(TRIM(?)) OR id = ? LIMIT 1',
           [codigo, codigo]
         );
         if (r[0][0]) prodId = r[0][0].id;
       }
-      if (!prodId) {
-        const r = await conn.execute('SELECT * FROM inventario WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?)) LIMIT 1', [prodNombre]);
+      if (!prodId && prodNombre) {
+        const r = await conn.execute('SELECT id FROM inventario WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?)) LIMIT 1', [prodNombre]);
         if (r[0][0]) prodId = r[0][0].id;
       }
 
@@ -286,16 +290,20 @@ export async function PUT(request) {
       const costoVES = parseFloat(item.costoUnitarioVES ?? item.costoVES ?? (costoUSD * tasaBCV));
       if (!prodNombre || cant <= 0) continue;
 
-      let prodId = null;
-      if (codigo) {
+      let prodId = (item.productoId || item.producto_id || '').trim() || null;
+      if (prodId) {
+        const r = await conn.execute('SELECT id, nombre, codigo_producto FROM inventario WHERE id = ? LIMIT 1', [prodId]);
+        if (!r[0][0]) prodId = null;
+      }
+      if (!prodId && codigo) {
         const r = await conn.execute(
-          'SELECT * FROM inventario WHERE LOWER(TRIM(codigo_producto)) = LOWER(TRIM(?)) OR id = ? LIMIT 1',
+          'SELECT id FROM inventario WHERE LOWER(TRIM(codigo_producto)) = LOWER(TRIM(?)) OR id = ? LIMIT 1',
           [codigo, codigo]
         );
         if (r[0][0]) prodId = r[0][0].id;
       }
-      if (!prodId) {
-        const r = await conn.execute('SELECT * FROM inventario WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?)) LIMIT 1', [prodNombre]);
+      if (!prodId && prodNombre) {
+        const r = await conn.execute('SELECT id FROM inventario WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?)) LIMIT 1', [prodNombre]);
         if (r[0][0]) prodId = r[0][0].id;
       }
 
